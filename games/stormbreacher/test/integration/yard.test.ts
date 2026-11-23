@@ -53,7 +53,8 @@ function allyById(allies: readonly AllyState[], id: string): AllyState {
   return ally;
 }
 
-// Takes cp1 (both pillboxes) and waits out the leader's 10 s question, so the two answers can fire.
+// Takes cp1 (both pillboxes) and waits out the leader's 10 s question, so the two answers can fire (they wait for it:
+// SB-1810).
 function atTheQuestion(game: GameModel): void {
   for (const id of ['pillbox-1', 'pillbox-2']) {
     const target = game.targets.find(entry => entry.id === id);
@@ -61,7 +62,19 @@ function atTheQuestion(game: GameModel): void {
     target.hp = 0;
     sendToScript(game, { kind: 'destroyed', target: id });
   }
-  run(game, Math.round(60 * 10) + 1);
+  // the milestone's short slow makes the script's clock run a little behind the frames, so run until the question is asked
+  for (let frame = 0; frame < 60 * 20 && !game.script.flags.includes('depot-asked'); frame++) run(game, 1);
+  expect(game.script.flags).toContain('depot-asked');
+}
+
+// Stands the mech in the middle of one of the mission's areas and runs a few frames, so the game sends the `enter` itself.
+function walkTo(game: GameModel, area: string): void {
+  const spot = game.mission.areas[area];
+  game.mech.x = spot.x;
+  game.mech.z = spot.z;
+  game.mech.y = 0;
+  game.mech.grounded = true;
+  run(game, 3);
 }
 
 const yardOf = (game: GameModel, wave: string) => game.enemies.filter(enemy => enemy.wave === wave);
@@ -114,8 +127,9 @@ test(
       if (depotDown) sendToScript(game, { kind: 'destroyed', target: 'depot' });
       enterYard(game);
       expect(game.assist?.left).toBe(depotDown ? YARD_TUNE.assistEveryDepot : YARD_TUNE.assistEvery);
-      run(game, Math.round(60 * seconds));
-      return game.enemies.filter(enemy => enemy.wave.startsWith('yard-') && enemy.hp <= 0).length;
+      const events = run(game, Math.round(60 * seconds));
+      // the shots are counted from the events, not from the enemies left: a downed enemy stays in the list
+      return events.filter(event => event.kind === 'enemyDown' && event.id.startsWith('yard-')).length;
     };
 
     // not yet the first interval: none down
@@ -124,9 +138,11 @@ test(
     // one at the first interval
     expect(killsAt(false, YARD_TUNE.assistEvery + 0.5)).toBe(1);
     expect(killsAt(true, YARD_TUNE.assistEveryDepot + 0.5)).toBe(1);
-    // at the same 24.5 s, the depot's flag has brought one more down
-    expect(killsAt(false, 24.5)).toBe(2);
-    expect(killsAt(true, 24.5)).toBe(3);
+    // at the same moment (half a second past the plain interval's second shot), the depot's flag has brought more down
+    const both = 2 * YARD_TUNE.assistEvery + 0.5;
+    expect(killsAt(false, both)).toBe(2);
+    expect(killsAt(true, both)).toBe(Math.floor(both / YARD_TUNE.assistEveryDepot));
+    expect(Math.floor(both / YARD_TUNE.assistEveryDepot)).toBeGreaterThan(2);
   },
   LONG,
 );
@@ -138,7 +154,7 @@ test(
     const depot = newPlayGame(M1B_HAND);
     sendToScript(depot, { kind: 'destroyed', target: 'depot' });
     atTheQuestion(depot);
-    sendToScript(depot, { kind: 'enter', area: 'fortress-approach' });
+    walkTo(depot, 'fortress-approach');
     expect(depot.script.fired['fortress-go']).toBeUndefined(); // the answer was the depot
     enterYard(depot);
     run(depot, Math.round(60 * 35));
@@ -154,8 +170,9 @@ test(
     // straight on: cover-b3 falls to the skipped depot, and its move to the gate does nothing
     const straight = newPlayGame(M1B_HAND);
     atTheQuestion(straight);
-    sendToScript(straight, { kind: 'enter', area: 'fortress-approach' });
+    walkTo(straight, 'fortress-approach');
     run(straight, Math.round(60 * 2));
+    expect(straight.script.fired['fortress-go']).toBeTypeOf('number');
     const b3 = allyById(straight.allies, 'cover-b3');
     expect(b3.down).toBe(true);
     const way = structuredClone(b3.way);

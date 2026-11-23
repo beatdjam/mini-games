@@ -430,7 +430,7 @@ export function showBreach(_hash: string) {
       bullets: tracers.length,
       aimed: game.aimed === null ? null : { still: game.aimed.still, warns: game.shells.length },
       assist: game.assist === null ? null : { waves: game.assist.waves, left: game.assist.left },
-      yard: game.enemies.filter(enemy => enemy.wave.startsWith('yard-')).length,
+      yard: game.enemies.filter(enemy => enemy.hp > 0 && enemy.wave.startsWith('yard-')).length,
       losses: game.losses,
       optional: hudModel(game).optional,
       calls: renderer.info.render.calls,
@@ -518,7 +518,7 @@ export function showBreach(_hash: string) {
         `狙う迫撃砲 ${
           game.aimed === null ? '止' : `あと ${Math.max(0, AIMED_MORTAR.stillSec - game.aimed.still).toFixed(1)}s`
         } / 予告 ${game.shells.length} / 装甲 ${game.armor}\n` +
-        `中庭 ${game.enemies.filter(enemy => enemy.wave.startsWith('yard-')).length} / 援護 ${
+        `中庭 ${game.enemies.filter(enemy => enemy.hp > 0 && enemy.wave.startsWith('yard-')).length} / 援護 ${
           game.assist === null ? '止' : `あと ${Math.max(0, game.assist.left).toFixed(1)}s`
         }\n` +
         `描画 calls ${renderer.info.render.calls} / tris ${renderer.info.render.triangles}`;

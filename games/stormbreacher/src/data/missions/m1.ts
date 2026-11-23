@@ -529,7 +529,7 @@ const CUES = [
   },
   {
     id: 'yard-gate',
-    // the first wave down opens the sea gate's two, which cut the way out; the flag shows the yard is one wave lighter
+    // the first wave down brings out the two beside the sea gate, which cut the way out; the flag shows the yard is one wave lighter
     trigger: { kind: 'cleared', wave: 'yard-1' },
     actions: [
       { kind: 'flag', name: 'yard-1-clear' },

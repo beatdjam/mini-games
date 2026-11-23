@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { beforeAll, test } from 'vitest';
 import { page } from 'vitest/browser';
+import { distXZ } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { boot } from '../src/app/boot.ts';
 import { M1_WAVE_DROP, M1_WAVE_ENEMY } from '../src/data/enemies.ts';
@@ -141,7 +142,9 @@ test('yard', async () => {
     showMech(0, -90);
     drawEnemies(enemyView, game);
     drawAllies(allyView, game, battle, stream('allyFx'), 0);
-    const nearest = game.enemies[0];
+    const nearest = game.enemies.reduce((best, enemy) =>
+      distXZ(YARD_TUNE.gate, enemy) < distXZ(YARD_TUNE.gate, best) ? enemy : best,
+    );
     tracers.geometry.setFromPoints([
       new THREE.Vector3(YARD_TUNE.gate.x, YARD_TUNE.gateY, YARD_TUNE.gate.z),
       new THREE.Vector3(nearest.x, 1.6, nearest.z),

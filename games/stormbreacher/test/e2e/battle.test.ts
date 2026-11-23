@@ -5,12 +5,13 @@ import { runSystems } from '@engine/core/index.ts';
 import { drawStats, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { YARD_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE, PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
 import { ALLY_MESH_NAME } from '../../src/view/allies.ts';
 import { BATTLE_GROUP_NAME, buildBattle } from '../../src/view/battle/index.ts';
 import { MAX_TRACERS } from '../../src/view/battle/parts.ts';
-import { sendToScript, step, type GameInput } from '../../src/logic/game.ts';
+import { sendToScript, step, type GameEvent, type GameInput } from '../../src/logic/game.ts';
 import { stream } from '../../src/logic/rng.ts';
 import { draw, steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
@@ -246,18 +247,36 @@ test('the survivors shoot from the sea gate in the yard, and the battle draws no
     ally.y = 0;
   }
 
-  // run the page by hand until the assist has brought an enemy down
-  const downs = () => g.enemies.filter(enemy => enemy.wave.startsWith('yard-') && enemy.hp <= 0).length;
+  // run the page by hand until the assist's shot is reported; the events of the frame just run are still in the list
+  const shots: Extract<GameEvent, { kind: 'assistFire' }>[] = [];
   await untilSteps(() => {
     g.armor = MECH_TUNE.armor;
-    return downs() > 0;
+    for (const event of g.events) if (event.kind === 'assistFire') shots.push(event);
+    return shots.length > 0;
   }, 600);
-  expect(downs()).toBe(1);
+  const shot = shots[0];
+  expect(g.events.some(event => event.kind === 'enemyDown' && event.id.startsWith('yard-'))).toBe(true);
+  // the assist's tracer leaves the gate at its own height along the line to the enemy; the allies' tracers leave from
+  // their own height and the ambient ones from random places, so this one is told apart by that height and line
   steps(1);
   draw();
   const drawn = battleTracers();
-  expect(drawn.count).toBeGreaterThan(0);
   expect(drawn.count).toBeLessThanOrEqual(MAX_TRACERS);
+  const length = Math.hypot(shot.toX - shot.fromX, shot.toZ - shot.fromZ) || 1;
+  const along = { x: (shot.toX - shot.fromX) / length, z: (shot.toZ - shot.fromZ) / length };
+  const matrix = new THREE.Matrix4();
+  const place = new THREE.Vector3();
+  let onLine = 0;
+  for (let i = 0; i < drawn.count; i++) {
+    drawn.getMatrixAt(i, matrix);
+    place.setFromMatrixPosition(matrix);
+    const dx = place.x - shot.fromX;
+    const dz = place.z - shot.fromZ;
+    const ahead = dx * along.x + dz * along.z;
+    const aside = Math.abs(dx * along.z - dz * along.x);
+    if (Math.abs(place.y - YARD_TUNE.gateY) < 0.01 && ahead > 0 && ahead < 10 && aside < 0.1) onLine++;
+  }
+  expect(onLine).toBe(1);
 
   // the survivors stand inside the sea gate and keep shooting
   for (const id of covers) {

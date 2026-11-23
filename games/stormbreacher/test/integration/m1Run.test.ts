@@ -336,16 +336,18 @@ const STORY = [
   'fortress-ally-lost',
   'fortress-gate',
   'fortress-yard',
+  // the bot downs yard-1 and then the sea gate's two before yard-2 comes (yard-drop, 6 s after the entry), and leaves the
+  // yard before yard-2 is down on this road
+  'yard-gate',
+  'yard-3-clear',
+  'yard-drop',
   'fortress-out',
+  'yard-2-clear',
+  'yard-clear',
   'gun1',
   'shutter',
   'win',
 ];
-
-// The yard's five cues fire while the mech is still in the yard or already past it, and the two later waves can be
-// cleared in either order: the run checks that they all come between the yard's entry and the ending, and that the gate's
-// wave follows the gate and the clear comes last.
-const YARD = ['yard-drop', 'yard-gate', 'yard-2-clear', 'yard-3-clear', 'yard-clear'];
 
 // The depot run's cues: the other answer does not fire.
 const STORY_DEPOT = [
@@ -361,24 +363,17 @@ const STORY_DEPOT = [
   'depot',
   'fortress-gate',
   'fortress-yard',
+  // on this road the yard is cleared (yard-2 included) before the bot leaves it
+  'yard-gate',
+  'yard-3-clear',
+  'yard-drop',
+  'yard-2-clear',
+  'yard-clear',
   'fortress-out',
   'gun1',
   'shutter',
   'win',
 ];
-
-// What the yard's five cues must do in either run: all between entering the yard and the ending, the sea gate's wave
-// after the gate, and the yard-clear cue after every other one.
-function expectYard(result: Result): void {
-  const at = result.fired;
-  for (const id of YARD) {
-    expect(at[id], id).toBeTypeOf('number');
-    expect(at[id], id).toBeGreaterThan(at['fortress-yard']);
-    expect(at[id], id).toBeLessThan(at['win']);
-  }
-  expect(at['yard-gate']).toBeLessThanOrEqual(at['yard-3-clear']);
-  expect(at['yard-clear']).toBeGreaterThanOrEqual(Math.max(at['yard-gate'], at['yard-2-clear'], at['yard-3-clear']));
-}
 
 test(
   'a bot clears M1 from the landing on with its inputs alone',
@@ -392,14 +387,12 @@ test(
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    expectYard(result);
     expect(result.fired['depot-go']).toBeUndefined();
     expect(result.fired['depot']).toBeUndefined();
     // the answer comes after the question, not with it (a bot at seed 7: the question at 105.2 s, the answer at 106.9 s)
     expect((result.fired['fortress-go'] ?? 0) - (result.fired['depot-ask'] ?? 0)).toBeGreaterThan(1);
-    // seed 7 took about 117 s of game time and left 142 armour (of 200), 82 of 400 autocannon shots and 5 of 12 heavy
-    // gun shots (SB-2072: the walk, jump and boost are faster and the hit stop shorter). The limits below keep room for a
-    // retune of the values, and fail if the sortie turns out hardly possible
+    // seed 7 took about 131 s of game time and left 174 armour (of 200) and 65 of 400 autocannon shots and 1 of 12 heavy
+    // gun shots. The limits below keep room for a retune of the values, and fail if the sortie turns out hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);
     expect(result.main).toBeGreaterThan(0);
@@ -419,7 +412,6 @@ test(
     const times = STORY_DEPOT.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    expectYard(result);
     expect(result.fired['fortress-go']).toBeUndefined();
     expect(result.fired['fortress-ally-lost']).toBeUndefined();
     // the depot's answer comes after the question (seed 7: the question at 105.2 s, the hollow at 109.0 s)

@@ -1207,8 +1207,8 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
       game.events.push({ kind: 'payoff', id: event.id, x: at.x, z: at.z });
     }
     if (event.kind === 'assist') {
-      // the interval the shot starts with: the shorter one once the depot is down. stepAssist reads the flag again every
-      // frame, so the wait follows the flag if it comes up later too
+      // the interval the first shot waits for: the shorter one once the depot is down. stepAssist reads the flag again
+      // after each shot, so a depot that goes down later shortens the waits from the next shot on, not this one
       const every = game.script.flags.includes('depot-down') ? YARD_TUNE.assistEveryDepot : YARD_TUNE.assistEvery;
       game.assist = newAssist(event.waves);
       game.assist.left = every;
