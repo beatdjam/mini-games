@@ -24,6 +24,12 @@ Object.defineProperty(window, 'localStorage', {
   },
 });
 
+// The page's own loop (the engine's loopFrame, started by main.ts) does not run in the tests: it would step the game
+// by itself while a test waits or builds a state of its own, and a half-made state fails there (lockDoor: tile has no
+// door). The tests step the game by hand (tick, update, runSystems). Other rAF callbacks go through
+const raf = window.requestAnimationFrame.bind(window);
+window.requestAnimationFrame = cb => (cb.name === 'loopFrame' ? 0 : raf(cb));
+
 const doc = new DOMParser().parseFromString(page, 'text/html');
 doc.head.querySelectorAll('style').forEach(s => document.head.appendChild(s.cloneNode(true)));
 document.body.innerHTML = doc.body.innerHTML;
