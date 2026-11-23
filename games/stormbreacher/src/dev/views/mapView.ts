@@ -421,7 +421,7 @@ export function showMap(_hash: string) {
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, cameraBoxes);
       cam = followCamera(cam, pose, dt, CAMERA_TUNE);
       const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
+      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
       hud.textContent = hudText(source, seed, message, map, counts, violations, mech);
     },

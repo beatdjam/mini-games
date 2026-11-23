@@ -1,7 +1,7 @@
 // Vitest setup for the Sector Dive Extended tests: puts the game page's styles and elements into the document before
 // the game modules load, then starts the engine's renderer, input and touch layout on them
 import page from '../index.html?raw';
-import { el } from '@engine/core/index.ts';
+import { el, loopFrame } from '@engine/core/index.ts';
 import { initRender } from '@engine/render/index.ts';
 import { initInput } from '@engine/ui/index.ts';
 import { initTouchLayout } from '@engine/ui/index.ts';
@@ -23,6 +23,12 @@ Object.defineProperty(window, 'localStorage', {
     },
   },
 });
+
+// The page's own loop (the engine's loopFrame, started by main.ts) does not run in the tests: it would step the game
+// by itself while a test waits or builds a state of its own, and a half-made state fails there (lockDoor: tile has no
+// door). The tests step the game by hand (tick, update, runSystems). Other rAF callbacks go through
+const raf = window.requestAnimationFrame.bind(window);
+window.requestAnimationFrame = cb => (cb === loopFrame ? 0 : raf(cb));
 
 const doc = new DOMParser().parseFromString(page, 'text/html');
 doc.head.querySelectorAll('style').forEach(s => document.head.appendChild(s.cloneNode(true)));
