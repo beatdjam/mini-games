@@ -312,7 +312,7 @@ export function showCamera(_hash: string) {
       const aiming = alwaysAim || (drive && (down('ShiftLeft') || down('ShiftRight')));
       const pose = cameraPose({ x: pos.x, y: 0, z: pos.z, yaw }, pitch, tune, boxes, aiming);
       cam = followCamera(cam, pose, dt, tune);
-      applyPose(camera, { ...pose, pos: cam.pos, look: cam.look }, aiming ? tune.aimFov : tune.fov);
+      applyPose(camera, { ...pose, pos: cam.pos, look: cam.sight }, aiming ? tune.aimFov : tune.fov);
       model.position.set(pos.x, 0, pos.z);
       model.rotation.y = yaw;
 

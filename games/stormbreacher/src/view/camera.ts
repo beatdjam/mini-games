@@ -35,7 +35,8 @@ export interface CameraPose {
 // view keeps it between frames, so the mech's motion follows with `lag` and only a wall's push eases.
 export interface CameraState {
   pos: THREE.Vector3; // the camera's place on the screen
-  look: THREE.Vector3; // the point the screen looks at
+  look: THREE.Vector3; // the point the camera's place is measured from (the mech's own motion is exact on it)
+  sight: THREE.Vector3; // the point the screen turns to: along the mech's aim from pos, so a wall never turns the screen (SB-2040)
   openLook: THREE.Vector3; // the look point with no walls (see CameraPose.openLook)
   feet: { x: number; z: number }; // the mech's feet last frame (m)
   yaw: number; // the mech's facing last frame (rad), so a fast turn is known from a stalled wall return
@@ -212,11 +213,27 @@ export function cameraPose(
 const TOUCH = 0.01; // m; a box face this near the camera does not count as between it and the look point
 const NEVER = 1e9; // s; the time since a push that has not happened
 
+// The point the screen turns to from `pos`: the mech's aim yaw, with the pitch of the line to `look`, at the same distance. The
+// screen's left-right facing is then the aim's whatever the camera's place is: a wall that holds the camera a short way
+// from `look` (or lets it lag to one side) moves the camera, never the direction it faces (SB-2040).
+export function sightOf(pos: THREE.Vector3, look: THREE.Vector3, yaw: number): THREE.Vector3 {
+  const dx = look.x - pos.x;
+  const dy = look.y - pos.y;
+  const dz = look.z - pos.z;
+  const across = Math.hypot(dx, dz);
+  const length = Math.hypot(across, dy);
+  const lift = Math.atan2(dy, across);
+  const flat = Math.cos(lift) * length;
+  // yaw 0 faces -z and grows turning left
+  return new THREE.Vector3(pos.x - Math.sin(yaw) * flat, pos.y + Math.sin(lift) * length, pos.z - Math.cos(yaw) * flat);
+}
+
 // A pose as a camera state: a camera already in its place, with no ease behind it.
 export function stateOfPose(pose: CameraPose): CameraState {
   return {
     pos: pose.pos.clone(),
     look: pose.look.clone(),
+    sight: sightOf(pose.pos, pose.look, pose.yaw),
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
     yaw: pose.yaw,
@@ -225,16 +242,16 @@ export function stateOfPose(pose: CameraPose): CameraState {
   };
 }
 
-// The line through the middle of the screen: from where the camera was put to the point it looked at. Taking the state
+// The line through the middle of the screen: from where the camera was put to the point the screen turns to. Taking the state
 // the view drew means a wall's shoulder, close look and close pitch all move the aim with the screen.
 export function aimRay(state: CameraState): Ray3 {
   return {
     ox: state.pos.x,
     oy: state.pos.y,
     oz: state.pos.z,
-    dx: state.look.x - state.pos.x,
-    dy: state.look.y - state.pos.y,
-    dz: state.look.z - state.pos.z,
+    dx: state.sight.x - state.pos.x,
+    dy: state.sight.y - state.pos.y,
+    dz: state.sight.z - state.pos.z,
   };
 }
 
@@ -405,9 +422,11 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
     }
   }
 
+  const pos = inFront(look, prev.pos.clone().add(step), pose.boxes, tune);
   return {
-    pos: inFront(look, prev.pos.clone().add(step), pose.boxes, tune),
+    pos,
     look,
+    sight: sightOf(pos, look, pose.yaw),
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
     yaw: pose.yaw,
