@@ -1,5 +1,5 @@
 // The fortress nest's pure functions (SB-1830): it waits `rest`, sweeps `shots` at `interval` across its arc, and stops
-// the burst when the line is broken. A shot leaves the middle of the box, above its top and seaward of its seaward face.
+// the burst when the line is broken. A shot leaves the middle of the box, above its middle height and seaward of its seaward face.
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
 import { FORTRESS_GUN_TUNE } from '../../src/data/fortress.ts';
@@ -63,7 +63,7 @@ test('the burst sweeps the arc from its left end to its right end', () => {
   for (let i = 1; i < angles.length; i++) expect(angles[i]).toBeGreaterThan(angles[i - 1]);
 });
 
-test('a shot leaves the box’s middle, above its top and past its seaward face', () => {
+test('a shot leaves the box’s middle, above its middle height and past its seaward face', () => {
   const [first] = shotsOf(MECH, [], FORTRESS_GUN_TUNE.rest + 0.1);
   const shot = first.shot;
   expect(shot.x).toBeCloseTo((GUN_BOX.minX + GUN_BOX.maxX) / 2, 6);

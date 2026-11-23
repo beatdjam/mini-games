@@ -941,7 +941,7 @@ SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
-| `range` | 160 | m。機体がこの水平距離以内なら掃射する。弾の飛ぶ距離でもある |
+| `range` | 160 | m。弾の出る所から機体がこの水平距離以内なら掃射する。弾の飛ぶ距離でもある |
 | `damage` | 4 | 1発が減らす機体の装甲 |
 | `shots` | 8 | 1回の掃射で撃つ数 |
 | `arcDeg` | 60 | 度。機体への向きを `-arcDeg/2` から `+arcDeg/2` まで回す扇 |
@@ -955,11 +955,11 @@ SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の
 | `TARGET_HP.fortressGun` | 300 | 体力（機関砲30発・砲5発。仮） |
 
 - 置き場所: 目標は `TargetPlace.y` を持ち、箱の下端を地面から `y` m 上げる。`fortress-gun` は海側の壁の上（`FORTRESS_TUNE.wallH` = 12m）に載る。`targetBox` は `minY = y`・`maxY = y + TARGET_SIZE[place.kind].h` を返し、`buildTargets` は `mesh.position.y = y` に置く。`mapBlockers` は `y` を知らないが、箱の足元（z −74〜−68・x 12〜28）は `fortWall` の四角の内側なので、地面に見えない壁を足さない
-- 撃つ（`stepFortressGun`）: `wait` を `dt` ずつ減らし、0 になったとき、目標の箱の中心から機体の足元までの水平距離が `range` 以内で、箱の中心・箱の上端の `muzzle` 倍の高さ・箱の海側の面から `muzzleGap` 先（弾の出る所）から機体の胸への線が、物の箱とほかの壊れていない目標の箱に遮られないなら、1発撃つ。弾の出る所は固定値を持たず、箱から決める。最初の掃射は `rest` 後
+- 撃つ（`stepFortressGun`）: `wait` を `dt` ずつ減らし、0 になったとき、弾の出る所（下記）から機体の足元までの水平距離が `range` 以内で、箱の中心・箱の上端の `muzzle` 倍の高さ・箱の海側の面から `muzzleGap` 先（弾の出る所）から機体の胸への線が、物の箱とほかの壊れていない目標の箱に遮られないなら、1発撃つ。弾の出る所は固定値を持たず、箱から決める。最初の掃射は `rest` 後。起動の条件は持たず、射程の中で線が通るかぎり台本の進みに関わらず撃つ（範囲を絞るかは未決）
 - 掃射: 機体への水平の向きを、その発の掃射の中の位置で `-arcDeg/2` から `+arcDeg/2` まで等分に回し（`index` 0 が左端、`shots - 1` が右端。1発なら回さない）、`spread` の散らしを重ねる。1発ごとに機体の今の位置を狙い直す。1発のあと `wait` を `interval` にし、最後の1発のあと `rest` に戻す。掃射の途中で線が通らなくなったら、その掃射をやめて `rest` 待つ。乱数は `stream('battery')` から引く
 - 弾: 型 `FortressBullet`（`fort` に撃った目標の id）。速さ `bulletSpeed`、威力 `damage`、飛ぶ距離 `range`。扱いは敵の弾と同じ（機体・物・壊れていない目標・地面で止まり、機体に当たると装甲が減って `damaged` を出す）。`isHostileBullet` に入るので、敵の弾の線（`src/view/play.ts`）と敵の射撃の音（`src/view/sound.ts`）にそのまま乗る
 - 主砲との違い: `newBattery` は `kind === 'gun'` の目標だけを `battery.guns` にする。`fortressGun` は入らず、主砲の機銃の値と動きは変えない
-- 海を撃つ拍: `buildSeaFire` は `battery.guns` の後ろに `fortressGun` の目標を1つ足し、その箱から `GUN_TUNE.muzzle`・`muzzleGap` の所に閃光（`sb-sea-flash`）と海へ向かう線（`sb-sea-tracer`）を出す。倒れた目標は何も出さない。艇の mesh は作らない（`camera.far` 260 の外で、要塞の前から海は見えない）。沈む艇の画は L7 の出現カットシーンで見せる
+- 海を撃つ拍: `buildSeaFire` は `battery.guns` の後ろに `fortressGun` の目標を1つ足し、その箱から（主砲は `GUN_TUNE`、機関砲は `FORTRESS_GUN_TUNE` の）`muzzle`・`muzzleGap` の所に閃光（`sb-sea-flash`）と海へ向かう線（`sb-sea-tracer`）を出す。倒れた目標は何も出さない。艇の mesh は作らない（`camera.far` 260 の外で、要塞の前から海は見えない）。沈む艇の画は L7 の出現カットシーンで見せる
 - 壁の上の波 `fortress-drop`: `fortress-gate` の cue が `spawn fortress-drop` を出し、`M1_WAVE_ENEMY['fortress-drop'] = ['assault', 'grunt', 'assault']` の3体が、海側の壁の上（`M1_WAVE_DROP['fortress-drop'] = FORTRESS_TUNE.wallH` = 12m）から海側へ降りる。場所は x −20・8・32、z −70 で、門（x −6〜6）と目標の箱（x 12〜28）を避ける。落ち方は `seawall-drop` と同じ `fall` で、海（+z）へ跳ねながら壁の海側に着地する
 - テスト: 純粋な関数は `test/unit/fortress.test.ts`（`rest` 後の開始・`interval`・扇・射線が切れたら止まる・弾の出る所・同じ seed）、ゲームの中は `test/integration/fortressGun.test.ts`（開けた所では装甲が減り、遮蔽の陰では減らない・壊すと止まる・壁の上の波が降りて着地する）、`test/integration/hud.test.ts` の目標の数、`test/e2e/battery.test.ts` の海を撃つ拍、`test/e2e/props.test.ts` の目標の高さ
 

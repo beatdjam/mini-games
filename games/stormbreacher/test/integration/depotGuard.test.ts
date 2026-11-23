@@ -92,10 +92,7 @@ test('the hand map holds the depot’s guard and passes the check against M1', (
   // the third pillbox is gone (SB-2023): the objective's two are the only pillboxes
   expect(M1B_HAND.targets.map(target => target.id)).not.toContain('pillbox-3');
   expect(M1.targets).not.toContain('pillbox-3');
-  const violations = validateMapForMission(M1B_HAND, M1, {
-    targets: ['fortress-gun'],
-    waves: ['beach-mortar', 'shelling', 'fortress-drop', 'battery'],
-  });
+  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'shelling', 'battery'] });
   expect(violations).toEqual([]);
 });
 

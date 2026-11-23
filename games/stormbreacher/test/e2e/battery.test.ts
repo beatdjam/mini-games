@@ -62,8 +62,12 @@ test('a main gun flashes and streaks a line toward the sea on its beat, and a fa
   // the battery's two main guns and the fortress's sea-wall nest share the beat: one flash and line each
   expect(flashes).toHaveLength(3);
   expect(tracers).toHaveLength(3);
-  // no boat is drawn out at sea (it would stand past the camera's far plane)
-  expect(named('sb-sea-boat')).toHaveLength(0);
+  // no boat is drawn out at sea (it would stand past the camera's far plane): everything the sea fire adds to the scene
+  // is a flash or a line
+  const seaFire = new Set<THREE.Object3D>([...flashes, ...tracers]);
+  const parent = flashes[0].parent;
+  expect(parent?.children).toHaveLength(seaFire.size);
+  for (const child of parent?.children ?? []) expect(seaFire.has(child)).toBe(true);
   // the first gun's beat is at 0 s: just after it, the flash and the line show
   game().time = 0;
   steps(1);

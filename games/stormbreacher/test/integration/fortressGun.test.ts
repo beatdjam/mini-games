@@ -77,6 +77,20 @@ test('the cover in the open ground shadows the mech, and the same seconds out in
   expect(open).toBeGreaterThan(covered);
 });
 
+test('the same shadow takes armour once the cover in the open ground is taken away', () => {
+  // the control of the test above: the shadow is the cover's, not a place the sweep never reaches
+  seed(1);
+  const game = nestGame();
+  // the open ground's pieces are the low ones (under 6 m) seaward of the wall's face (z -68)
+  game.propBoxes = game.propBoxes.filter(box => !(box.minZ > -68 && box.maxZ < -50 && box.maxY < 6));
+  game.mech.x = SHADOW.x;
+  game.mech.y = 0;
+  game.mech.z = SHADOW.z;
+  game.mech.yaw = 0;
+  for (let i = 0; i < Math.round(SECONDS / DT); i++) step(game, idle, DT);
+  expect(MECH_TUNE.armor - game.armor).toBeGreaterThan(0);
+});
+
 test('the nest does not fire once its target is broken', () => {
   seed(1);
   const game = nestGame();

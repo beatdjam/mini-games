@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { SEA_FLASH_COLOR, SEA_TRACER_COLOR } from '../data/colors.ts';
 import { GUN_TUNE } from '../data/battery.ts';
+import { FORTRESS_GUN_TUNE } from '../data/fortress.ts';
 import type { GameModel } from '../logic/game.ts';
 
 const SEA_FIRE_PERIOD = 3.2; // the seconds between one shot of a gun and the next
@@ -70,8 +71,10 @@ export function drawSeaFire(view: SeaFireView, game: GameModel): void {
     gun.tracer.visible = standing && game.time >= i * SEA_FIRE_OFFSET && age < TRACER_TIME;
     if (!target || !standing) return;
     const x = (target.box.minX + target.box.maxX) / 2;
-    const y = target.box.maxY * GUN_TUNE.muzzle;
-    const z = target.box.maxZ + GUN_TUNE.muzzleGap;
+    // the fortress nest's flash leaves where its own shots do, so the panel's muzzle moves both
+    const tune = target.kind === 'fortressGun' ? FORTRESS_GUN_TUNE : GUN_TUNE;
+    const y = target.box.maxY * tune.muzzle;
+    const z = target.box.maxZ + tune.muzzleGap;
     gun.flash.position.set(x, y, z);
     if (!gun.tracer.visible) return;
     const sway = i % 2 === 0 ? TRACER_SWAY : -TRACER_SWAY;

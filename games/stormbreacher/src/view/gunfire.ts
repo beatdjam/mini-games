@@ -8,6 +8,7 @@ import { camera, disposeTree, scene } from '@engine/render/index.ts';
 import { GUN_TUNE } from '../data/battery.ts';
 import { GUNFIRE_COLOR } from '../data/colors.ts';
 import { ENEMIES } from '../data/enemies.ts';
+import { FORTRESS_GUN_TUNE } from '../data/fortress.ts';
 import {
   GUNFIRE_CAP,
   GUNFIRE_LOOK,
@@ -307,6 +308,7 @@ export function spawnImpact(view: GunfireView, x: number, y: number, z: number, 
 // How fast a hostile bullet flies, so the flash a frame late is put back at the muzzle it left.
 function hostileSpeed(bullet: Bullet): number {
   if ('gun' in bullet) return GUN_TUNE.bulletSpeed;
+  if ('fort' in bullet) return FORTRESS_GUN_TUNE.bulletSpeed;
   if ('pillbox' in bullet) return PILLBOX_TUNE.bulletSpeed;
   if ('enemy' in bullet) return ENEMIES[bullet.enemy].bulletSpeed;
   return 0;
