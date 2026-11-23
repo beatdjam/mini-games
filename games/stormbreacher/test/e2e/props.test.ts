@@ -94,8 +94,12 @@ test('the pillboxes’ blast points are drawn, and not once their pillbox is dow
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
   const points = game.blasts.length;
-  // the lines' four points, the pillboxes' four and the fortress's bomb are all rings on the fresh map (SB-1860)
+  // the lines' four points, the pillboxes' four and the fortress's bomb (SB-1860); the bomb has no ring until the mid
+  // boss is down, since nothing can be planted on it before
   expect(points).toBe(9);
+  expect(drawn('sb-blast-points')).toBe(points - 1);
+  sendToScript(game, { kind: 'wardenDown' });
+  steps(1);
   expect(drawn('sb-blast-points')).toBe(points);
 
   // pillbox-1's two points leave the ground once its guns are down; the other rings stay
@@ -130,23 +134,23 @@ test('a light stands over every blast point of a shot pillbox and of the lines (
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
-  // a point shows no light until its pillbox has been shot: the lines' four and the fortress's bomb (SB-1860) stand
-  // alone, and the mech is far enough off
+  // a point shows no light until its pillbox has been shot: the lines' four stand alone (the fortress's bomb, SB-1860,
+  // waits for the mid boss), and the mech is far enough off
   game.mech.x = 0;
   game.mech.z = 166;
   steps(1);
-  expect(drawn('sb-blast-pillars')).toBe(5);
+  expect(drawn('sb-blast-pillars')).toBe(4);
   for (const state of game.pillboxes) state.shot = true;
   steps(1);
-  expect(drawn('sb-blast-pillars')).toBe(9);
-  expect(drawn('sb-blast-diamonds')).toBe(9);
+  expect(drawn('sb-blast-pillars')).toBe(8);
+  expect(drawn('sb-blast-diamonds')).toBe(8);
 
-  // pillbox-1's two lights go when its points do; the other seven stay
+  // pillbox-1's two lights go when its points do; the other six stay
   const pillbox = game.targets.find(target => target.id === 'pillbox-1');
   if (!pillbox) throw new Error('the map has no pillbox-1');
   pillbox.hp = 0;
   steps(2);
-  expect(drawn('sb-blast-pillars')).toBe(7);
+  expect(drawn('sb-blast-pillars')).toBe(6);
 });
 
 test('`map` draws no light on screen, and `next` draws one that moves on when its pillbox falls', async () => {
@@ -160,7 +164,7 @@ test('`map` draws no light on screen, and `next` draws one that moves on when it
   game.mech.z = -40;
   setMarkerMode('map');
   steps(1);
-  expect(drawn('sb-blast-points')).toBe(9);
+  expect(drawn('sb-blast-points')).toBe(8); // the bomb waits for the mid boss
   expect(drawn('sb-blast-pillars')).toBe(0);
   expect(drawn('sb-blast-diamonds')).toBe(0);
 
@@ -194,15 +198,18 @@ test('the fortress blast lowers its walls where they stand, with no new mesh', a
   const walls = game.map.props.flatMap((prop, index) =>
     prop.kind === 'fortWall' && prop.collapse === true ? [index] : [],
   );
-  expect(walls.length).toBe(21);
-  expect(drawn('fortWall')).toBe(walls.length);
+  // 21 pieces stand; the land wall, the side walls and the door (15) come down, and the sea wall's 6 stay
+  const all = game.map.props.filter(prop => prop.kind === 'fortWall').length;
+  expect(all).toBe(21);
+  expect(walls.length).toBe(15);
+  expect(drawn('fortWall')).toBe(all);
   expect(loweredCopies('fortWall')).toBe(0);
   game.brokenProps.push(...walls);
   steps(2);
   draw();
   expect(loweredCopies('fortWall')).toBe(walls.length);
   // the copies stay in the same instanced meshes: no draw was added
-  expect(drawn('fortWall')).toBe(walls.length);
+  expect(drawn('fortWall')).toBe(all);
 });
 
 test('a sortie draws every target of the map, the battery’s parts among them', async () => {

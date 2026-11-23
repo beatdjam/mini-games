@@ -118,6 +118,11 @@ function blastsOf(value: unknown): BlastPlace[] | undefined {
     if (blast.target !== undefined) out.target = text(blast.target, `blasts[${index}].target`);
     // the fortress's charge has a 20 s fuse (SB-1860); the other points leave it out and take CHARGE_TUNE.fuse
     if (blast.fuse !== undefined) out.fuse = num(blast.fuse, `blasts[${index}].fuse`);
+    // the point opens only after the mid boss falls (SB-1860)
+    if (blast.after !== undefined) {
+      if (blast.after !== 'wardenDown') throw new Error(`blasts[${index}].after is not 'wardenDown'`);
+      out.after = 'wardenDown';
+    }
     return out;
   });
 }

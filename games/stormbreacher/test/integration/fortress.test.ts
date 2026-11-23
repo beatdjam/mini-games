@@ -40,13 +40,17 @@ test('the map’s walking check is empty (it stops at the seawall’s foot, so i
 });
 
 // The fortress alone, in a box as wide as its outer wall: with no seawall the check walks the whole depth, so the only
-// way through is the two gates.
-function fortressOnly(extra: readonly Prop[] = []): MapDef {
+// way through is the two gates. `real` keeps the map's own pieces (the `collapse` walls and the land door as they are);
+// otherwise the pieces are plain walls without the door, so a gate shut by an extra piece is told.
+function fortressOnly(extra: readonly Prop[] = [], real = false): MapDef {
   const fortWalls = M1B_HAND.props.filter(prop => prop.kind === 'fortWall');
+  const pieces = real
+    ? fortWalls
+    : fortWalls.filter(wall => wall.collapse !== true || wall.x !== 0).map(wall => ({ ...wall, collapse: undefined }));
   return {
     ...M1B_HAND,
     bounds: { ...M1B_HAND.bounds, minX: -34, maxX: 34 },
-    props: [...fortWalls, ...extra],
+    props: [...pieces, ...extra],
     mines: [],
     blasts: [],
     targets: [],
@@ -59,6 +63,14 @@ test('the check finds a way through both gates of the fortress alone, and not wh
   const landDoor: Prop = { kind: 'fortWall', x: 0, z: FORTRESS_TUNE.landWallZ, yaw: 0, scale: 1 };
   expect(checkMapPath(fortressOnly([seaDoor])).length).toBeGreaterThan(0);
   expect(checkMapPath(fortressOnly([landDoor])).length).toBeGreaterThan(0);
+});
+
+test('the map’s own land door counts as already down, but the sea wall still counts as a wall (SB-1860)', () => {
+  // the real pieces: the land wall and its door are `collapse`, the sea wall is not
+  expect(checkMapPath(fortressOnly([], true))).toEqual([]);
+  // a plain door in the sea gate shuts it even with the land side open to the blast
+  const seaDoor: Prop = { kind: 'fortWall', x: 0, z: FORTRESS_TUNE.seaWallZ, yaw: 0, scale: 1 };
+  expect(checkMapPath(fortressOnly([seaDoor], true)).length).toBeGreaterThan(0);
 });
 
 // True when the intervals [c - half, c + half] of the centres together cover [lo, hi] without a gap.

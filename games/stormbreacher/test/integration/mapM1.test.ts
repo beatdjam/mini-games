@@ -87,17 +87,18 @@ test('the hand map has two blast points on each of the two lines and none on C',
   }
 });
 
-test('the fortress’s charge sits in the land wall with a 20 s fuse, and its walls and door collapse', () => {
+test('the fortress’s charge sits in the land wall with a 20 s fuse that waits for the mid boss, and the land and side walls and the door collapse', () => {
   const bomb = (M1B_HAND.blasts ?? []).find(blast => blast.id === 'fort-bomb');
   if (!bomb) throw new Error('the hand map has no fort-bomb');
-  expect(bomb).toMatchObject({ line: null, x: 0, z: -124, fuse: 20 });
+  expect(bomb).toMatchObject({ line: null, x: 0, z: -124, fuse: 20, after: 'wardenDown' });
   expect(bomb.target).toBeUndefined();
 
   const walls = M1B_HAND.props.filter(prop => prop.kind === 'fortWall');
   expect(walls).toHaveLength(21); // the twenty pieces and the land gate's door
   for (const wall of walls) {
-    expect(wall.collapse, `${wall.x}, ${wall.z}`).toBe(true);
     expect(wall.breakable).toBeUndefined();
+    // the sea wall (z -71) stays up under its gun; everything else comes down with the charge
+    expect(wall.collapse === true, `${wall.x}, ${wall.z}`).toBe(wall.z !== -71);
   }
   // the door fills the land gate at x 0, inside the wall's thickness
   const door = walls.find(wall => wall.x === 0);

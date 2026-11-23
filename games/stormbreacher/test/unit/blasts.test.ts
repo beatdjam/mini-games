@@ -8,6 +8,7 @@ import {
   openBreach,
   stepBlasts,
   stepCharge,
+  targetStands,
   type BlastState,
   type ChargeState,
   type ChargeWorld,
@@ -191,5 +192,30 @@ describe('the fuse a place brings', () => {
     expect(stepBlasts(w, 19.9)).toEqual([]);
     expect(w.charges[0].left).toBeCloseTo(0.1, 6);
     expect(stepBlasts(w, 0.2).map(blown => blown.blast.id)).toEqual(['long']);
+  });
+});
+
+describe('a point that waits for the mid boss', () => {
+  const gated: BlastState = { id: 'gated', line: null, x: 0, z: 0, fuse: 20, blasted: false };
+  const map: MapDef = {
+    ...lineMap(),
+    blasts: [{ id: 'gated', line: null, x: 0, z: 0, fuse: 20, after: 'wardenDown' }],
+  };
+
+  test('cannot be charged until the script has heard wardenDown', () => {
+    const shut = world({ blasts: [gated], map, script: { wardenDown: false } });
+    expect(targetStands(gated, shut)).toBe(false);
+    expect(nearBlast(shut.blasts, shut.charges, shut.mech, shut)).toBeNull();
+    expect(stepCharge(shut, true, CHARGE_TUNE.holdSec).planted).toBeNull();
+    expect(shut.charges).toEqual([]);
+
+    const open = world({ blasts: [gated], map, script: { wardenDown: true } });
+    expect(targetStands(gated, open)).toBe(true);
+    expect(stepCharge(open, true, CHARGE_TUNE.holdSec).planted?.id).toBe('gated');
+  });
+
+  test('a point with no `after` is not held by the script', () => {
+    const free: MapDef = { ...lineMap(), blasts: [{ id: 'gated', line: null, x: 0, z: 0 }] };
+    expect(targetStands(gated, { map: free, script: { wardenDown: false } })).toBe(true);
   });
 });

@@ -34,6 +34,7 @@ export interface PlantState {
 export interface BlastTargetWorld {
   map?: MapDef;
   targets?: readonly { id: string; hp: number }[];
+  script?: { wardenDown: boolean };
 }
 
 export interface ChargeWorld extends BlastTargetWorld {
@@ -54,10 +55,13 @@ export function blastTarget(map: MapDef, id: string): string | undefined {
   return map.blasts?.find(place => place.id === id)?.target;
 }
 
-// Whether the target a point names still stands. A point that names no target, or a world without the map, counts as
-// live. The draw uses it too, so the ring on the ground and the point the game lets a charge be planted on agree.
+// Whether a point can be charged: the target it names still stands, and the event it waits for (`after`) has come. A
+// point that names no target and waits for nothing, or a world without the map, counts as live. The draw uses it too, so
+// the ring on the ground and the point the game lets a charge be planted on agree.
 export function targetStands(blast: BlastState, world: BlastTargetWorld): boolean {
   if (world.map === undefined) return true;
+  const place = world.map.blasts?.find(entry => entry.id === blast.id);
+  if (place?.after === 'wardenDown' && world.script?.wardenDown !== true) return false;
   const target = blastTarget(world.map, blast.id);
   if (target === undefined) return true;
   return (world.targets?.find(entry => entry.id === target)?.hp ?? 0) > 0;

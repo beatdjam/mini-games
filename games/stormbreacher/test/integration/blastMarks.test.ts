@@ -10,8 +10,7 @@ import { newPlayGame } from './playGame.ts';
 
 const PILLBOX_1 = ['blast-pillbox-1-side', 'blast-pillbox-1-back'];
 const PILLBOX_2 = ['blast-pillbox-2-side', 'blast-pillbox-2-back'];
-// the lines' points and the fortress's bomb (SB-1860): all of them show a ring from the start
-const LINE_POINTS = ['l1-a', 'l1-b', 'l2-a', 'l2-b', 'fort-bomb'];
+const LINE_POINTS = ['l1-a', 'l1-b', 'l2-a', 'l2-b'];
 
 function newGame(): GameModel {
   return newPlayGame({ ...M1B_HAND, spawns: {}, mines: [] });
@@ -39,6 +38,13 @@ test('before a pillbox is shot once, only the lines’ points show a light; afte
   if (!target) throw new Error('no pillbox-1');
   target.hp = 0;
   expect(ids(game, 'dim')).toEqual([...LINE_POINTS].sort());
+});
+
+test('the fortress’s bomb shows a light only once the mid boss is down (SB-1860)', () => {
+  const game = newGame();
+  expect(ids(game, 'dim')).not.toContain('fort-bomb');
+  game.script.wardenDown = true;
+  expect(ids(game, 'dim')).toContain('fort-bomb');
 });
 
 test('a cutscene shows no light, and the light is back when it ends', () => {

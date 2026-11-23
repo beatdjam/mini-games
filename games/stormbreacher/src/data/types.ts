@@ -177,6 +177,7 @@ export interface BlastPlace {
   z: number;
   target?: string;
   fuse?: number; // seconds from planting to the blast (SB-1860); left out means CHARGE_TUNE.fuse
+  after?: 'wardenDown'; // the point can be charged only once the script has heard this (the mid boss is down)
 }
 
 export interface MapBounds {

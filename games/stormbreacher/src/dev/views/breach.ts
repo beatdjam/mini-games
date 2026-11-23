@@ -77,7 +77,6 @@ const CHARGE_LABELS: Record<string, string> = {
   holdSec: '長押し（s）',
   reach: '届く距離（m）',
   fuse: '導火線（s）',
-  blastRadius: '爆風の半径（m）',
   damage: '爆風の装甲',
   holeHalfWidth: '穴の半幅（m）',
   holeHalfDepth: '穴の半奥行き（m）',
@@ -161,7 +160,6 @@ const YARD_LABELS: Record<string, string> = {
 // The fortress blast's values the panel turns (SB-1860).
 const FORT_BLAST_RANGES: Record<string, TuneRange> = {
   countdownSec: { min: 5, max: 60, step: 1 },
-  blastRadius: { min: 5, max: 60, step: 1 },
   damage: { min: 0, max: 300, step: 5 },
 };
 const FORT_BLAST_LABELS: Record<string, string> = {
@@ -411,7 +409,9 @@ export function showBreach(_hash: string) {
   fortRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
   extra.appendChild(fortRow);
   const plantFort = button(fortRow, '要塞に仕掛ける', () => {
-    // the mech at the land wall's inner face, with the charge's point 3 m beyond it in the wall
+    // the mid boss is down (the point opens then), and the mech stands at the land wall's inner face, with the charge's
+    // point 3 m beyond it in the wall
+    game.script.wardenDown = true;
     game.mech.x = 0;
     game.mech.z = -120;
     game.mech.y = 0;

@@ -411,14 +411,15 @@ const PROPS: Prop[] = [
   { kind: 'seawall', x: 96, z: -67, yaw: 0, scale: 1 },
   // the fortress (FORTRESS_TUNE): 12 m square wall pieces, inner faces at x +-29 and z -74/-122, gates 12 m wide at x 0.
   // The sea-side wall covers x 6..35 and -35..-6 with three overlapping pieces a side; the land-side wall does the same.
-  // Every piece is `collapse` (SB-1860): the charge in the land wall brings them down, and no shot breaks them. The land
-  // gate's own door is one more piece, shut until the blast takes it away; the sea gate stays the way out.
-  { kind: 'fortWall', x: -12, z: -71, yaw: 0, scale: 1, collapse: true },
-  { kind: 'fortWall', x: -24, z: -71, yaw: 0, scale: 1, collapse: true },
-  { kind: 'fortWall', x: -29, z: -71, yaw: 0, scale: 1, collapse: true },
-  { kind: 'fortWall', x: 12, z: -71, yaw: 0, scale: 1, collapse: true },
-  { kind: 'fortWall', x: 24, z: -71, yaw: 0, scale: 1, collapse: true },
-  { kind: 'fortWall', x: 29, z: -71, yaw: 0, scale: 1, collapse: true },
+  // The land wall, the side walls and the land gate's door are `collapse` (SB-1860): the charge in the land wall brings
+  // them down, and no shot breaks them. The sea wall is not: it carries the gun the blast wrecks and stays standing. The
+  // door is one more piece, shut until the blast takes it away; the sea gate stays the way out.
+  { kind: 'fortWall', x: -12, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: -24, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: -29, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 12, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 24, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 29, z: -71, yaw: 0, scale: 1 },
   { kind: 'fortWall', x: -12, z: -125, yaw: 0, scale: 1, collapse: true },
   { kind: 'fortWall', x: -24, z: -125, yaw: 0, scale: 1, collapse: true },
   { kind: 'fortWall', x: -29, z: -125, yaw: 0, scale: 1, collapse: true },
@@ -506,8 +507,9 @@ const BLASTS: BlastPlace[] = [
   { id: 'blast-pillbox-1-back', line: null, x: -33, z: -23, target: 'pillbox-1' },
   { id: 'blast-pillbox-2-side', line: null, x: 30, z: -17, target: 'pillbox-2' },
   { id: 'blast-pillbox-2-back', line: null, x: 21, z: -23, target: 'pillbox-2' },
-  // the charge in the land wall's magazine (SB-1860): a 20 s fuse, and the blast brings the fortress down
-  { id: 'fort-bomb', line: null, x: 0, z: -124, fuse: FORT_BLAST_TUNE.countdownSec },
+  // the charge in the land wall's magazine (SB-1860): open once the mid boss is down, a 20 s fuse, and the blast brings the
+  // fortress down
+  { id: 'fort-bomb', line: null, x: 0, z: -124, fuse: FORT_BLAST_TUNE.countdownSec, after: 'wardenDown' },
 ];
 
 export const M1B_HAND: MapDef = {

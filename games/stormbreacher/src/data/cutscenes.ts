@@ -161,8 +161,9 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
   },
   // The fortress's charge blows (SB-1860): the walls come down under the camera, then the view rises to the battery past
   // them, cuts out to the sea where a craft goes down, and ends behind the mech outside the sea gate. Every key is relative
-  // to the mech (the run may end anywhere outside the gate); the last one is the game's own camera. The sea keys stand at
-  // z 100-150, inside camera.far 260 of the craft they watch. The wall's fall is drawn by syncWorld from `brokenProps`,
+  // to the mech (the run may end anywhere outside the gate); the last one is the game's own camera. The sea keys are
+  // written for a mech at about z -58, just outside the sea gate: they then stand at z 100-150, inside camera.far 260 of
+  // the craft they watch (the crafts' `sink` z are absolute). The wall's fall is drawn by syncWorld from `brokenProps`,
   // not by a `collapse` event; the bursts here are the shells of the charge going off.
   'fortress-blast': {
     camera: [

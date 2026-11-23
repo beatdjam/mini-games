@@ -9,8 +9,10 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { GameEvent, GameInput, GameModel } from '../../src/logic/game.ts';
 import { retryFromCheckpoint, sendToScript, step } from '../../src/logic/game.ts';
+import { targetStands } from '../../src/logic/blasts.ts';
 import { hudModel } from '../../src/logic/hud.ts';
 import { restoreCheckpoint } from '../../src/logic/script.ts';
+import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -28,9 +30,11 @@ const idle: GameInput = {
 const use: GameInput = { ...idle, use: true };
 
 // A game at the land wall with the yard and the approach already entered, so their cues do not put out enemies while the
-// charge's fuse burns; the fortress gun is held off so only the blast can take armour.
-function atTheMagazine(): GameModel {
+// charge's fuse burns; the fortress gun is held off so only the blast can take armour. The mid boss is down, so the
+// magazine is open to a charge (`open` false leaves it shut).
+function atTheMagazine(open = true): GameModel {
   const game = newPlayGame(M1B_HAND);
+  if (open) sendToScript(game, { kind: 'wardenDown' });
   game.mech.x = 0;
   game.mech.z = -120;
   game.mech.y = 0;
@@ -113,7 +117,15 @@ test('the charge on the fort-bomb shows the 20 s countdown on the HUD and blows 
   expect(run.game.script.fortressDown).toBe(true);
   // the walls in the box are down; the sea wall (the gun's) is left standing
   const seaWalls = M1B_HAND.props.flatMap((prop, index) => (prop.kind === 'fortWall' && prop.z === -71 ? [index] : []));
-  for (const index of seaWalls) expect(run.game.brokenProps).not.toContain(index);
+  expect(seaWalls).toHaveLength(6);
+  for (const index of seaWalls) {
+    expect(M1B_HAND.props[index].collapse).toBeUndefined();
+    expect(run.game.brokenProps).not.toContain(index);
+    expect(run.game.propRefs).toContain(index);
+  }
+  // every `collapse` prop of the map came down
+  const collapsing = M1B_HAND.props.flatMap((prop, index) => (prop.collapse === true ? [index] : []));
+  expect([...run.game.brokenProps].sort((a, b) => a - b)).toEqual(collapsing);
 });
 
 test('the blast changes the objective, takes cp3 and sends the battery, and a retry does not play the cutscene again', () => {
@@ -153,7 +165,7 @@ test('a mech still inside takes FORT_BLAST_TUNE.damage, and one with less armour
 });
 
 test('the mid boss’s blast does not open the land door; only the charge does', () => {
-  const game = atTheMagazine();
+  const game = atTheMagazine(false);
   expect(game.propRefs).toContain(doorIndex());
   sendToScript(game, { kind: 'wardenDown' });
   step(game, idle, DT);
@@ -175,5 +187,83 @@ test('the fuse does not burn while a cutscene plays', () => {
   // and once the cutscene ends it runs on
   game.script.cutscene = null;
   for (let i = 0; i < 30; i++) step(game, idle, DT);
-  expect(game.charges[0]?.left ?? 0).toBeLessThan(left);
+  expect(game.charges).toHaveLength(1);
+  expect(game.charges[0].left).toBeLessThan(left);
+});
+
+test('the magazine takes no charge until the mid boss is down, and shows no prompt or ring until then', () => {
+  const game = atTheMagazine(false);
+  const bomb = game.blasts.find(blast => blast.id === 'fort-bomb');
+  if (!bomb) throw new Error('the map has no fort-bomb');
+  expect(hudModel(game).use).toBeNull();
+  expect(targetStands(bomb, game)).toBe(false);
+  for (let i = 0; i < Math.ceil((CHARGE_TUNE.holdSec * 2) / DT); i++) step(game, use, DT);
+  expect(game.charges).toHaveLength(0);
+  expect(game.plant).toBeNull();
+
+  // the mid boss goes down: the same hold now plants
+  sendToScript(game, { kind: 'wardenDown' });
+  step(game, idle, DT);
+  expect(targetStands(bomb, game)).toBe(true);
+  expect(hudModel(game).use).not.toBeNull();
+  plant(game);
+});
+
+test('a suspend in the middle of the countdown comes back with the fuse and the HUD, and the blast comes once', () => {
+  const game = plant(atTheMagazine());
+  for (let i = 0; i < 60 * 5; i++) step(game, idle, DT);
+  const before = hudModel(game).charge;
+  expect(before?.total).toBe(FORT_BLAST_TUNE.countdownSec);
+  const back = restoreSuspend(JSON.parse(JSON.stringify(suspendOf(game))));
+  if (!back) throw new Error('the suspend was not read');
+  expect(back.charges).toEqual(game.charges);
+  expect(hudModel(back).charge).toEqual(before);
+  back.mech.x = 0;
+  back.mech.z = -58;
+  const run = toTheBlast(back);
+  expect(blastEvents(run.events)).toBe(1);
+  expect(run.game.script.fortressDown).toBe(true);
+  expect(run.game.armor).toBe(MECH_TUNE.armor);
+});
+
+test('a mech downed in the middle of the countdown goes back to the checkpoint before it, with no fuse running', () => {
+  const game = atTheMagazine();
+  // both pillboxes down takes cp1: the checkpoint the retry goes back to
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game.targets.find(entry => entry.id === id);
+    if (!target) throw new Error(`the map has no ${id}`);
+    target.hp = 0;
+    sendToScript(game, { kind: 'destroyed', target: id });
+  }
+  step(game, idle, DT);
+  game.enemies = [];
+  game.slow = null; // the milestone's slowdown would stretch the hold
+  game.calm = null;
+  game.assist = null;
+  expect(game.checkpoint?.id).toBe('cp1');
+  plant(game);
+  for (let i = 0; i < 60 * 3; i++) step(game, idle, DT);
+  expect(game.charges).toHaveLength(1);
+  game.armor = 0;
+  game.downed = true;
+  const again = retryFromCheckpoint(game);
+  expect(again.checkpoint?.id).toBe('cp1');
+  expect(again.charges).toEqual([]);
+  expect(again.plant).toBeNull();
+  expect(again.script.fortressDown).toBe(false);
+  expect(again.brokenProps).toEqual([]);
+  expect(again.downed).toBe(false);
+});
+
+test('a mech downed by the blast itself retries from cp3: the walls are down, no cutscene and full armour', () => {
+  const weak = plant(atTheMagazine());
+  weak.armor = FORT_BLAST_TUNE.damage - 10;
+  const { game: downed } = toTheBlast(weak);
+  expect(downed.downed).toBe(true);
+  expect(downed.checkpoint?.id).toBe('cp3');
+  const again = retryFromCheckpoint(downed);
+  expect(again.armor).toBe(MECH_TUNE.armor);
+  expect(again.script.cutscene).toBeNull();
+  expect(again.brokenProps).toEqual(downed.brokenProps);
+  expect(again.charges).toEqual([]);
 });

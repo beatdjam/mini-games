@@ -154,7 +154,7 @@ describe('suspend and resume', () => {
     const back = resumed(game);
     expect(back.brokenProps).toEqual([12, 13, 30]);
     expect(back.script.fortressDown).toBe(true);
-    // a game past the blast starts its view quiet: the walls are already down and no boom is drawn again
+    // a game past the blast has no cutscene waiting; the view starts quiet from `fortressDown` (the e2e side)
     expect(back.script.cutscene).toBeNull();
   });
 
