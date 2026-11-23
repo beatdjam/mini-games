@@ -41,9 +41,9 @@ export interface HolePaths {
   paths: Readonly<Record<string, string>>;
 }
 
-// How an ally falls (`fate.by` of a script's `ally` action): a mortar shell on the beach, or a machine gun on the
-// bunker line. ALLY_FATES in data/allies.ts lists them for validateMission.
-export type AllyFateBy = 'mortar' | 'gun';
+// How an ally falls (`fate.by` of a script's `ally` action): a mortar shell on the beach, a machine gun on the
+// bunker line, or a shell before the fortress. ALLY_FATES in data/allies.ts lists them for validateMission.
+export type AllyFateBy = 'mortar' | 'gun' | 'shell';
 
 // What a cue does, in order. The script only reports these as events; the screen and the map carry them out.
 export type Action =
@@ -55,9 +55,12 @@ export type Action =
   | { kind: 'ally'; id: string; path: string | HolePaths; fate?: { at: string; by: AllyFateBy; call?: string } }
   | { kind: 'allyMove'; id: string; path: string | HolePaths } // an ally already out takes the next way
   | { kind: 'suppress'; id: string; wave: string; sec: number } // an ally's support fire silences a wave of nests for sec (SB-2020); `id` names the ally mech for the script check only, a tracer leaves from whichever ally is nearest the nest
+  | { kind: 'allyFall'; id: string; by: AllyFateBy } // an ally already out falls where it stands
+  | { kind: 'loss'; allies?: number; squads?: number } // the friends lost on the way (the result's losses line)
   | { kind: 'cutscene'; id: CutsceneId }
   | { kind: 'checkpoint'; id: string }
   | { kind: 'flag'; name: string }
+  | { kind: 'rearm'; areas: readonly string[] } // forget that the areas were entered; walking in again counts
   | { kind: 'map'; mark: string; on: boolean }
   | { kind: 'payoff'; id: string } // a milestone's knock (data/payoff.ts)
   | { kind: 'end'; result: 'cleared' };

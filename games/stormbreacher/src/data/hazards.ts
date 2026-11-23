@@ -1,8 +1,8 @@
 // The hazards of the sortie (SB-190): the barrages that fall from the background, and the mines on the beach. Every value
 // here is provisional. Adding a barrage kind is a line in BARRAGES (and in BARRAGE_KINDS).
-export type BarrageKind = 'mortar' | 'battery';
+export type BarrageKind = 'mortar' | 'shelling' | 'battery';
 
-export const BARRAGE_KINDS: readonly BarrageKind[] = ['mortar', 'battery'];
+export const BARRAGE_KINDS: readonly BarrageKind[] = ['mortar', 'shelling', 'battery'];
 
 export interface BarrageDef {
   interval: number; // the seconds between one shell's warning and the next, counted while the mech is in reach
@@ -23,6 +23,17 @@ export interface BarrageSlow {
 
 export const BARRAGES: Record<BarrageKind, BarrageDef> = {
   mortar: { interval: 4, warn: 2.5, radius: 7, damage: 25, aimJitter: 12, minZ: 30, maxZ: Infinity },
+  // the battery's shells on the last stretch: the depot's ammunition gone, they fall less often (SB-1820)
+  shelling: {
+    interval: 5,
+    warn: 2.5,
+    radius: 7,
+    damage: 25,
+    aimJitter: 10,
+    minZ: -68,
+    maxZ: -20,
+    slow: { flag: 'depot-down', mul: 1.6 },
+  },
   // the battery's secondary guns (SB-200): they reach the field before the battery, past the fortress; the depot's
   // ammunition being gone, they fire less often
   battery: {
@@ -42,6 +53,7 @@ export const BARRAGES: Record<BarrageKind, BarrageDef> = {
 // A wave that is not here starts none.
 export const M1_WAVE_BARRAGE: Readonly<Partial<Record<string, BarrageKind>>> = {
   'beach-mortar': 'mortar',
+  shelling: 'shelling',
   battery: 'battery',
 };
 

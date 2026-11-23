@@ -33,6 +33,8 @@ export type ScriptOut =
   | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: AllyFateBy; call?: string }; time: number }
   | { kind: 'allyMove'; id: string; path: string; time: number }
   | { kind: 'suppress'; id: string; wave: string; sec: number; time: number } // an ally's support fire on a wave (SB-2020)
+  | { kind: 'allyFall'; id: string; by: AllyFateBy; time: number }
+  | { kind: 'loss'; allies: number; squads: number; time: number }
   | { kind: 'cutscene'; id: CutsceneId; time: number }
   | { kind: 'cutsceneEnd'; id: CutsceneId; time: number }
   | { kind: 'checkpoint'; id: string; time: number }
@@ -155,6 +157,16 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
       requireIn(def.allies, action.id, 'ally');
       requireIn(def.waves, action.wave, 'wave');
       return;
+    case 'allyFall':
+      requireIn(def.allies, action.id, 'ally');
+      requireIn(ALLY_FATES, action.by, 'fate');
+      return;
+    case 'loss':
+      // the counts are what the result adds up; a negative number would make losses a reward
+      if ((action.allies ?? 0) < 0 || (action.squads ?? 0) < 0) {
+        throw new Error(`cue "${cueId}": a loss cannot be negative`);
+      }
+      return;
     case 'cutscene':
       if (!(action.id in CUTSCENE_SEC)) throw new Error(`cue "${cueId}": no cutscene "${action.id}"`);
       return;
@@ -163,6 +175,9 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
       return;
     case 'flag':
       requireIn(def.flags ?? [], action.name, 'flag');
+      return;
+    case 'rearm':
+      for (const area of action.areas) requireIn(Object.keys(def.areas), area, 'area');
       return;
     case 'map':
       requireIn(def.marks, action.mark, 'mark');
@@ -334,6 +349,12 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
     case 'suppress':
       out.push({ kind: 'suppress', id: action.id, wave: action.wave, sec: action.sec, time });
       return;
+    case 'allyFall':
+      out.push({ kind: 'allyFall', id: action.id, by: action.by, time });
+      return;
+    case 'loss':
+      out.push({ kind: 'loss', allies: action.allies ?? 0, squads: action.squads ?? 0, time });
+      return;
     case 'cutscene':
       s.cutscene = { id: action.id, left: CUTSCENE_SEC[action.id] };
       out.push({ kind: 'cutscene', id: action.id, time });
@@ -345,6 +366,10 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
     case 'flag':
       if (!s.flags.includes(action.name)) s.flags.push(action.name);
       out.push({ kind: 'flag', name: action.name, time });
+      return;
+    case 'rearm':
+      // An area the mech passed before the question must not answer it; the game sends `enter` again while it stands inside
+      s.entered = s.entered.filter(area => !action.areas.includes(area));
       return;
     case 'map':
       if (action.on) {

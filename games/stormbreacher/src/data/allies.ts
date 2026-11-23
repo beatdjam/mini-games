@@ -25,7 +25,7 @@ export const ALLY_TUNE = {
 };
 
 // The ways an ally may fall (`fate.by` of the script's `ally` action).
-export const ALLY_FATES: readonly AllyFateBy[] = ['mortar', 'gun'];
+export const ALLY_FATES: readonly AllyFateBy[] = ['mortar', 'gun', 'shell'];
 
 // The allies' two types (SB-2082), the three views' sniper and scout. Each mech gets one, so a squad reads as a mix of
 // a long rifle and a radar rather than five of one machine. The numbers are provisional.

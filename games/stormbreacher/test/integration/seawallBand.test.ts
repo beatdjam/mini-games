@@ -1,7 +1,6 @@
-// The band between C's rear row and the seawall (task 1985): C's four hedgehogs beside the ramps are gone, so the mech
-// walks out of every part of the band to C's sea side, the
-// map's bounds hold the mech (also where a hedgehog's box crosses them), and every wave's enemies spawn with their bodies
-// outside the props' and targets' shot boxes.
+// The map's bounds hold the mech (also where a hedgehog's box crosses them), and every wave's enemies spawn with their
+// bodies outside the props' and targets' shot boxes. (The band between C's rear row and the seawall is gone with C's
+// rows, SB-1820.)
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { ENEMIES, M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../src/data/enemies.ts';
@@ -9,11 +8,10 @@ import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import { rectBoxes, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
-import { newMech, stepMech, type MechInput, type MechState } from '../../src/logic/mech.ts';
+import { newMech, stepMech, type MechInput } from '../../src/logic/mech.ts';
 
 const MAP = M1B_HAND;
 const DT = 1 / 30;
-const TURN_RATE = 6; // how fast the walk turns toward its next point (rad/s)
 
 const idle: MechInput = {
   moveX: 0,
@@ -27,69 +25,6 @@ const idle: MechInput = {
 
 const rects = mapBlockers(MAP);
 const world = { rects, radius: MECH_TUNE.radius, bounds: MAP.bounds };
-
-// The four hedgehogs the fix takes out of C's rear row, and the three parts of the band they used to close. Each part is
-// walked along the band to the way past a ramp, then between C's two rows to the sea side.
-const BANDS = [
-  {
-    name: 'west',
-    start: { x: -75, z: -58 },
-    points: [
-      { x: -56.4, z: -58 },
-      { x: -56.4, z: -45 },
-      { x: -48, z: -45 },
-      { x: -48, z: -34 },
-    ],
-  },
-  {
-    name: 'middle',
-    start: { x: -8, z: -58 },
-    points: [
-      { x: -43.6, z: -58 },
-      { x: -43.6, z: -45 },
-      { x: -48, z: -45 },
-      { x: -48, z: -34 },
-    ],
-  },
-  {
-    name: 'east',
-    start: { x: 60, z: -58 },
-    points: [
-      { x: 41.3, z: -58 },
-      { x: 41.3, z: -45 },
-      { x: 36.6, z: -45 },
-      { x: 36.6, z: -34 },
-    ],
-  },
-];
-
-// Walks the mech to (x, z) with stepMech's own inputs, turning at TURN_RATE. True once it is there.
-function walkTo(mech: MechState, x: number, z: number, frames: number): boolean {
-  for (let i = 0; i < frames; i++) {
-    const dx = x - mech.x;
-    const dz = z - mech.z;
-    if (Math.hypot(dx, dz) < 0.5) return true;
-    const want = Math.atan2(-dx, -dz);
-    const diff = Math.atan2(Math.sin(want - mech.yaw), Math.cos(want - mech.yaw));
-    const turn = Math.max(-TURN_RATE * DT, Math.min(TURN_RATE * DT, diff));
-    stepMech(mech, { ...idle, moveZ: 1, turn }, DT, MOVE_TUNE, 0, world);
-  }
-  return Math.hypot(x - mech.x, z - mech.z) < 0.5;
-}
-
-test('the mech walks out of every part of the band to C’s sea side', () => {
-  for (const band of BANDS) {
-    const mech = newMech();
-    mech.x = band.start.x;
-    mech.z = band.start.z;
-    for (const point of band.points) {
-      expect(walkTo(mech, point.x, point.z, 600), `${band.name} band, on the way to (${point.x}, ${point.z})`).toBe(
-        true,
-      );
-    }
-    expect(mech.z, `${band.name} band`).toBeGreaterThan(-40);
-  }
-});
 
 test('the mech stays inside the map’s bounds when it walks at each edge', () => {
   const { minX, maxX, minZ, maxZ } = MAP.bounds;
