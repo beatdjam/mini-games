@@ -18,7 +18,7 @@ name: Checks
 #   check … static と e2e の結果をまとめるだけのジョブ。master の必須チェックはこの名前なので、e2e が落ちても止まる
 # 全部を流すとき（scope が all）の e2e は 5 本:
 #   stormbreacher-1・stormbreacher-2 … stormbreacher-e2e を vitest の --shard=1/2・2/2 で半分ずつ
-#   sector-dive-ex-1・sector-dive-ex-2 … sector-dive-ex を同じく半分ずつ（テストの中身が重く、1 本だと 3 分半かかった）
+#   sector-dive-ex-1・sector-dive-ex-2 … sector-dive-ex-e2e を同じく半分ずつ（テストの中身が重く、1 本だと 3 分半かかった）
 #   others … 残りの Chromium のプロジェクト全部（engine、sector-dive、tsume-vim ...）
 # 絞ったとき（ゲームの id が並ぶとき）は、そのゲームの Chromium のプロジェクトだけ。stormbreacher・sector-dive-ex が入っていれば
 # それぞれ 2 本に割り、残りは 1 本（others）。
@@ -68,9 +68,9 @@ jobs:
           if [ "$scope" = all ]; then
             add stormbreacher-1 "--project stormbreacher-e2e --shard=1/2"
             add stormbreacher-2 "--project stormbreacher-e2e --shard=2/2"
-            add sector-dive-ex-1 "--project sector-dive-ex --shard=1/2"
-            add sector-dive-ex-2 "--project sector-dive-ex --shard=2/2"
-            add others "--project !*-unit --project !*-integration --project !stormbreacher-e2e --project !sector-dive-ex"
+            add sector-dive-ex-1 "--project sector-dive-ex-e2e --shard=1/2"
+            add sector-dive-ex-2 "--project sector-dive-ex-e2e --shard=2/2"
+            add others "--project !*-unit --project !*-integration --project !stormbreacher-e2e --project !sector-dive-ex-e2e"
           elif [ "$scope" != none ] && [ "$scope" != build ]; then
             others=""
             for game in $scope; do
@@ -78,12 +78,12 @@ jobs:
                 if [ "$game" = stormbreacher ]; then
                   add stormbreacher-1 "--project stormbreacher-e2e --shard=1/2"
                   add stormbreacher-2 "--project stormbreacher-e2e --shard=2/2"
+                elif [ "$game" = sector-dive-ex ]; then
+                  add sector-dive-ex-1 "--project sector-dive-ex-e2e --shard=1/2"
+                  add sector-dive-ex-2 "--project sector-dive-ex-e2e --shard=2/2"
                 else
                   others="$others --project $game-e2e"
                 fi
-              elif [ "$game" = sector-dive-ex ]; then
-                add sector-dive-ex-1 "--project sector-dive-ex --shard=1/2"
-                add sector-dive-ex-2 "--project sector-dive-ex --shard=2/2"
               else
                 others="$others --project $game"
               fi

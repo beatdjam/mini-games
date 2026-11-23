@@ -1,22 +1,22 @@
 // The numbers a sector gives its boss room's walls and floors (hallWalls.ts): the hall's pictures come after the
 // sector's own, and the lists the hall's props use point at them. A sector's values must stay what they were.
 import { expect, test } from 'vitest';
-import type { RoomFloors, RoomWalls } from '../src/world/looks/common.ts';
-import { hallWallNumbers } from '../src/world/looks/hallWalls.ts';
+import type { RoomFloors, RoomWalls } from '../../src/world/looks/common.ts';
+import { hallWallNumbers } from '../../src/world/looks/hallWalls.ts';
 import {
   DATA_HALL_FLOORS,
   DATA_HALL_MAP,
   DATA_HALL_PLAIN,
   DATA_HALL_RACKS,
   DATA_HALL_WALLS,
-} from '../src/world/looks/data/hall.ts';
+} from '../../src/world/looks/data/hall.ts';
 import {
   DATA_ALL_WALLS,
   DATA_HALL_PLAIN_WALLS,
   DATA_HALL_RACK_WALLS,
   DATA_ROOM_FLOORS,
   DATA_ROOM_WALLS,
-} from '../src/world/looks/data/pictures.ts';
+} from '../../src/world/looks/data/pictures.ts';
 import {
   FORGE_HALL_FLOORS,
   FORGE_HALL_MAP,
@@ -25,7 +25,7 @@ import {
   FORGE_HALL_STORES,
   FORGE_HALL_TAPS,
   FORGE_HALL_WALLS,
-} from '../src/world/looks/forge/hall.ts';
+} from '../../src/world/looks/forge/hall.ts';
 import {
   FORGE_ALL_WALLS,
   FORGE_HALL_MOUTH_WALLS,
@@ -34,7 +34,7 @@ import {
   FORGE_HALL_TAP_WALLS,
   FORGE_ROOM_FLOORS,
   FORGE_ROOM_WALLS,
-} from '../src/world/looks/forge/pictures.ts';
+} from '../../src/world/looks/forge/pictures.ts';
 import {
   KWLN_HALL_FLOORS,
   KWLN_HALL_HANGING,
@@ -42,7 +42,7 @@ import {
   KWLN_HALL_SHRINE,
   KWLN_HALL_SIGNED,
   KWLN_HALL_WALLS,
-} from '../src/world/looks/kwln/hall.ts';
+} from '../../src/world/looks/kwln/hall.ts';
 import {
   KWLN_ALL_WALLS,
   KWLN_HALL_HANGING_WALLS,
@@ -50,35 +50,35 @@ import {
   KWLN_HALL_SIGNED_WALLS,
   KWLN_ROOM_FLOORS,
   KWLN_ROOM_WALLS,
-} from '../src/world/looks/kwln/pictures.ts';
+} from '../../src/world/looks/kwln/pictures.ts';
 import {
   NOISE_HALL_CABINETS,
   NOISE_HALL_FLOORS,
   NOISE_HALL_MAP,
   NOISE_HALL_PLAIN,
   NOISE_HALL_WALLS,
-} from '../src/world/looks/noise/hall.ts';
+} from '../../src/world/looks/noise/hall.ts';
 import {
   NOISE_ALL_WALLS,
   NOISE_HALL_CABINET_WALLS,
   NOISE_HALL_PLAIN_WALLS,
   NOISE_ROOM_FLOORS,
   NOISE_ROOM_WALLS,
-} from '../src/world/looks/noise/pictures.ts';
+} from '../../src/world/looks/noise/pictures.ts';
 import {
   RUIN_HALL_FLOORS,
   RUIN_HALL_LIT,
   RUIN_HALL_MAP,
   RUIN_HALL_STAGE,
   RUIN_HALL_WALLS,
-} from '../src/world/looks/ruin/hall.ts';
+} from '../../src/world/looks/ruin/hall.ts';
 import {
   RUIN_ALL_WALLS,
   RUIN_HALL_LIT_WALLS,
   RUIN_HALL_STAGE_WALLS,
   RUIN_ROOM_FLOORS,
   RUIN_ROOM_WALLS,
-} from '../src/world/looks/ruin/pictures.ts';
+} from '../../src/world/looks/ruin/pictures.ts';
 
 // one sector's hall, as it is exported to the rest of the look
 interface Sector {

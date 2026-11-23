@@ -1,6 +1,6 @@
 // Pins what is built from a fixed seed: each sector's floors (meshes, props, enemies), the bosses, the enemies, the guns
 // and the pickups, as hashes kept in __snapshots__. A refactor that should not change the looks leaves them all alone;
-// a change meant to alter one updates the snapshot (npx vitest run --project sector-dive-ex -u) and says so in its PR.
+// a change meant to alter one updates the snapshot (npx vitest run --project sector-dive-ex-e2e -u) and says so in its PR.
 // Nothing is drawn: the hashes read the geometry, the placement and the materials, not the painted pixels (those
 // differ between machines), so a texture counts only by its size.
 import { afterAll, beforeAll, expect, test } from 'vitest';
