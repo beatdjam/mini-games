@@ -5,9 +5,10 @@ import { M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../src/data/enemies.ts';
 import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
-import { M1 } from '../../src/data/missions/m1.ts';
+import { FORTRESS_GUN_FLAG, M1 } from '../../src/data/missions/m1.ts';
 import { sendToScript, step, type GameInput, type GameModel, isFortressBullet } from '../../src/logic/game.ts';
 import { seed } from '../../src/logic/rng.ts';
+import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -136,4 +137,74 @@ test('the hand map’s wave from the wall has a kind for each of its places', ()
   expect(M1_WAVE_DROP['fortress-drop']).toBe(FORTRESS_TUNE.wallH);
   expect(M1.targets).toContain('fortress-gun');
   expect(M1.waves).toContain('fortress-drop');
+});
+
+// SB-2045: the nest sleeps until the mech steps onto the open ground before the sea gate (`fortress-approach`).
+const BEFORE = { x: 0, z: -45 }; // inside the nest's range with a clear line, but outside `fortress-approach` (z -68..-55)
+
+function countFortressBullets(game: GameModel, seconds: number): number {
+  let seen = 0;
+  for (let i = 0; i < Math.round(seconds / DT); i++) {
+    step(game, idle, DT);
+    for (const bullet of game.bullets) if (isFortressBullet(bullet)) seen++;
+  }
+  return seen;
+}
+
+function standAt(game: GameModel, at: { x: number; z: number }): void {
+  game.mech.x = at.x;
+  game.mech.y = 0;
+  game.mech.z = at.z;
+  game.mech.yaw = 0;
+}
+
+test('before it wakes, the nest does not fire even with the mech in its range and its line clear', () => {
+  seed(1);
+  const game = nestGame();
+  standAt(game, BEFORE);
+  expect(game.script.flags).not.toContain(FORTRESS_GUN_FLAG);
+  expect(countFortressBullets(game, SECONDS)).toBe(0);
+  expect(game.armor).toBe(MECH_TUNE.armor);
+  expect(game.script.flags).not.toContain(FORTRESS_GUN_FLAG);
+});
+
+test('the mech stepping in front of the fortress wakes the nest, and it sweeps from then on', () => {
+  seed(1);
+  const game = nestGame();
+  standAt(game, BEFORE);
+  expect(countFortressBullets(game, SECONDS)).toBe(0);
+  standAt(game, OPEN);
+  expect(countFortressBullets(game, SECONDS)).toBeGreaterThan(0);
+  expect(game.script.flags).toContain(FORTRESS_GUN_FLAG);
+  expect(game.armor).toBeLessThan(MECH_TUNE.armor);
+});
+
+test('a nest broken before it wakes stays silent after the flag stands', () => {
+  seed(1);
+  const game = nestGame();
+  standAt(game, BEFORE);
+  const gun = game.targets.find(target => target.id === 'fortress-gun');
+  if (!gun) throw new Error('the hand map has no fortress-gun');
+  gun.hp = 0; // the mech shot it from where it stood
+  expect(countFortressBullets(game, 1)).toBe(0);
+  standAt(game, OPEN);
+  expect(countFortressBullets(game, SECONDS)).toBe(0);
+  expect(game.script.flags).toContain(FORTRESS_GUN_FLAG);
+  expect(game.armor).toBe(MECH_TUNE.armor);
+});
+
+test('the wake flag survives a suspend, and the restored nest keeps sweeping', () => {
+  seed(1);
+  const game = nestGame();
+  standAt(game, OPEN);
+  step(game, idle, DT);
+  const back = restoreSuspend(JSON.parse(JSON.stringify(suspendOf(game))));
+  if (!back) throw new Error('the suspend did not restore');
+  expect(back.script.flags).toContain(FORTRESS_GUN_FLAG);
+  back.armor = MECH_TUNE.armor;
+  back.barrages = [];
+  back.aimed = null;
+  back.enemies = [];
+  back.pillboxes = [];
+  expect(countFortressBullets(back, SECONDS)).toBeGreaterThan(0);
 });

@@ -509,7 +509,7 @@ const BLASTS: BlastPlace[] = [
   { id: 'blast-pillbox-2-back', line: null, x: 21, z: -23, target: 'pillbox-2' },
   // the charge in the land wall's magazine (SB-1860): open once the mid boss is down, a 20 s fuse, and the blast brings the
   // fortress down
-  { id: 'fort-bomb', line: null, x: 0, z: -124, fuse: FORT_BLAST_TUNE.countdownSec, after: 'wardenDown' },
+  { id: 'fort-bomb', line: null, x: 0, z: -119.5, fuse: FORT_BLAST_TUNE.countdownSec, after: 'wardenDown' },
 ];
 
 export const M1B_HAND: MapDef = {

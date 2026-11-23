@@ -31,7 +31,7 @@ import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/haz
 import { LANDING_TUNE } from '../data/landing.ts';
 import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
 import { M1_MECH } from '../data/mech.ts';
-import { M1 } from '../data/missions/m1.ts';
+import { FORTRESS_GUN_FLAG, M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
@@ -1468,6 +1468,8 @@ function stepBattery(game: GameModel, dt: number): void {
 // Runs the fortress's heavy machine-gun nest while its target stands; the shots it fires become FortressBullets. The
 // line is stopped by a prop or by another standing target; the nest's own box is left out (its muzzle is past it).
 function stepFortressGunNest(game: GameModel, dt: number): void {
+  // asleep until the script's flag stands (SB-2045); a nest broken before then stays silent, the flag or not
+  if (!game.script.flags.includes(FORTRESS_GUN_FLAG)) return;
   const target = game.targets.find(item => item.kind === 'fortressGun' && item.hp > 0);
   if (!target) return;
   const blockers = [
