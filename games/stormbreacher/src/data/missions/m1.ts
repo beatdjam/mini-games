@@ -494,6 +494,7 @@ export const M1: MissionDef = {
   ],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'stop-fortress-gun', 'silence-battery', 'hit-magazine'],
   marks: [],
+  flags: ['depot-down', LINE1_FLAG, LINE2_FLAG, PILLBOXES_DOWN_FLAG, 'shutter-open'],
   allies: ['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner'],
   paths: PATHS,
   places: PLACES,

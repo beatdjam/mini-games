@@ -87,6 +87,12 @@ export function validateMission(def: MissionDef): void {
   }
   for (const cue of def.cues) {
     checkTrigger(def, cue.id, cue.trigger, ids);
+    // `start` is due in one frame only (time 0), so a condition that is not met then would keep the cue from ever firing
+    if (cue.trigger.kind === 'start' && (cue.when !== undefined || cue.unless !== undefined)) {
+      throw new Error(`cue "${cue.id}": a start cue cannot have when or unless; it can only fire at time 0`);
+    }
+    for (const name of cue.when ?? []) requireIn(def.flags ?? [], name, 'flag');
+    for (const name of cue.unless ?? []) requireIn(def.flags ?? [], name, 'flag');
     for (const action of cue.actions) checkAction(def, cue.id, action);
   }
 }
@@ -113,6 +119,7 @@ function checkTrigger(def: MissionDef, cueId: string, trigger: Trigger, ids: Rea
       if (!ids.has(trigger.cue)) throw new Error(`cue "${cueId}": no cue "${trigger.cue}" to wait for`);
       return;
     case 'flag':
+      requireIn(def.flags ?? [], trigger.name, 'flag');
       return;
     default:
       throw new Error(`cue "${cueId}": unknown trigger ${JSON.stringify(trigger)}`);
@@ -156,8 +163,10 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
       if (!(action.id in CUTSCENE_SEC)) throw new Error(`cue "${cueId}": no cutscene "${action.id}"`);
       return;
     case 'checkpoint':
-    case 'flag':
     case 'end':
+      return;
+    case 'flag':
+      requireIn(def.flags ?? [], action.name, 'flag');
       return;
     case 'map':
       requireIn(def.marks, action.mark, 'mark');
@@ -231,6 +240,9 @@ const firedAt = (s: ScriptState, id: string): number | undefined =>
   Object.prototype.hasOwnProperty.call(s.fired, id) ? s.fired[id] : undefined;
 
 function isDue(s: ScriptState, cue: Cue, allowStart: boolean): boolean {
+  // The flags come before the trigger: a cue whose condition is not met does not fire even when its trigger is due.
+  if (cue.when !== undefined && !cue.when.every(name => s.flags.includes(name))) return false;
+  if (cue.unless !== undefined && cue.unless.some(name => s.flags.includes(name))) return false;
   const trigger = cue.trigger;
   switch (trigger.kind) {
     case 'start':
