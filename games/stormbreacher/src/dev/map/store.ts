@@ -59,6 +59,9 @@ function propOf(value: unknown, index: number): Prop {
   if (prop.breakable !== undefined && typeof prop.breakable !== 'boolean') {
     throw new Error(`props[${index}].breakable is not a boolean`);
   }
+  if (prop.collapse !== undefined && typeof prop.collapse !== 'boolean') {
+    throw new Error(`props[${index}].collapse is not a boolean`);
+  }
   const out: Prop = {
     kind: propKind(prop.kind, `props[${index}].kind`),
     x: num(prop.x, `props[${index}].x`),
@@ -67,6 +70,7 @@ function propOf(value: unknown, index: number): Prop {
     scale: num(prop.scale, `props[${index}].scale`),
   };
   if (prop.breakable === true) out.breakable = true;
+  if (prop.collapse === true) out.collapse = true;
   return out;
 }
 
@@ -112,6 +116,13 @@ function blastsOf(value: unknown): BlastPlace[] | undefined {
     };
     // a pillbox's point names the target its charge breaks (SB-1540); a point on a line names none
     if (blast.target !== undefined) out.target = text(blast.target, `blasts[${index}].target`);
+    // the fortress's charge has a 20 s fuse (SB-1860); the other points leave it out and take CHARGE_TUNE.fuse
+    if (blast.fuse !== undefined) out.fuse = num(blast.fuse, `blasts[${index}].fuse`);
+    // the point opens only after the mid boss falls (SB-1860)
+    if (blast.after !== undefined) {
+      if (blast.after !== 'wardenDown') throw new Error(`blasts[${index}].after is not 'wardenDown'`);
+      out.after = 'wardenDown';
+    }
     return out;
   });
 }

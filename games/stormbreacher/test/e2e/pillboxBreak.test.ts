@@ -7,6 +7,7 @@ import { LOOP, runSystems } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { PILLBOX_BREAK } from '../../src/data/pillbox.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { boomCounts } from '../../src/view/boom.ts';
@@ -36,7 +37,7 @@ function breakWithCharge(id: string): void {
   const current = game();
   const point = (current.map.blasts ?? []).find(place => place.target === id);
   if (!point) throw new Error(`the map has no blast point for ${id}`);
-  current.charges.push({ blast: point.id, left: 0 });
+  current.charges.push({ blast: point.id, left: 0, total: CHARGE_TUNE.fuse });
 }
 
 function meshOf(id: string): THREE.Mesh {
@@ -119,7 +120,7 @@ test('a charge that breaks its pillbox in the same frame draws one large blast, 
   current.mech.y = 0;
   current.mech.z = point.z + 2;
   current.mech.grounded = true;
-  current.charges.push({ blast: point.id, left: 0 });
+  current.charges.push({ blast: point.id, left: 0, total: CHARGE_TUNE.fuse });
   runSystems(1 / 60);
   expect(target.hp).toBe(0);
   expect(boomCounts().fire).toBe(1);

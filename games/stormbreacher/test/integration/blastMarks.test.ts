@@ -40,6 +40,13 @@ test('before a pillbox is shot once, only the lines’ points show a light; afte
   expect(ids(game, 'dim')).toEqual([...LINE_POINTS].sort());
 });
 
+test('the fortress’s bomb shows a light only once the mid boss is down (SB-1860)', () => {
+  const game = newGame();
+  expect(ids(game, 'dim')).not.toContain('fort-bomb');
+  game.script.wardenDown = true;
+  expect(ids(game, 'dim')).toContain('fort-bomb');
+});
+
 test('a cutscene shows no light, and the light is back when it ends', () => {
   const game = newGame();
   shoot(game, 'pillbox-1');

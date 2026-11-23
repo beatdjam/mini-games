@@ -37,9 +37,9 @@ export interface BriefingMap {
   marks: BriefingMark[];
 }
 
-// The map's marks: a site for each target, a dot for each place the squad's wave comes in, and the two arrows. The first
-// wave's arrow is `path` (the way the ally runs along the beach) with a tail out in the sea; the second wave's arrow
-// follows the first's first points, shifted aside.
+// The map's marks: a site for each target, a dot for each place the squad's wave comes in, and the first wave's arrow.
+// The arrow is `path` (the way the ally runs along the beach) with a tail out in the sea. The second wave's arrow is gone
+// (SB-1860): the briefing no longer promises a second wave.
 export function briefingMap(map: MapDef, path: readonly GroundSpot[]): BriefingMap {
   const marks: BriefingMark[] = [];
   for (const target of map.targets) {
@@ -57,11 +57,7 @@ export function briefingMap(map: MapDef, path: readonly GroundSpot[]): BriefingM
   if (!first) throw new Error('the briefing has no way for the first wave');
   const tail = { x: first.x, z: map.bounds.maxZ + BRIEFING_TUNE.waveStartGap };
   const wave1 = [tail, ...path];
-  const wave2 = wave1
-    .slice(0, BRIEFING_TUNE.wave2Points)
-    .map(spot => ({ x: spot.x + BRIEFING_TUNE.wave2ShiftX, z: spot.z }));
   marks.push({ symbol: 'wave1', shape: 'arrow', points: wave1 });
-  marks.push({ symbol: 'wave2', shape: 'arrow', points: wave2 });
   const terrain = map.props
     .filter(prop => BRIEFING_TERRAIN_KINDS.includes(prop.kind))
     .map(prop => ({ kind: prop.kind, x: prop.x, z: prop.z }));

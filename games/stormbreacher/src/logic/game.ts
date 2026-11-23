@@ -26,7 +26,7 @@ import { ENEMIES, ENEMY_CHEST, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type En
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
-import { FORTRESS_GUN_TUNE, YARD_TUNE } from '../data/fortress.ts';
+import { FORT_BLAST_TUNE, FORTRESS_GUN_TUNE, FORTRESS_TUNE, YARD_TUNE } from '../data/fortress.ts';
 import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
 import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
@@ -300,6 +300,7 @@ export interface GameModel {
   blasts: BlastState[]; // the map's blast points, and which have blown their line open
   charges: ChargeState[]; // the charges planted and not yet blown
   plant: PlantState | null; // the hold under way on a blast point, if any
+  brokenProps: number[]; // the props the fortress blast brought down (map.props' places, SB-1860)
   allies: AllyState[]; // the allies the script has put out, the fallen too (down: they do not move); no hit box
   slow: { left: number; scale: number } | null; // the milestone's short slowdown: real seconds left and the time's share
   calm: { left: number; mul: number } | null; // the milestone's lull in the enemy mortar: seconds left and its interval share
@@ -847,6 +848,12 @@ function damageProp(game: GameModel, boxIndex: number, damage: number): void {
 function openBlastHole(game: GameModel, blast: BlastState): void {
   const props = new Set(blastPropIndexes(game.map, blast));
   if (props.size === 0) return;
+  breakProps(game, props);
+}
+
+// Takes the named props' blockers out of rects, propBoxes and propRefs, the boxes from the highest number down and each
+// rect after them. The map is unchanged: it still says where the prop stood.
+function breakProps(game: GameModel, props: ReadonlySet<number>): void {
   const boxes: number[] = [];
   for (let i = 0; i < game.propRefs.length; i++) if (props.has(game.propRefs[i])) boxes.push(i);
   if (boxes.length === 0) return;
@@ -857,6 +864,43 @@ function openBlastHole(game: GameModel, blast: BlastState): void {
   }
   rects.sort((a, b) => b - a);
   for (const index of rects) game.rects.splice(index, 1);
+}
+
+// The fortress's footprint (SB-1860): the walls and the land door this charge brings down, and the sea gate's seaward
+// face, past which the mech is out. `FORT_LAND_Z` is the land wall's outer face.
+const FORT_HALF_W = FORTRESS_TUNE.outerW / 2 + 1; // the walls' outer faces and a metre (m)
+const FORT_SEA_Z = FORTRESS_TUNE.seaWallZ - FORTRESS_TUNE.wallT / 2; // the sea wall's landward face (m)
+const FORT_LAND_Z = FORTRESS_TUNE.landWallZ - FORTRESS_TUNE.wallT / 2; // the land wall's outer face (m)
+const FORT_GATE_Z = FORTRESS_TUNE.seaWallZ + FORTRESS_TUNE.wallT / 2; // the sea gate's seaward face (m)
+
+// Whether the mech is outside the fortress's box: past the sea gate, past the land wall or round the side walls. A mech
+// that stayed inside takes the blast; one that ran out the sea gate is spared (SB-1860's decision).
+function outsideFortress(mech: { x: number; z: number }): boolean {
+  if (mech.z > FORT_GATE_Z || mech.z < FORT_LAND_Z) return true;
+  return Math.abs(mech.x) > FORTRESS_TUNE.outerW / 2;
+}
+
+// What the charge in the land wall does (SB-1860): every `collapse` prop of the fortress's box comes down, the wall's
+// machine-gun nest is destroyed, a mech still inside takes FORT_BLAST_TUNE.damage and the script hears `fortressDown`.
+// The nest is broken first and `fortressDown` sent last, and the script is told even when the nest was already down.
+export function fortressBlast(game: GameModel, blast: BlastState): void {
+  const already = new Set(game.brokenProps);
+  const props: number[] = [];
+  game.map.props.forEach((prop, index) => {
+    if (prop.collapse !== true || already.has(index)) return;
+    if (Math.abs(prop.x) > FORT_HALF_W || prop.z > FORT_SEA_Z || prop.z < FORT_LAND_Z) return;
+    props.push(index);
+  });
+  if (props.length > 0) {
+    game.brokenProps.push(...props);
+    breakProps(game, new Set(props));
+  }
+  const gun = game.targets.find(target => target.id === 'fortress-gun' && target.hp > 0);
+  if (gun) damageTarget(game, gun, gun.hp);
+  if (!outsideFortress(game.mech)) {
+    damageMech(game, FORT_BLAST_TUNE.damage, blast.x - game.mech.x, blast.z - game.mech.z);
+  }
+  sendToScript(game, { kind: 'fortressDown' });
 }
 
 // A new sortie on `map` with the script `mission`: the mech on the landing craft's deck at the middle of the front edge,
@@ -922,6 +966,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     blasts: newBlasts(map),
     charges: [],
     plant: null,
+    brokenProps: [],
     allies: [],
     slow: null,
     calm: null,
@@ -1246,8 +1291,12 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
     }
     if (event.kind === 'checkpoint') checkpoint = event.id;
   }
-  // The copy is taken once all of the frame's events are applied, so the wave a checkpoint's cue sends out is in it
-  if (checkpoint !== null) game.checkpoint = snapshotOf(game, checkpoint);
+  // The copy is taken once all of the frame's events are applied, so the wave a checkpoint's cue sends out is in it. A
+  // cutscene the cue set is not kept: coming back from the checkpoint must not play it again (SB-1860's cp3).
+  if (checkpoint !== null) {
+    game.checkpoint = snapshotOf(game, checkpoint);
+    if (game.checkpoint.script.cutscene !== null) game.checkpoint.script.cutscene = null;
+  }
 }
 
 // A deep copy of the game for the checkpoint `id`. The fields that are not kept are taken out by name, so a field added
@@ -1651,7 +1700,8 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     const { id, x, z } = charge.planted;
     game.events.push({ kind: 'planted', id, x, z });
   }
-  for (const blown of stepBlasts(game, span)) {
+  // A cutscene holds the fuses still: the fortress one counts its 20 s only while the player has the controls.
+  for (const blown of game.script.cutscene === null ? stepBlasts(game, span) : []) {
     const blast = blown.blast;
     if (blast.blasted) continue;
     openBlastHole(game, blast);
@@ -1660,6 +1710,12 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     // the script may wait for a line's hole: a mission that runs an `allyMove` on the blast hears it now, before the
     // frame's allies step, so the allies that waited by the line start through it in this same frame
     sendToScript(game, { kind: 'blast', id: blast.id });
+    // The fortress's charge is its own blast (SB-1860): it brings the walls down and tells the script so, and it does
+    // not take the line charge's 9 m hit and 60 damage.
+    if (blast.id === 'fort-bomb') {
+      fortressBlast(game, blast);
+      continue;
+    }
     // A point that names a target breaks it (a pillbox's point, SB-1540). The charge sits outside the armour, so the
     // shot's shares are not taken off it, and a target already down is not reported again.
     const targetId = blastTarget(game.map, blast.id);
@@ -1677,6 +1733,8 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     if (game.script.entered.includes(id)) continue;
     if (inArea(area, game.mech.x, game.mech.z)) sendToScript(game, { kind: 'enter', area: id });
   }
+  // The mid boss blew (SB-1850): the land wall's magazine is open to a charge. One `wardenDown` event becomes one input.
+  if (game.events.some(event => event.kind === 'wardenDown')) sendToScript(game, { kind: 'wardenDown' });
   applyScriptOut(game, stepScript(game.script, game.mission, span));
   stepCover(game, span);
   stepRadio(game, span);

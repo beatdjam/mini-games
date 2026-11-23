@@ -99,10 +99,10 @@ describe('suspend', () => {
 
   test('the planted charges and the hold under way come back', () => {
     const game = newGame(M1B_HAND);
-    game.charges.push({ blast: 'l1-b', left: 1.75 });
+    game.charges.push({ blast: 'l1-b', left: 1.75, total: 3 });
     game.plant = { blast: 'l1-a', hold: 0.5 };
     const back = restoreSuspend(stored(suspendOf(game)));
-    expect(back?.charges).toEqual([{ blast: 'l1-b', left: 1.75 }]);
+    expect(back?.charges).toEqual([{ blast: 'l1-b', left: 1.75, total: 3 }]);
     expect(back?.plant).toEqual({ blast: 'l1-a', hold: 0.5 });
   });
 
@@ -238,6 +238,15 @@ describe('suspend', () => {
     game.checkpoint = { ...structuredClone({ ...game, id: 'cp1' }), map: M1B_HAND, mission: M1 };
     const withCheckpoint = restoreSuspend(stored(suspendOf(game)));
     expect(withCheckpoint?.checkpoint?.losses).toEqual({ allies: 1, squads: 2 });
+  });
+
+  test('the fortress blast’s lowered walls come back', () => {
+    const game = newGame(M1B_HAND);
+    game.brokenProps = [12, 13, 30];
+    game.script.fortressDown = true;
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.brokenProps).toEqual([12, 13, 30]);
+    expect(back?.script.fortressDown).toBe(true);
   });
 
   test('a version that is not this one is thrown away', () => {

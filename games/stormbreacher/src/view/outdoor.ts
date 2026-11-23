@@ -594,7 +594,7 @@ export function buildOutdoor(items: Prop[], opts: OutdoorBuildOpts): OutdoorBuil
   // The chunks remake the matrices, so a prop is found by its kind and its place, not by an index.
   const slots = new Map<Prop, PropSlot>();
   for (const item of items) {
-    if (item.breakable !== true && opts.slotProps?.has(item) !== true) continue;
+    if (item.breakable !== true && item.collapse !== true && opts.slotProps?.has(item) !== true) continue;
     const slot = findSlot(group, item);
     if (slot) slots.set(item, slot);
   }

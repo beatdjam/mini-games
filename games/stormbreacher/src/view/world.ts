@@ -131,7 +131,7 @@ export function buildWorld(map: MapDef, air = true): World {
   });
   blockingPropIndexes(map).forEach((propIndex, i) => {
     const prop = map.props[propIndex];
-    if (prop.breakable !== true && !blastProps.has(prop)) return;
+    if (prop.breakable !== true && prop.collapse !== true && !blastProps.has(prop)) return;
     const box = boxesByRect[i][0];
     if (box) propCameraBoxes.set(propIndex, box);
   });
@@ -188,29 +188,28 @@ export function syncWorld(world: World, game: GameModel, dt: number): void {
     if (plate) plate.visible = !shutter.open;
   }
   for (const breakable of game.breakables) {
-    if (breakable.hp > 0 || world.broken.has(breakable.prop)) continue;
-    const slot = world.slots.get(breakable.prop);
-    if (slot) breakPropSlot(slot);
-    const box = world.propCameraBoxes.get(breakable.prop);
-    if (box) {
-      const at = world.cameraBoxes.indexOf(box);
-      if (at >= 0) world.cameraBoxes.splice(at, 1);
-    }
-    world.broken.add(breakable.prop);
+    if (breakable.hp > 0) continue;
+    breakPropAt(world, breakable.prop);
   }
   for (const blast of game.blasts) {
     if (!blast.blasted || world.opened.has(blast.id)) continue;
     world.opened.add(blast.id);
-    for (const prop of blastPropIndexes(game.map, blast)) {
-      if (world.broken.has(prop)) continue;
-      const slot = world.slots.get(prop);
-      if (slot) breakPropSlot(slot);
-      const box = world.propCameraBoxes.get(prop);
-      if (box) {
-        const at = world.cameraBoxes.indexOf(box);
-        if (at >= 0) world.cameraBoxes.splice(at, 1);
-      }
-      world.broken.add(prop);
-    }
+    for (const prop of blastPropIndexes(game.map, blast)) breakPropAt(world, prop);
   }
+  // The fortress blast's walls and its land door (SB-1860): the game keeps their places in map.props, and every one is
+  // lowered once, whether it was broken this frame or is already down after a checkpoint or a suspend.
+  for (const prop of game.brokenProps) breakPropAt(world, prop);
+}
+
+// Lowers and darkens one prop where it stands and takes its box out of cameraBoxes, once.
+function breakPropAt(world: World, prop: number): void {
+  if (world.broken.has(prop)) return;
+  const slot = world.slots.get(prop);
+  if (slot) breakPropSlot(slot);
+  const box = world.propCameraBoxes.get(prop);
+  if (box) {
+    const at = world.cameraBoxes.indexOf(box);
+    if (at >= 0) world.cameraBoxes.splice(at, 1);
+  }
+  world.broken.add(prop);
 }

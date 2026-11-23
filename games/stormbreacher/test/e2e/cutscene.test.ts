@@ -182,6 +182,24 @@ test('the other cutscenes do not draw the mech', async () => {
   expect(mechModel().visible).toBe(true);
 });
 
+test('the fortress blast shows the ruin and then the craft at sea', async () => {
+  startSortie();
+  await untilSteps(() => !bars().hidden);
+  el('#gl').click();
+  await untilSteps(() => bars().hidden);
+  game().script.cutscene = { id: 'fortress-blast', left: CUTSCENE_SEC['fortress-blast'] - 1 };
+  steps(1);
+  expect(bars().hidden).toBe(false);
+  expect(caption()).toBe(t('cutscene.blast.fall'));
+  game().script.cutscene = { id: 'fortress-blast', left: CUTSCENE_SEC['fortress-blast'] - 6.5 };
+  steps(1);
+  steps(1);
+  expect(caption()).toBe(t('cutscene.blast.gun'));
+  expect(seaCrafts()).toBe(1);
+  game().script.cutscene = null;
+  steps(1);
+});
+
 const riderGroups = (): THREE.Group[] =>
   scene.children.filter((child): child is THREE.Group => child.name === RIDERS_NAME);
 

@@ -285,10 +285,18 @@ describe('checkpoint', () => {
     sendToScript(game, { kind: 'enter', area: 'fortress-yard' });
     run(game, idle, 1);
     const assist = structuredClone(game.assist);
-    sendToScript(game, { kind: 'enter', area: 'fortress-out' });
+    sendToScript(game, { kind: 'wardenDown' });
+    sendToScript(game, { kind: 'fortressDown' });
+    // the blast's cutscene is passed over, so the assist's wait runs on as it did before the checkpoint
+    sendToScript(game, { kind: 'skip' });
     const copy = game.checkpoint;
     if (!copy) throw new Error('no checkpoint');
     expect(copy.id).toBe('cp3');
+    expect(copy.script.cutscene).toBeNull();
+    expect(copy.script.fortressDown).toBe(true);
+    expect(copy.script.flags).toContain('fortress-down');
+    expect(copy.script.spawned).toContain('battery');
+    expect(copy.battery.on).toBe(true);
     expect(copy.assist).toEqual(assist);
     expect(copy.assist).not.toBeNull();
     expect(copy.allies).toEqual(game.allies);

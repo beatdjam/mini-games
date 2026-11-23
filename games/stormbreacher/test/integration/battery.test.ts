@@ -102,14 +102,11 @@ test('the battery’s parts stand landward of the seawall’s back face, with th
   }
 });
 
-test('from the yard the mech walks through the land gate and round the cover to every part of the battery', () => {
+test('from the field past the fallen land gate the mech walks round the cover to every part of the battery', () => {
   const game = newBatteryGame();
-  game.mech.x = 10;
-  game.mech.z = -78;
-  // down the yard, through the land gate (x 0, z -128), then between the cover pieces to the guns and the magazine
-  walkTo(game, 0, -96);
-  walkTo(game, 0, -120);
-  walkTo(game, 0, -140);
+  // the land gate is shut until the charge blows it (SB-1860); this test reads the ground from the field on
+  game.mech.x = 0;
+  game.mech.z = -140;
   walkTo(game, -30, -175);
   walkTo(game, -40, -225);
   expect(distanceToPart(game, 'main-gun-1')).toBeLessThanOrEqual(REACH);
@@ -140,7 +137,12 @@ test('M1 clears: through the gates, both guns down, then the magazine', () => {
   }
   expect(game.script.entered).toContain('fortress-gate');
   expect(game.script.objective).toBe('stop-fortress-gun');
-  // the field past the land gate starts the battery's wave and the count of its main guns
+  // the charge in the land wall blows (SB-1860): the walls come down, the battery's wave starts and the count of its main
+  // guns is taken. The cutscene is skipped so the shots below have the controls.
+  sendToScript(game, { kind: 'wardenDown' });
+  sendToScript(game, { kind: 'fortressDown' });
+  sendToScript(game, { kind: 'skip' });
+  expect(game.script.objective).toBe('silence-battery');
   game.mech.x = 0;
   game.mech.y = 0;
   game.mech.z = -140;

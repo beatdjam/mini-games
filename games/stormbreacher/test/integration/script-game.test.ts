@@ -139,6 +139,9 @@ function runM1(
   send({ kind: 'cleared', wave: 'yard-1' });
   send({ kind: 'cleared', wave: 'yard-2' });
   send({ kind: 'cleared', wave: 'yard-3' });
+  // the mid boss is down and the magazine's charge blows (SB-1860)
+  send({ kind: 'wardenDown' });
+  send({ kind: 'fortressDown' });
   send({ kind: 'enter', area: 'fortress-out' });
   send({ kind: 'destroyed', target: 'main-gun-2' });
   send({ kind: 'destroyed', target: 'main-gun-1' });
@@ -251,6 +254,7 @@ test(
       'reach-pillboxes',
       'break-pillboxes',
       'stop-fortress-gun',
+      'bomb-fortress',
       'silence-battery',
       'hit-magazine',
     ]);

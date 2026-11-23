@@ -28,13 +28,18 @@ function drawn(name: string): number {
 
 // How many hedgehog copies are drawn low (a broken or blast-opened one makes its copy this low).
 function loweredHedgehogs(): number {
+  return loweredCopies('hedgehog');
+}
+
+// How many copies of a kind are drawn low (a prop lowered by the fortress blast too).
+function loweredCopies(name: string): number {
   const matrix = new THREE.Matrix4();
   const at = new THREE.Vector3();
   const turn = new THREE.Quaternion();
   const size = new THREE.Vector3();
   let count = 0;
   scene.traverse(child => {
-    if (!(child instanceof THREE.InstancedMesh) || child.name !== 'hedgehog') return;
+    if (!(child instanceof THREE.InstancedMesh) || child.name !== name) return;
     for (let i = 0; i < child.count; i++) {
       child.getMatrixAt(i, matrix);
       matrix.decompose(at, turn, size);
@@ -89,8 +94,12 @@ test('the pillboxes’ blast points are drawn, and not once their pillbox is dow
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
   const points = game.blasts.length;
-  // the lines' four points and the pillboxes' four are all rings on the fresh map
-  expect(points).toBe(8);
+  // the lines' four points, the pillboxes' four and the fortress's bomb (SB-1860); the bomb has no ring until the mid
+  // boss is down, since nothing can be planted on it before
+  expect(points).toBe(9);
+  expect(drawn('sb-blast-points')).toBe(points - 1);
+  sendToScript(game, { kind: 'wardenDown' });
+  steps(1);
   expect(drawn('sb-blast-points')).toBe(points);
 
   // pillbox-1's two points leave the ground once its guns are down; the other rings stay
@@ -125,7 +134,8 @@ test('a light stands over every blast point of a shot pillbox and of the lines (
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
-  // a point shows no light until its pillbox has been shot: the lines' four stand alone, and the mech is far enough off
+  // a point shows no light until its pillbox has been shot: the lines' four stand alone (the fortress's bomb, SB-1860,
+  // waits for the mid boss), and the mech is far enough off
   game.mech.x = 0;
   game.mech.z = 166;
   steps(1);
@@ -154,7 +164,7 @@ test('`map` draws no light on screen, and `next` draws one that moves on when it
   game.mech.z = -40;
   setMarkerMode('map');
   steps(1);
-  expect(drawn('sb-blast-points')).toBe(8);
+  expect(drawn('sb-blast-points')).toBe(8); // the bomb waits for the mid boss
   expect(drawn('sb-blast-pillars')).toBe(0);
   expect(drawn('sb-blast-diamonds')).toBe(0);
 
@@ -178,6 +188,29 @@ function find(name: string): THREE.Object3D | undefined {
   });
   return found;
 }
+
+test('the fortress blast lowers its walls where they stand, with no new mesh', async () => {
+  startSortie();
+  steps(1);
+  draw();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  const walls = game.map.props.flatMap((prop, index) =>
+    prop.kind === 'fortWall' && prop.collapse === true ? [index] : [],
+  );
+  // 21 pieces stand; the land wall, the side walls and the door (15) come down, and the sea wall's 6 stay
+  const all = game.map.props.filter(prop => prop.kind === 'fortWall').length;
+  expect(all).toBe(21);
+  expect(walls.length).toBe(15);
+  expect(drawn('fortWall')).toBe(all);
+  expect(loweredCopies('fortWall')).toBe(0);
+  game.brokenProps.push(...walls);
+  steps(2);
+  draw();
+  expect(loweredCopies('fortWall')).toBe(walls.length);
+  // the copies stay in the same instanced meshes: no draw was added
+  expect(drawn('fortWall')).toBe(all);
+});
 
 test('a sortie draws every target of the map, the battery’s parts among them', async () => {
   startSortie();

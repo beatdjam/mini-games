@@ -147,6 +147,17 @@ describe('suspend and resume', () => {
     expect(resumed(back).shells).toEqual([]);
   });
 
+  test('the fortress blast’s lowered walls come back with the resume and the retry', () => {
+    const game = newPlayGame(M1B_HAND);
+    game.brokenProps = [12, 13, 30];
+    game.script.fortressDown = true;
+    const back = resumed(game);
+    expect(back.brokenProps).toEqual([12, 13, 30]);
+    expect(back.script.fortressDown).toBe(true);
+    // a game past the blast has no cutscene waiting; the view starts quiet from `fortressDown` (the e2e side)
+    expect(back.script.cutscene).toBeNull();
+  });
+
   test('a clear after the resume pays what the same sortie pays without a suspend', () => {
     const game = played();
     const back = resumed(game);

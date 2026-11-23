@@ -342,8 +342,8 @@ test('a view starts at -1 until the cutscene has played a second, and in the mid
   expect(cutsceneElapsed({ id: 'wave2-sinks', left: 2.5 })).toBeCloseTo(CUTSCENE_SEC['wave2-sinks'] - 2.5, 9);
 });
 
-test('every table keeps to its cutscene length, and all three cutscenes have one', () => {
-  for (const id of ['landing', 'wave2-sinks', 'beach-held'] as const) {
+test('every table keeps to its cutscene length, and all four cutscenes have one', () => {
+  for (const id of ['landing', 'wave2-sinks', 'beach-held', 'fortress-blast'] as const) {
     const def = CUTSCENES[id];
     if (!def) throw new Error(`no table for ${id}`);
     for (const key of def.camera) expect(key.at, `${id} camera`).toBeLessThanOrEqual(CUTSCENE_SEC[id]);
@@ -383,7 +383,7 @@ test('a relative key is built from where the mech stands, and an absolute one is
 });
 
 test('the new tables have their lines in ja and en, one after another', () => {
-  for (const id of ['wave2-sinks', 'beach-held'] as const) {
+  for (const id of ['wave2-sinks', 'beach-held', 'fortress-blast'] as const) {
     const def = CUTSCENES[id];
     if (!def) throw new Error(`no table for ${id}`);
     expect(def.lines).toHaveLength(2);
@@ -529,4 +529,32 @@ test('the tracers come only after the ramp is down and nothing blows up in the l
     if (event.kind === 'burst')
       expect(event.at, 'a blast in the last half second').toBeLessThan(CUTSCENE_SEC.landing - 0.5);
   }
+});
+
+test('the fortress blast keys are all relative to the mech, and the sea craft stay inside the camera’s range', () => {
+  const def = CUTSCENES['fortress-blast'];
+  if (!def) throw new Error('no table for fortress-blast');
+  for (const key of def.camera) expect(key.rel, `${key.at} s`).toBe(true);
+  // the run's end outside the sea gate (m); the keys are offsets from there
+  const mech = { x: 0, z: -58 };
+  const FAR = 260; // view/world.ts sets camera.far to FOG_FAR + 20
+  const sinks = def.events.filter(event => event.kind === 'sink');
+  expect(sinks).toHaveLength(2);
+  for (const sink of sinks) {
+    if (sink.kind !== 'sink') throw new Error('not a sink');
+    expect(sink.z ?? 0).toBeGreaterThanOrEqual(175);
+    expect(sink.z ?? 0).toBeLessThanOrEqual(190);
+  }
+  // the two keys out at sea stand at z 100-150 for that mech, and each sink lies within camera.far of them
+  for (const key of def.camera.filter(key => key.pos[2] > 100)) {
+    const at = key.pos[2] + mech.z;
+    expect(at).toBeGreaterThanOrEqual(100);
+    expect(at).toBeLessThanOrEqual(150);
+    for (const sink of sinks) if (sink.kind === 'sink') expect(Math.abs((sink.z ?? 0) - at)).toBeLessThan(FAR);
+  }
+  // the cut to the sea holds the same pose for a moment, so it is a cut and not a flight
+  const cut = def.camera.find(key => key.at === 4);
+  const held = def.camera.find(key => key.at === 4.02);
+  expect(cut?.pos).toEqual(held?.pos);
+  expect(cut?.look).toEqual(held?.look);
 });

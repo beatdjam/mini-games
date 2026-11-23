@@ -3,13 +3,13 @@
 import type { BriefingLine, BriefingSymbol, PropKind, TargetKind } from './types.ts';
 
 // The lines in the order they come. A tap jumps to the next line's `at`; the last line is held for BRIEFING_TUNE.holdSec
-// before the cycle is over, which makes a cycle of about 15 s.
+// before the cycle is over, which makes a cycle of about 13 s. The second wave's promise is gone (SB-1860): the fortress's
+// gun is the last thing the plan names.
 export const M1_BRIEFING: readonly BriefingLine[] = [
   { key: 'briefing.goal', at: 0, show: ['battery'] },
-  { key: 'briefing.enemy', at: 3, show: ['pillboxes', 'squad'] },
-  { key: 'briefing.wave1', at: 6, show: ['wave1'] },
-  { key: 'briefing.wave2', at: 9, show: ['wave2'] }, // the plan the script breaks later: m1.wave2-lost says it
-  { key: 'briefing.depot', at: 12, show: ['depot'] },
+  { key: 'briefing.enemy', at: 4, show: ['pillboxes', 'squad'] },
+  { key: 'briefing.wave1', at: 7, show: ['wave1'] },
+  { key: 'briefing.depot', at: 10, show: ['depot'] },
 ];
 
 // The map's wave whose spawn points show as the soldiers (BriefingSymbol 'squad'), and the mission's way that the
@@ -35,6 +35,4 @@ export const BRIEFING_TUNE = {
   blinkHz: 1.6, // how often a symbol on the latest line blinks (per second)
   seaMargin: 30, // how much sea the map shows past the front edge (m)
   waveStartGap: 24, // how far past the front edge the first wave's arrow starts (m)
-  wave2ShiftX: -30, // how far to the left the second wave's arrow runs from the first's (m)
-  wave2Points: 4, // how many points of the first wave's arrow the second wave's arrow follows
 };

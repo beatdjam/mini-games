@@ -21,3 +21,10 @@ test('every M1 radio line and objective has text in ja and en', () => {
     for (const key of keys) expect(ui[key], `${code} is missing "${key}"`).toBeTruthy();
   }
 });
+
+test('the fortress blast’s lines have text in ja and en', () => {
+  const keys = ['cutscene.blast.fall', 'cutscene.blast.gun'];
+  for (const code of ['ja', 'en']) {
+    for (const key of keys) expect(LANG[code].ui[key], `${code} is missing "${key}"`).toBeTruthy();
+  }
+});

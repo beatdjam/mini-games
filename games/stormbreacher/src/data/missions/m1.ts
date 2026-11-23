@@ -558,14 +558,32 @@ const CUES = [
     ],
   },
   {
-    id: 'fortress-out',
-    trigger: { kind: 'enter', area: 'fortress-out' },
+    id: 'fortress-bomb',
+    // the mid boss's blast opens the land wall's magazine (SB-1860): the objective changes and the leader calls the way out
+    trigger: { kind: 'wardenDown' },
     actions: [
+      { kind: 'objective', id: 'bomb-fortress' },
+      { kind: 'radio', line: 'm1.bomb-armed' },
+    ],
+  },
+  {
+    id: 'fortress-down',
+    // the charge in the magazine blows (SB-1860): the walls come down, the nest on the sea wall is wrecked, cp3 stands at
+    // the new objective and the battery's wave comes out. The cutscene's length is in data/script.ts.
+    trigger: { kind: 'fortressDown' },
+    actions: [
+      { kind: 'flag', name: 'fortress-down' },
+      { kind: 'cutscene', id: 'fortress-blast' },
       { kind: 'checkpoint', id: 'cp3' },
       { kind: 'objective', id: 'silence-battery' },
-      // L7 moves the battery's wave to the blast after the gates; for now it starts once the mech is past them
       { kind: 'spawn', wave: 'battery' },
     ],
+  },
+  {
+    id: 'fortress-out',
+    // the field past the ruin: the checkpoint and the battery moved to the blast above (SB-1860)
+    trigger: { kind: 'enter', area: 'fortress-out' },
+    actions: [{ kind: 'radio', line: 'm1.get-out' }],
   },
   {
     id: 'gun1',
@@ -611,7 +629,14 @@ export const M1: MissionDef = {
     'warden-adds',
     'battery',
   ],
-  objectives: ['reach-pillboxes', 'break-pillboxes', 'stop-fortress-gun', 'silence-battery', 'hit-magazine'],
+  objectives: [
+    'reach-pillboxes',
+    'break-pillboxes',
+    'stop-fortress-gun',
+    'bomb-fortress',
+    'silence-battery',
+    'hit-magazine',
+  ],
   marks: ['depot'],
   flags: [
     'depot-down',
@@ -621,6 +646,7 @@ export const M1: MissionDef = {
     LINE1_FLAG,
     LINE2_FLAG,
     PILLBOXES_DOWN_FLAG,
+    'fortress-down',
     'shutter-open',
     'yard-1-clear',
     'yard-2-clear',

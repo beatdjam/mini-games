@@ -16,6 +16,8 @@ export interface ScriptState {
   entered: string[];
   cleared: string[];
   spawned: string[]; // the waves sent so far, so a restored checkpoint can send the ones not cleared again
+  wardenDown: boolean; // the mid boss blew (SB-1850), so the fortress's magazine may be charged (SB-1860)
+  fortressDown: boolean; // the fortress's charge blew and the walls came down (SB-1860)
   objective: string | null;
   marks: string[];
   cutscene: { id: CutsceneId; left: number } | null;
@@ -51,6 +53,8 @@ export type ScriptInput =
   | { kind: 'blast'; id: string } // a blast point blew and opened its line
   | { kind: 'ashore' } // the mech stepped off the landing craft onto the beach
   | { kind: 'cleared'; wave: string }
+  | { kind: 'wardenDown' } // the mid boss's smoke ended and it blew (SB-1860)
+  | { kind: 'fortressDown' } // the fortress's charge blew (SB-1860)
   | { kind: 'skip' };
 
 // Times that should match do not have to match bit for bit (4 s of 1/60 frames is not exactly 4).
@@ -68,6 +72,8 @@ export function newScript(def: MissionDef): ScriptState {
     entered: [],
     cleared: [],
     spawned: [],
+    wardenDown: false,
+    fortressDown: false,
     objective: null,
     marks: [],
     cutscene: null,
@@ -119,6 +125,10 @@ function checkTrigger(def: MissionDef, cueId: string, trigger: Trigger, ids: Rea
       return;
     case 'flag':
       requireIn(def.flags ?? [], trigger.name, 'flag');
+      return;
+    case 'wardenDown':
+      return;
+    case 'fortressDown':
       return;
     default:
       throw new Error(`cue "${cueId}": unknown trigger ${JSON.stringify(trigger)}`);
@@ -245,6 +255,9 @@ function checkInput(def: MissionDef, input: ScriptInput): void {
     case 'cleared':
       requireIn(def.waves, input.wave, 'wave');
       return;
+    case 'wardenDown':
+    case 'fortressDown':
+      return;
     case 'skip':
       return;
     default:
@@ -284,6 +297,10 @@ function isDue(s: ScriptState, cue: Cue, allowStart: boolean): boolean {
     }
     case 'flag':
       return s.flags.includes(trigger.name);
+    case 'wardenDown':
+      return s.wardenDown;
+    case 'fortressDown':
+      return s.fortressDown;
   }
 }
 
@@ -302,8 +319,13 @@ function fireDue(s: ScriptState, def: MissionDef, out: ScriptOut[], allowStart: 
         if (action.kind === 'checkpoint') checkpoint = action.id;
       }
       // The copy is taken once the whole cue has acted: M1's seawall cue sets the checkpoint first and then the
-      // objective and the boss, and a copy taken in between came back with neither (the cue counts as fired)
-      if (checkpoint !== null) s.checkpoint = { id: checkpoint, snapshot: snapshotOf(s) };
+      // objective and the boss, and a copy taken in between came back with neither (the cue counts as fired). A
+      // cutscene in the cue is not kept: coming back from the checkpoint must not play it again (SB-1860's cp3).
+      if (checkpoint !== null) {
+        const snapshot = snapshotOf(s);
+        snapshot.cutscene = null;
+        s.checkpoint = { id: checkpoint, snapshot };
+      }
       again = true;
     }
   }
@@ -412,6 +434,8 @@ function snapshotOf(s: ScriptState): ScriptState {
     entered: [...s.entered],
     cleared: [...s.cleared],
     spawned: [...s.spawned],
+    wardenDown: s.wardenDown,
+    fortressDown: s.fortressDown,
     objective: s.objective,
     marks: [...s.marks],
     cutscene: s.cutscene === null ? null : { ...s.cutscene },
@@ -457,6 +481,12 @@ export function scriptInput(s: ScriptState, def: MissionDef, input: ScriptInput)
       break;
     case 'cleared':
       if (!s.cleared.includes(input.wave)) s.cleared.push(input.wave);
+      break;
+    case 'wardenDown':
+      s.wardenDown = true;
+      break;
+    case 'fortressDown':
+      s.fortressDown = true;
       break;
     case 'skip':
       if (s.cutscene !== null) {

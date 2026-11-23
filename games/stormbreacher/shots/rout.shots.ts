@@ -11,6 +11,7 @@ import { sendToScript } from '../src/logic/game.ts';
 import { WEAPONS } from '../src/data/weapons.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
+import { CHARGE_TUNE } from '../src/data/charge.ts';
 
 declare const __SHOTS_OUT__: string; // the folder the pictures go to (vitest.shots.config.ts)
 declare const __SHOTS_ONLY__: string; // only the shots whose names contain this ('' = all)
@@ -72,12 +73,13 @@ function advance(seconds: number): void {
 
 // Cuts a line open as the player's charge would.
 function blow(id: string): void {
-  game().charges.push({ blast: id, left: 0 });
+  game().charges.push({ blast: id, left: 0, total: CHARGE_TUNE.fuse });
 }
 
 // Breaks both pillboxes with a charge on each side point (SB-2015: shots only suppress), so cp1 fires.
 function breakBoth(): void {
-  for (const id of ['blast-pillbox-1-side', 'blast-pillbox-2-side']) game().charges.push({ blast: id, left: 0 });
+  for (const id of ['blast-pillbox-1-side', 'blast-pillbox-2-side'])
+    game().charges.push({ blast: id, left: 0, total: CHARGE_TUNE.fuse });
 }
 
 // A mech shot buried in a pillbox's side, as a player's hit would be: it suppresses and does no damage.

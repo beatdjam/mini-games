@@ -11,6 +11,7 @@ import { PILLBOX_BLAST, PILLBOX_BREAK, PILLBOX_TUNE } from '../../data/pillbox.t
 import { BATTLE_TUNE } from '../../data/tune.ts';
 import { sendToScript } from '../../logic/game.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
+import { CHARGE_TUNE } from '../../data/charge.ts';
 
 const SYSTEMS = ['sb-pillbox-skip'] as const;
 
@@ -117,7 +118,7 @@ function breakPillboxes(): void {
   const game = currentGame();
   if (!game) return;
   for (const id of ['blast-pillbox-1-side', 'blast-pillbox-2-side']) {
-    game.charges.push({ blast: id, left: 0 });
+    game.charges.push({ blast: id, left: 0, total: CHARGE_TUNE.fuse });
   }
 }
 

@@ -5,7 +5,7 @@ import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import type { MapDef, MissionDef, Prop } from '../../src/data/types.ts';
-import { step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { fortressBlast, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { checkMapPath } from '../../src/logic/mapCheck.ts';
 import { newPlayGame } from './playGame.ts';
 
@@ -40,13 +40,17 @@ test('the map’s walking check is empty (it stops at the seawall’s foot, so i
 });
 
 // The fortress alone, in a box as wide as its outer wall: with no seawall the check walks the whole depth, so the only
-// way through is the two gates.
-function fortressOnly(extra: readonly Prop[] = []): MapDef {
+// way through is the two gates. `real` keeps the map's own pieces (the `collapse` walls and the land door as they are);
+// otherwise the pieces are plain walls without the door, so a gate shut by an extra piece is told.
+function fortressOnly(extra: readonly Prop[] = [], real = false): MapDef {
   const fortWalls = M1B_HAND.props.filter(prop => prop.kind === 'fortWall');
+  const pieces = real
+    ? fortWalls
+    : fortWalls.filter(wall => wall.collapse !== true || wall.x !== 0).map(wall => ({ ...wall, collapse: undefined }));
   return {
     ...M1B_HAND,
     bounds: { ...M1B_HAND.bounds, minX: -34, maxX: 34 },
-    props: [...fortWalls, ...extra],
+    props: [...pieces, ...extra],
     mines: [],
     blasts: [],
     targets: [],
@@ -59,6 +63,14 @@ test('the check finds a way through both gates of the fortress alone, and not wh
   const landDoor: Prop = { kind: 'fortWall', x: 0, z: FORTRESS_TUNE.landWallZ, yaw: 0, scale: 1 };
   expect(checkMapPath(fortressOnly([seaDoor])).length).toBeGreaterThan(0);
   expect(checkMapPath(fortressOnly([landDoor])).length).toBeGreaterThan(0);
+});
+
+test('the map’s own land door counts as already down, but the sea wall still counts as a wall (SB-1860)', () => {
+  // the real pieces: the land wall and its door are `collapse`, the sea wall is not
+  expect(checkMapPath(fortressOnly([], true))).toEqual([]);
+  // a plain door in the sea gate shuts it even with the land side open to the blast
+  const seaDoor: Prop = { kind: 'fortWall', x: 0, z: FORTRESS_TUNE.seaWallZ, yaw: 0, scale: 1 };
+  expect(checkMapPath(fortressOnly([seaDoor], true)).length).toBeGreaterThan(0);
 });
 
 // True when the intervals [c - half, c + half] of the centres together cover [lo, hi] without a gap.
@@ -89,6 +101,7 @@ test('the four walls close the yard: nothing is missing from an end wall’s hal
     }
     // the gate stays open, and no piece sticks out of the outer wall
     for (const wall of row) {
+      if (wall.x === 0) continue; // the land gate's door fills the gate (SB-1860)
       expect(Math.abs(wall.x) - w / 2).toBeGreaterThanOrEqual(gate(kind) - 1e-9);
       expect(Math.abs(wall.x) + w / 2).toBeLessThanOrEqual(FORTRESS_TUNE.outerW / 2);
     }
@@ -112,28 +125,46 @@ test('the four walls close the yard: nothing is missing from an end wall’s hal
       `side wall, x ${sign}`,
     ).toBe(true);
   }
-  expect(walls).toHaveLength(20);
+  // the land gate's door (SB-1860) is the one piece at x 0: it fills its opening and comes down with the blast
+  expect(walls).toHaveLength(21);
+  const door = walls.filter(wall => wall.x === 0);
+  expect(door).toHaveLength(1);
+  expect(door[0]).toMatchObject({ z: FORTRESS_TUNE.landWallZ, yaw: 0, collapse: true });
+  expect(door[0].breakable).toBeUndefined();
 });
 
-test('the mech at x 0 walks through the sea gate and the land gate', () => {
+test('the mech at x 0 walks through the sea gate, and the blast opens the land gate', () => {
   const game: GameModel = newPlayGame({ ...M1B_HAND, mines: [] }, MISSION);
   game.mech.x = 0;
   game.mech.y = 0;
   game.mech.z = -55;
   game.mech.yaw = 0;
-  // the sea gate spans z -74..-68 and the land gate z -128..-122; past them is the open field
+  game.armor = 10000;
+  // the sea gate spans z -74..-68 and the land gate z -128..-122; the land door is shut until the charge blows (SB-1860)
   let seaGate = false;
   let landGate = false;
   let highest = 0;
-  for (let i = 0; i < 1200 && game.mech.z > -135; i++) {
+  for (let i = 0; i < 1200 && game.mech.z > -95; i++) {
     step(game, { ...idle, moveZ: 1 }, DT);
     if (game.mech.z < -74) seaGate = true;
+    highest = Math.max(highest, game.mech.y);
+    expect(Math.abs(game.mech.x)).toBeLessThan(1);
+  }
+  expect(game.mech.z).toBeLessThanOrEqual(-95);
+  expect(seaGate).toBe(true);
+
+  // the charge in the land wall blows: the walls and the door come down
+  const bomb = game.blasts.find(blast => blast.id === 'fort-bomb');
+  if (!bomb) throw new Error('the map has no fort-bomb');
+  fortressBlast(game, bomb);
+  sendToScript(game, { kind: 'skip' });
+  for (let i = 0; i < 1200 && game.mech.z > -135; i++) {
+    step(game, { ...idle, moveZ: 1 }, DT);
     if (game.mech.z < -128) landGate = true;
     highest = Math.max(highest, game.mech.y);
     expect(Math.abs(game.mech.x)).toBeLessThan(1);
   }
   expect(game.mech.z).toBeLessThanOrEqual(-135);
-  expect(seaGate).toBe(true);
   expect(landGate).toBe(true);
   // it walked on the ground, not up a wall
   expect(highest).toBe(0);

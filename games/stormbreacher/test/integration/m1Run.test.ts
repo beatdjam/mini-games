@@ -123,9 +123,14 @@ const TO_BATTERY: readonly Waypoint[] = [
     why: 'in the land wall’s corner, holding until it and its two adds fall',
     hold: ['warden', 'warden-adds'],
   },
-  { x: -20, z: -118, why: 'off the wall and back towards the gate' },
-  { x: 0, z: -118, why: 'in front of the land gate' },
-  { x: 0, z: -128, why: 'through the land gate' },
+  // the mid boss is down: plant the charge in the land wall's magazine, then run for the sea gate before its 20 s end
+  { x: 0, z: -120.5, why: 'at the magazine, in front of the land gate, and stands to plant', plant: 'fort-bomb' },
+  { x: 0, z: -58, why: 'out through the sea gate before the fuse runs out', wait: 'fort-bomb' },
+  // the blast has taken the land door with it: back through the sea gate, across the yard and out to the field
+  { x: 0, z: -68, why: 'back through the sea gate' },
+  { x: 0, z: -98, why: 'across the ruined yard' },
+  { x: 0, z: -121, why: 'up to the fallen land gate' },
+  { x: 0, z: -128, why: 'through the land gate, now open' },
   // hold the main guns from the field: nearer the magazine the shots at its shuttered face would be wasted
   {
     x: 0,
@@ -387,6 +392,8 @@ const STORY = [
   'yard-drop',
   'yard-2-clear',
   'yard-clear',
+  'fortress-bomb',
+  'fortress-down',
   'fortress-out',
   'gun1',
   'shutter',
@@ -413,6 +420,8 @@ const STORY_DEPOT = [
   'yard-drop',
   'yard-2-clear',
   'yard-clear',
+  'fortress-bomb',
+  'fortress-down',
   'fortress-out',
   'gun1',
   'shutter',

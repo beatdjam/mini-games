@@ -11,7 +11,7 @@ export interface StateDef {
 // the actions it runs in order; every cue fires once.
 
 // The cutscenes the mission script may enter. The lengths are in data/script.ts.
-export type CutsceneId = 'landing' | 'wave2-sinks' | 'beach-held';
+export type CutsceneId = 'landing' | 'wave2-sinks' | 'beach-held' | 'fortress-blast';
 
 // A place the player may enter, as a rectangle on the ground: its centre and its width (x) and depth (z) in metres.
 export interface Area {
@@ -30,7 +30,9 @@ export type Trigger =
   | { kind: 'ashore' } // the mech has left the landing craft (mech.z at or past the map's front edge)
   | { kind: 'cleared'; wave: string }
   | { kind: 'after'; cue: string; sec: number } // sec 0 fires in the same frame as the cue it follows
-  | { kind: 'flag'; name: string };
+  | { kind: 'flag'; name: string }
+  | { kind: 'wardenDown' } // the mid boss's smoke ended and it blew (SB-1860)
+  | { kind: 'fortressDown' }; // the fortress's charge blew (SB-1860)
 
 // A way the player's first blast in each line decides. `lines` lists each line's blast points in the order the run
 // crosses their lines; the first point of a line that the game blew picks that line's part. `paths` maps the chosen ids,
@@ -136,6 +138,7 @@ export interface Prop {
   yaw: number; // how far it is turned about its middle (rad)
   scale: number; // its size (tile: how dark the sand is)
   breakable?: boolean; // a prop a shot may break (SB-190); its kind's health is PROP_HP
+  collapse?: boolean; // a prop the fortress blast brings down (SB-1860); a shot does not break it
 }
 
 // fortressGun: the heavy machine-gun nest on the fortress's sea wall.
@@ -173,6 +176,8 @@ export interface BlastPlace {
   x: number;
   z: number;
   target?: string;
+  fuse?: number; // seconds from planting to the blast (SB-1860); left out means CHARGE_TUNE.fuse
+  after?: 'wardenDown'; // the point can be charged only once the script has heard this (the mid boss is down)
 }
 
 export interface MapBounds {

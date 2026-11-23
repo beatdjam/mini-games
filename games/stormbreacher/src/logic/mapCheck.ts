@@ -116,7 +116,8 @@ function checkWaves(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out: M
 // open, so the check reads the line with those hedgehogs gone. The closed line is checked by walking a copy with
 // `blasts: []`. The line's hedgehogs block: a shot does not break them. Stairs and ramps are walked up from their lowest
 // edge, so they count as open ground here: one set behind a breakthrough does not close it (the climb itself is checked
-// by walking it in the tests).
+// by walking it in the tests). A `collapse` prop (the fortress's walls and its land door) is walked as already down: the
+// blast opens the way, so the check does not count it as a wall.
 function blockedCells(map: MapDef): Grid {
   const { minX, minZ, maxX, maxZ } = map.bounds;
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));
@@ -130,7 +131,9 @@ function blockedCells(map: MapDef): Grid {
   }
   const walls = {
     ...map,
-    props: map.props.filter((prop, index) => prop.kind !== 'stairs' && prop.kind !== 'ramp' && !opened.has(index)),
+    props: map.props.filter(
+      (prop, index) => prop.kind !== 'stairs' && prop.kind !== 'ramp' && prop.collapse !== true && !opened.has(index),
+    ),
   };
   for (const blocker of mapBlockers(walls)) {
     const reach = Math.hypot(blocker.halfW, blocker.halfD) + MECH_TUNE.radius;

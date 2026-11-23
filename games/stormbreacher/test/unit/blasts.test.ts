@@ -4,15 +4,18 @@ import type { MapDef, Prop } from '../../src/data/types.ts';
 import {
   blastPropIndexes,
   nearBlast,
+  newBlasts,
   openBreach,
   stepBlasts,
   stepCharge,
+  targetStands,
   type BlastState,
+  type ChargeState,
   type ChargeWorld,
 } from '../../src/logic/blasts.ts';
 
-const A: BlastState = { id: 'a', line: 0, x: 0, z: 0, blasted: false };
-const B: BlastState = { id: 'b', line: 0, x: 2, z: 0, blasted: false };
+const A: BlastState = { id: 'a', line: 0, x: 0, z: 0, fuse: CHARGE_TUNE.fuse, blasted: false };
+const B: BlastState = { id: 'b', line: 0, x: 2, z: 0, fuse: CHARGE_TUNE.fuse, blasted: false };
 
 function world(over: Partial<ChargeWorld> = {}): ChargeWorld {
   return {
@@ -37,8 +40,8 @@ describe('nearBlast', () => {
   });
 
   test('leaves out a point that already has a charge or has blown, and returns null when none is left', () => {
-    expect(nearBlast([A, B], [{ blast: 'a', left: 1 }], { x: 0, z: 0 })?.id).toBe('b');
-    expect(nearBlast([A], [{ blast: 'a', left: 1 }], { x: 0, z: 0 })).toBeNull();
+    expect(nearBlast([A, B], [{ blast: 'a', left: 1, total: 3 }], { x: 0, z: 0 })?.id).toBe('b');
+    expect(nearBlast([A], [{ blast: 'a', left: 1, total: 3 }], { x: 0, z: 0 })).toBeNull();
     expect(nearBlast([{ ...A, blasted: true }, B], [], { x: 0.2, z: 0 })?.id).toBe('b');
     expect(nearBlast([{ ...A, blasted: true }], [], { x: 0, z: 0 })).toBeNull();
   });
@@ -71,7 +74,7 @@ describe('stepCharge', () => {
     expect(done.plant).toBeNull();
     expect(done.planted?.id).toBe('a');
     expect(left.plant).toBeNull();
-    expect(left.charges).toEqual([{ blast: 'a', left: CHARGE_TUNE.fuse }]);
+    expect(left.charges).toEqual([{ blast: 'a', left: CHARGE_TUNE.fuse, total: CHARGE_TUNE.fuse }]);
   });
 
   test('letting use go, going into the air or leaving reach puts the hold back to zero', () => {
@@ -98,7 +101,7 @@ describe('stepCharge', () => {
 
 describe('stepBlasts', () => {
   test('counts the fuse down and returns the point as the charge goes', () => {
-    const w = { charges: [{ blast: 'a', left: 0.3 }], blasts: [A, B], mech: { x: 0, z: 0 } };
+    const w = { charges: [{ blast: 'a', left: 0.3, total: 3 }], blasts: [A, B], mech: { x: 0, z: 0 } };
     expect(stepBlasts(w, 0.2)).toEqual([]);
     expect(w.charges[0].left).toBeCloseTo(0.1, 6);
     expect(stepBlasts(w, 0.2)).toEqual([{ blast: A, hit: true }]);
@@ -106,10 +109,14 @@ describe('stepBlasts', () => {
   });
 
   test('hit is whether the mech stands inside blastRadius', () => {
-    const near = { charges: [{ blast: 'a', left: 0 }], blasts: [A], mech: { x: CHARGE_TUNE.blastRadius, z: 0 } };
+    const near = {
+      charges: [{ blast: 'a', left: 0, total: 3 }],
+      blasts: [A],
+      mech: { x: CHARGE_TUNE.blastRadius, z: 0 },
+    };
     expect(stepBlasts(near, 0)[0].hit).toBe(true);
     const far = {
-      charges: [{ blast: 'a', left: 0 }],
+      charges: [{ blast: 'a', left: 0, total: 3 }],
       blasts: [A],
       mech: { x: CHARGE_TUNE.blastRadius + 0.01, z: 0 },
     };
@@ -161,5 +168,54 @@ describe('openBreach', () => {
     const map = lineMap();
     expect(openBreach(map, []).props).toHaveLength(6);
     expect(openBreach(map, ['no-such-point']).props).toHaveLength(6);
+  });
+});
+
+describe('the fuse a place brings', () => {
+  test('newBlasts keeps a place’s own fuse and falls back to CHARGE_TUNE.fuse', () => {
+    const map: MapDef = {
+      ...lineMap(),
+      blasts: [
+        { id: 'long', line: null, x: 0, z: 0, fuse: 20 },
+        { id: 'short', line: null, x: 1, z: 1 },
+      ],
+    };
+    expect(newBlasts(map).map(state => state.fuse)).toEqual([20, CHARGE_TUNE.fuse]);
+  });
+
+  test('a charge on a long fuse keeps its total, and burns for the whole 20 s', () => {
+    const long: BlastState = { id: 'long', line: null, x: 0, z: 0, fuse: 20, blasted: false };
+    const w = world({ blasts: [long] });
+    expect(stepCharge(w, true, CHARGE_TUNE.holdSec).planted?.id).toBe('long');
+    const charge: ChargeState | undefined = w.charges[0];
+    expect(charge).toEqual({ blast: 'long', left: 20, total: 20 });
+    expect(stepBlasts(w, 19.9)).toEqual([]);
+    expect(w.charges[0].left).toBeCloseTo(0.1, 6);
+    expect(stepBlasts(w, 0.2).map(blown => blown.blast.id)).toEqual(['long']);
+  });
+});
+
+describe('a point that waits for the mid boss', () => {
+  const gated: BlastState = { id: 'gated', line: null, x: 0, z: 0, fuse: 20, blasted: false };
+  const map: MapDef = {
+    ...lineMap(),
+    blasts: [{ id: 'gated', line: null, x: 0, z: 0, fuse: 20, after: 'wardenDown' }],
+  };
+
+  test('cannot be charged until the script has heard wardenDown', () => {
+    const shut = world({ blasts: [gated], map, script: { wardenDown: false } });
+    expect(targetStands(gated, shut)).toBe(false);
+    expect(nearBlast(shut.blasts, shut.charges, shut.mech, shut)).toBeNull();
+    expect(stepCharge(shut, true, CHARGE_TUNE.holdSec).planted).toBeNull();
+    expect(shut.charges).toEqual([]);
+
+    const open = world({ blasts: [gated], map, script: { wardenDown: true } });
+    expect(targetStands(gated, open)).toBe(true);
+    expect(stepCharge(open, true, CHARGE_TUNE.holdSec).planted?.id).toBe('gated');
+  });
+
+  test('a point with no `after` is not held by the script', () => {
+    const free: MapDef = { ...lineMap(), blasts: [{ id: 'gated', line: null, x: 0, z: 0 }] };
+    expect(targetStands(gated, { map: free, script: { wardenDown: false } })).toBe(true);
   });
 });

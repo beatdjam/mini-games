@@ -100,9 +100,14 @@ const TAIL: readonly string[] = [
   'radio:m1.yard-clear',
   'radio:m1.warden',
   'spawn:warden',
+  'objective:bomb-fortress',
+  'radio:m1.bomb-armed',
+  'flag:fortress-down',
+  'cutscene:fortress-blast',
   'checkpoint:cp3',
   'objective:silence-battery',
   'spawn:battery',
+  'radio:m1.get-out',
   'radio:m1.gun1-down',
   'flag:shutter-open',
   'objective:hit-magazine',
@@ -186,6 +191,9 @@ function fromCp1(state: ScriptState, destroyDepot: boolean): ScriptOut[] {
   outputs.push(...scriptInput(state, M1, { kind: 'cleared', wave: 'yard-1' }));
   outputs.push(...scriptInput(state, M1, { kind: 'cleared', wave: 'yard-2' }));
   outputs.push(...scriptInput(state, M1, { kind: 'cleared', wave: 'yard-3' }));
+  // the mid boss is down: the magazine may be charged, and the charge blows it (SB-1860)
+  outputs.push(...scriptInput(state, M1, { kind: 'wardenDown' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'fortressDown' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-out' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'main-gun-2' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'main-gun-1' }));
@@ -232,22 +240,27 @@ test('restoring cp1 drops the cues after it and replays the same column', () => 
   expect(restored.ended).toBe('cleared');
 });
 
-// cp3 is taken by the fortress-out cue before its objective and the battery's wave: the copy must hold both (it came back
-// without them when the copy was taken in the middle of the cue)
+// cp3 is taken by the fortress-down cue after its cutscene: the copy must hold the flag, the objective and the battery's
+// wave, and must not play the cutscene again when it is restored (SB-1860).
 test('restoring cp3 comes back with the battery objective and sends the battery again', () => {
   const { state } = toCp1(true);
   scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' });
   scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' });
   scriptInput(state, M1, { kind: 'enter', area: 'fortress-yard' });
-  scriptInput(state, M1, { kind: 'enter', area: 'fortress-out' });
+  scriptInput(state, M1, { kind: 'wardenDown' });
+  scriptInput(state, M1, { kind: 'fortressDown' });
   scriptInput(state, M1, { kind: 'destroyed', target: 'main-gun-1' });
 
   const restored = restoreCheckpoint(state);
   expect(restored.objective).toBe('silence-battery');
+  expect(restored.flags).toContain('fortress-down');
+  expect(restored.fortressDown).toBe(true);
+  expect(restored.cutscene).toBeNull();
   expect(restored.destroyed).not.toContain('main-gun-1');
   const replay = checkpointReplay(restored).map(label);
   expect(replay).toContain('objective:silence-battery');
   expect(replay).toContain('spawn:battery');
+  expect(replay).not.toContain('cutscene:fortress-blast');
 
   // going down again after the restore goes back to cp3 again
   scriptInput(restored, M1, { kind: 'destroyed', target: 'main-gun-2' });

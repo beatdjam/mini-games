@@ -337,7 +337,7 @@ test('a planted charge shows its fuse left and full length', () => {
   if (!blast) throw new Error('the map has no l1-b');
   game.mech.x = blast.x;
   game.mech.z = blast.z + 2;
-  game.charges.push({ blast: blast.id, left: CHARGE_TUNE.fuse / 2 });
+  game.charges.push({ blast: blast.id, left: CHARGE_TUNE.fuse / 2, total: CHARGE_TUNE.fuse });
   expect(hudModel(game).charge).toEqual({ left: CHARGE_TUNE.fuse / 2, total: CHARGE_TUNE.fuse });
 });
 
