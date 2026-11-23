@@ -1,5 +1,6 @@
-// The depot's guard and C's reinforcement (SB-300): the five enemies of `depot-guard` stand round the
-// depot on the side road, and `c-squad`'s four come out when the mech nears C. Walked with inputs.
+// The depot's guard on its new hollow under the right cliff (SB-1820): the four enemies of `depot-guard` stand round the
+// depot, and the wave comes out once the mech walks into `depot-approach` after the leader's question. Walked with
+// inputs.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
@@ -28,16 +29,20 @@ const idle: GameInput = {
 };
 
 // The way from the mech's start to the depot with no shot fired: out of the beach through line 1's breakthrough at
-// x 40, along between the cover to line 2's breakthrough at x -10, and back across to the depot's road.
+// x 40, along between the cover to line 2's breakthrough at x -10, then across and down the right side to the hollow.
 const WAY_TO_DEPOT = [
   { x: 42, z: 156 },
   { x: 40, z: 135 },
   { x: 40, z: 116 },
   { x: -10, z: 116 },
   { x: -10, z: 56 },
-  { x: 40, z: 50 },
-  { x: 46, z: 42 },
-  { x: 50, z: 41 },
+  { x: 40, z: 44 },
+  { x: 61, z: 36 },
+  { x: 61, z: 29 },
+  { x: 61, z: 4 },
+  { x: 68, z: -8 },
+  { x: 75, z: -20 },
+  { x: 75, z: -30 },
 ];
 
 // The hand map without its mines, so a walk does not set one off, and with the holes line 1 and line 2 need for the way:
@@ -49,6 +54,22 @@ function newWalkGame(map: MapDef = openBreach({ ...M1B_HAND, mines: [] }, ['l1-b
   const game = newPlayGame({ ...map, spawns });
   game.mech.yaw = 0;
   return game;
+}
+
+// Takes cp1 and waits for the leader's question (10 s), so `depot-go` can fire; the waves already out are cleared, as
+// this walk is about the depot's guard.
+function toAsked(game: GameModel): void {
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game.targets.find(item => item.id === id);
+    if (!target) throw new Error(`the map has no ${id}`);
+    target.hp = 0;
+    sendToScript(game, { kind: 'destroyed', target: id });
+  }
+  for (let i = 0; i < 60 * 11; i++) step(game, idle, DT);
+  game.enemies = [];
+  game.barrages = [];
+  game.shells = [];
 }
 
 // Walks forward, facing the waypoint each frame, until the mech's middle is within ARRIVE of it.
@@ -71,23 +92,23 @@ test('the hand map holds the depot’s guard and passes the check against M1', (
   // the third pillbox is gone (SB-2023): the objective's two are the only pillboxes
   expect(M1B_HAND.targets.map(target => target.id)).not.toContain('pillbox-3');
   expect(M1.targets).not.toContain('pillbox-3');
-  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'battery'] });
+  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'shelling', 'battery'] });
   expect(violations).toEqual([]);
 });
 
-test('walking to the depot enters depot-approach, which puts out the guard’s five in the wave’s order and kind', () => {
+test('walking into the hollow after the question puts out the guard’s four in the wave’s order and kind', () => {
   const game = newWalkGame();
+  toAsked(game);
   const places = M1B_HAND.spawns['depot-guard'];
   for (const way of WAY_TO_DEPOT) {
-    expect(waveEnemies(game, 'depot-guard'), `before (${way.x}, ${way.z})`).toHaveLength(
-      game.script.entered.includes('depot-approach') ? 5 : 0,
-    );
+    const entered = game.script.entered.includes('depot-approach');
+    expect(waveEnemies(game, 'depot-guard'), `before (${way.x}, ${way.z})`).toHaveLength(entered ? 4 : 0);
     walkTo(game, way.x, way.z);
   }
   expect(game.script.entered).toContain('depot-approach');
   const guard = waveEnemies(game, 'depot-guard');
-  expect(guard).toHaveLength(5);
-  expect(guard.map(enemy => enemy.kind)).toEqual(['assault', 'heavy', 'grunt', 'grunt', 'grunt']);
+  expect(guard).toHaveLength(4);
+  expect(guard.map(enemy => enemy.kind)).toEqual(['grunt', 'grunt', 'grunt', 'emplacement']);
   expect(guard.length).toBe(places.length);
 
   // the mech came to the depot's side without a shot
@@ -98,20 +119,21 @@ test('walking to the depot enters depot-approach, which puts out the guard’s f
   expect(rectDistance(rect, game.mech.x, game.mech.z)).toBeLessThan(AT_DEPOT);
 });
 
-test('the guard comes out once, and not before the mech is in depot-approach', () => {
+test('the guard comes out once, when the mech walks into the hollow after the question', () => {
   const game = newWalkGame();
-  game.mech.x = 40;
-  game.mech.z = 75;
+  toAsked(game);
+  game.mech.x = 55;
+  game.mech.z = -40;
   step(game, idle, DT);
   expect(waveEnemies(game, 'depot-guard')).toHaveLength(0);
-  game.mech.z = 60;
+  game.mech.x = 65;
   step(game, idle, DT);
-  expect(waveEnemies(game, 'depot-guard')).toHaveLength(5);
-  game.mech.z = 75;
+  expect(waveEnemies(game, 'depot-guard')).toHaveLength(4);
+  game.mech.x = 55;
   step(game, idle, DT);
-  game.mech.z = 60;
+  game.mech.x = 65;
   step(game, idle, DT);
-  expect(waveEnemies(game, 'depot-guard')).toHaveLength(5);
+  expect(waveEnemies(game, 'depot-guard')).toHaveLength(4);
 });
 
 test('every pillbox target of the map has a blast point, so each one can be broken', () => {
@@ -128,26 +150,4 @@ test('every pillbox target of the map has a blast point, so each one can be brok
     key: 'obj.break-pillboxes',
     count: { done: 0, total: pillboxes.length },
   });
-});
-
-test('entering c-line puts out the four of c-squad between C’s two rows, in the wave’s order and kind, once', () => {
-  const game = newWalkGame();
-  game.mech.x = 0;
-  game.mech.z = -20;
-  step(game, idle, DT);
-  expect(waveEnemies(game, 'c-squad')).toHaveLength(0);
-  game.mech.z = -27;
-  step(game, idle, DT);
-  const squad = waveEnemies(game, 'c-squad');
-  expect(squad).toHaveLength(4);
-  expect(squad.map(enemy => enemy.kind)).toEqual(['assault', 'grunt', 'assault', 'heavy']);
-  for (const enemy of squad) {
-    expect(enemy.z).toBeLessThan(-40);
-    expect(enemy.z).toBeGreaterThan(-50);
-  }
-  game.mech.z = -20;
-  step(game, idle, DT);
-  game.mech.z = -27;
-  step(game, idle, DT);
-  expect(waveEnemies(game, 'c-squad')).toHaveLength(4);
 });

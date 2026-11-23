@@ -13,7 +13,7 @@ import { generateMap } from '../../src/logic/mapgen.ts';
 const ANCHORS = { targets: M1B_HAND.targets, spawns: M1B_HAND.spawns };
 const SKIP = {
   targets: ['main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'battery'],
+  waves: ['beach-mortar', 'shelling', 'battery'],
 };
 const JITTER = 2; // the line's props may wobble 1 m either way; the tests allow for it
 

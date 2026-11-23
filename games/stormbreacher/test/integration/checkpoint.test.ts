@@ -204,6 +204,8 @@ describe('checkpoint', () => {
     run(again, walk, 30);
     expect(again.mech.z).not.toBe(z);
     expect(again.time).toBeGreaterThan(time);
+    // the leader's question is 10 s after cp1; the fortress gate waits for it (SB-1820)
+    run(again, idle, 600);
     // the script goes on from the copy: the fortress gate takes cp2 and its objective
     sendToScript(again, { kind: 'enter', area: 'fortress-gate' });
     run(again, idle, 1);

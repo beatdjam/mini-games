@@ -18,7 +18,7 @@ test('the ally starts at the first point of its way, facing the second, on the g
 });
 
 test('the fates an ally may fall by are the mortar and the gun', () => {
-  expect(ALLY_FATES).toEqual(['mortar', 'gun']);
+  expect(ALLY_FATES).toEqual(['mortar', 'gun', 'shell']);
 });
 
 test('the ally runs at ALLY_TUNE.speed along the way', () => {

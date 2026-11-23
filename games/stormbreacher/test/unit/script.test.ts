@@ -128,7 +128,7 @@ test('validateMission refuses names the mission does not have', () => {
   }
   {
     const def = cloneM1();
-    cueOf(def, 'c-squad').trigger = { kind: 'after', cue: 'no-such-cue', sec: 1 };
+    cueOf(def, 'depot-go').trigger = { kind: 'after', cue: 'no-such-cue', sec: 1 };
     expect(() => validateMission(def)).toThrow(/cue/);
   }
   {
@@ -162,12 +162,45 @@ test('validateMission refuses a flag the mission does not list, wherever the cue
   }
 });
 
-test('validateMission refuses when or unless on a start cue, which is due at time 0 only', () => {
-  for (const condition of [{ when: [PILLBOXES_DOWN_FLAG] }, { unless: [PILLBOXES_DOWN_FLAG] }]) {
-    const def = cloneM1();
-    def.cues = [...def.cues, { id: 'x', trigger: { kind: 'start' }, ...condition, actions: [] }];
-    expect(() => validateMission(def)).toThrow(/start cue/);
-  }
+test('a start cue with when waits for its flag and then fires once; a plain start cue fires at time 0 only', () => {
+  const def: MissionDef = {
+    id: 'test-start-when',
+    flags: ['open'],
+    cues: [
+      { id: 'plain', trigger: { kind: 'start' }, actions: [] },
+      { id: 'gate', trigger: { kind: 'enter', area: 'gate' }, actions: [{ kind: 'flag', name: 'open' }] },
+      { id: 'waits', trigger: { kind: 'start' }, when: ['open'], actions: [] },
+    ],
+    areas: { gate: { x: 0, z: 0, w: 1, d: 1 } },
+    targets: [],
+    waves: [],
+    objectives: [],
+    marks: [],
+    allies: [],
+    paths: {},
+    places: {},
+  };
+  validateMission(def);
+  const s = newScript(def);
+  stepScript(s, def, 0);
+  expect(s.fired.plain).toBe(0);
+  expect(s.fired.waits).toBeUndefined();
+  for (let i = 0; i < 10; i++) stepScript(s, def, 0.1);
+  expect(s.fired.waits).toBeUndefined();
+  scriptInput(s, def, { kind: 'enter', area: 'gate' });
+  stepScript(s, def, 0.1);
+  const at = s.fired.waits;
+  expect(at).toBeGreaterThan(0);
+  for (let i = 0; i < 10; i++) stepScript(s, def, 0.1);
+  expect(s.fired.waits).toBe(at);
+  // unless: due from time 0 while the flag is down
+  const down: MissionDef = {
+    ...def,
+    cues: [{ id: 'quiet', trigger: { kind: 'start' }, unless: ['open'], actions: [] }],
+  };
+  const t = newScript(down);
+  stepScript(t, down, 0);
+  expect(t.fired.quiet).toBe(0);
 });
 
 // A small script for the cutscene rules: one cue starts a cutscene, another comes 2 s after it.

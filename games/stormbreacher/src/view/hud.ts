@@ -31,6 +31,7 @@ const PLAY_HUD_LAYOUT = {
   sub: { css: 'left:50%;margin-left:8px;top:calc(50% + var(--ring) + 36px);width:150px' },
   radar: { css: 'right:24px;top:48px;width:150px;height:150px' },
   objective: { css: 'left:24px;top:48px;width:340px' },
+  optional: { css: 'left:24px;top:calc(48px + 96px);width:340px' },
   radio: { css: 'left:50%;transform:translateX(-50%);bottom:48px;width:560px;padding:2px 6px' },
   enemy: { css: 'left:50%;transform:translateX(-50%);top:48px;width:300px' },
   headline: { css: 'left:50%;transform:translateX(-50%);top:24%;width:720px;text-align:center' },
@@ -54,6 +55,7 @@ const PLAY_HUD_TEXT = {
   main: { name: 11, value: 16 }, // px
   sub: { name: 11, value: 13 }, // px
   objective: { label: 16, value: 16 }, // px
+  optional: { label: 13, value: 13 }, // px
   radio: { label: 16, value: 16 }, // px
   enemy: { name: 14, bar: 10 }, // px
   headline: { text: 34 }, // px
@@ -94,6 +96,7 @@ interface HudLast {
   main: string | null;
   sub: string | null;
   objective: string | null;
+  optional: string | null;
   radio: string | null;
   enemy: TargetKind | EnemyKind | null;
   enemyRatio: number | null;
@@ -115,6 +118,8 @@ export interface PlayHud {
   subValue: HTMLSpanElement;
   objective: HTMLElement;
   objectiveValue: HTMLSpanElement;
+  optional: HTMLElement;
+  optionalValue: HTMLSpanElement;
   radio: HTMLElement;
   radioValue: HTMLSpanElement;
   lock: ReturnType<typeof lockFrame>;
@@ -184,6 +189,7 @@ function freshLast(): HudLast {
     main: null,
     sub: null,
     objective: null,
+    optional: null,
     radio: null,
     enemy: null,
     enemyRatio: null,
@@ -238,6 +244,11 @@ function layOut(root: HTMLElement): PlayHud {
   const objectiveValue = span('', PLAY_HUD_TEXT.objective.value);
   objective.append(span(t('hud.objective'), PLAY_HUD_TEXT.objective.label, HUD_COLOR.amber), objectiveValue);
   objective.hidden = true;
+
+  const optional = place(root, PLAY_HUD_LAYOUT.optional.css, 'optional');
+  const optionalValue = span('', PLAY_HUD_TEXT.optional.value);
+  optional.append(span(t('hud.optional'), PLAY_HUD_TEXT.optional.label, HUD_COLOR.amber), optionalValue);
+  optional.hidden = true;
 
   const radio = place(root, PLAY_HUD_LAYOUT.radio.css, 'radio');
   radio.style.background = HUD_COLOR.panel;
@@ -306,6 +317,8 @@ function layOut(root: HTMLElement): PlayHud {
     subValue,
     objective,
     objectiveValue,
+    optional,
+    optionalValue,
     radio,
     radioValue,
     lock,
@@ -385,6 +398,13 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null):
     hud.objective.hidden = model.objective === null;
     hud.objectiveValue.textContent = objective;
     last.objective = objective;
+  }
+
+  const optional = model.optional === null ? '' : ` ${t(model.optional.key)} ${Math.round(model.optional.distance)}m`;
+  if (last.optional !== optional) {
+    hud.optional.hidden = model.optional === null;
+    hud.optionalValue.textContent = optional;
+    last.optional = optional;
   }
 
   const radio = model.radio === null ? '' : ` ${t(model.radio)}`;

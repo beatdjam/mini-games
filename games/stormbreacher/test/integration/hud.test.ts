@@ -338,6 +338,38 @@ test('a planted charge shows its fuse left and full length', () => {
   expect(hudModel(game).charge).toEqual({ left: CHARGE_TUNE.fuse / 2, total: CHARGE_TUNE.fuse });
 });
 
+test('the optional depot mark comes after the question and goes when the depot is down', () => {
+  const game = newGame(M1B_HAND);
+  atOrigin(game);
+  expect(hudModel(game).optional).toBeNull();
+
+  // the leader has asked: the side goal shows, with the distance on the ground
+  game.script.fired['depot-ask'] = 0;
+  const depot = targetAt(game, 'depot');
+  const cx = (depot.box.minX + depot.box.maxX) / 2;
+  const cz = (depot.box.minZ + depot.box.maxZ) / 2;
+  const shown = hudModel(game).optional;
+  expect(shown).toEqual({ key: 'hud.optional.depot', distance: Math.hypot(cx, cz) });
+  game.mech.x = cx;
+  game.mech.z = cz + 30;
+  expect(hudModel(game).optional?.distance).toBeCloseTo(30, 6);
+
+  // broken, or out of the way: no mark
+  game.script.flags.push('depot-down');
+  expect(hudModel(game).optional).toBeNull();
+  game.script.flags = game.script.flags.filter(flag => flag !== 'depot-down');
+  depot.hp = 0;
+  expect(hudModel(game).optional).toBeNull();
+});
+
+test('the radar keeps the depot’s own mark', () => {
+  const game = newGame(M1B_HAND);
+  atOrigin(game);
+  const radar = hudModel(game).radar.filter(mark => mark.kind === 'depot');
+  expect(radar).toHaveLength(1);
+  expect(radar[0].dist).toBeGreaterThan(0);
+});
+
 test('a warned aimed shell inside its circle shows the shell warning', () => {
   const game = newGame(M1B_HAND);
   // the mech's old start on the sand, clear of the map's props and off the craft, which holds the barrage

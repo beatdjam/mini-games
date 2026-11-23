@@ -15,7 +15,7 @@ import { generateMap } from '../../src/logic/mapgen.ts';
 const ANCHORS = { targets: M1B_HAND.targets, spawns: M1B_HAND.spawns };
 const SKIP = {
   targets: ['main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'battery'],
+  waves: ['beach-mortar', 'shelling', 'battery'],
 };
 
 const WIDTH = MECH_TUNE.radius * 2; // the width of the mech (m)

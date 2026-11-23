@@ -15,3 +15,12 @@ export const FORTRESS_TUNE = {
   landWallZ: -125, // the land-side wall's middle (m)
   yardZ: -98, // the yard's middle (m)
 } as const;
+
+// The depot detour (SB-1820): the leader asks after cp1, and the mech answers by walking down to the depot or on to the
+// fortress. Every value is provisional and settled on #view-breach's panel.
+export const DEPOT_CHOICE_TUNE = {
+  askSec: 10, // seconds after cp1 before the leader asks (s)
+  allyFallSec: 1.5, // seconds after the answer before the lost ally falls (s)
+  lossAllies: 1, // the friends lost when the mech passes the depot
+  lossSquads: 1, // the squads lost when the mech passes the depot
+} as const;

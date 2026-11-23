@@ -7,7 +7,7 @@ import { TARGET_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetPlace } from '../../src/data/types.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
-import { step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
 
@@ -84,7 +84,7 @@ function shootDown(game: GameModel, id: string): void {
 test('the hand map holds M1’s guns and magazine, and the check finds no violation without leaving them out', () => {
   for (const id of PARTS) expect(M1B_HAND.targets.map(target => target.id)).toContain(id);
   expect(M1.targets).toEqual(expect.arrayContaining(PARTS));
-  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'battery'] });
+  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'shelling', 'battery'] });
   expect(violations).toEqual([]);
 });
 
@@ -119,6 +119,15 @@ test('from the yard the mech walks through the land gate and round the cover to 
 
 test('M1 clears: through the gates, both guns down, then the magazine', () => {
   const game = newBatteryGame();
+  // cp1 and the leader's 10 s question: the fortress gate waits for it (SB-1820)
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game.targets.find(item => item.id === id);
+    if (!target) throw new Error(`the hand map has no ${id}`);
+    target.hp = 0;
+    sendToScript(game, { kind: 'destroyed', target: id });
+  }
+  for (let i = 0; i < 600; i++) step(game, idle, DT);
   game.mech.x = 0;
   game.mech.z = -55;
   for (let i = 0; i < 600 && !game.script.entered.includes('fortress-gate'); i++) {

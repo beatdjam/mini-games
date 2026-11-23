@@ -310,6 +310,10 @@ export function showResult(): void {
       row.textContent = line;
       pay.append(row);
     }
+    // the friends lost on the way (SB-1820): the money's formula is not touched, so this is only a line
+    const losses = document.createElement('p');
+    losses.textContent = t('result.losses', { allies: game.losses.allies, squads: game.losses.squads });
+    pay.append(losses);
   }
   el('#sbResultCheckpoint').hidden = !(game.downed && game.checkpoint);
   el('#sbResultRestart').hidden = !game.downed;

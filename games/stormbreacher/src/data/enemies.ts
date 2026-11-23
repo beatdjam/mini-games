@@ -113,16 +113,11 @@ export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]
   // a heavy on the left, an assault next, two grunts in the middle, then an assault and a grunt on the right, so the
   // mech must choose between the hard target and the fast ones
   'b-squad': ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'],
-  // an assault meets the mech on the way in, a heavy fires from the east end, and a grunt stands between them, so the
-  // guard watches the road and the open flank; two more grunts hold the road from line 2's far point, where the third
-  // pillbox stood (SB-2023)
-  'depot-guard': ['assault', 'heavy', 'grunt', 'grunt', 'grunt'],
+  // three walking guards round the depot and a machine-gun nest on the way in; the cliff side is the hard approach
+  'depot-guard': ['grunt', 'grunt', 'grunt', 'emplacement'],
   // from the top of the seawall: an assault and a grunt on the left, a heavy in the middle, then a grunt, an assault and
   // a grunt on the right
   'seawall-drop': ['assault', 'grunt', 'heavy', 'grunt', 'assault', 'grunt'],
-  // an assault, a grunt and another assault spread across the left and middle, and a heavy on the east end; all four
-  // stand on one row, so the mech meets them together as it crosses C
-  'c-squad': ['assault', 'grunt', 'assault', 'heavy'],
   // six nests, one at each of the map's places: entering B wakes them all, and a nest whose line to the mech is clear
   // fires; the hedgehogs of a line hide the nests beyond it until the mech crosses
   'b-emplacements': ['emplacement', 'emplacement', 'emplacement', 'emplacement', 'emplacement', 'emplacement'],

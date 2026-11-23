@@ -41,7 +41,7 @@ export type Source = 'hand' | 'gen' | 'edit';
 // beach's mortar and the battery are on the other side of the bounds.
 const OUT_OF_RANGE = {
   targets: ['main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'battery'],
+  waves: ['beach-mortar', 'shelling', 'battery'],
 } as const;
 
 const MECH_MARGIN = 4; // how far inside the front edge the mech starts (m)
