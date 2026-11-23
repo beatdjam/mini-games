@@ -27,7 +27,15 @@ function paint(geometry: THREE.BufferGeometry, hex: number): void {
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
-export function bakeProtoMech(kitId: ProtoKitName, height: number, detail: ProtoDetail = 'full'): BakedProto {
+// The two kinds of shape a kit bakes, each joined into its own geometry (null when the kit has none of that kind): the
+// painted armour, and the lit lamps painted in their emissive colour. The mid boss draws them as separate meshes, so its
+// lamps can take a colour per copy (SB-2049).
+export interface BakedProtoParts {
+  painted: THREE.BufferGeometry | null;
+  lit: THREE.BufferGeometry | null;
+}
+
+export function bakeProtoParts(kitId: ProtoKitName, height: number, detail: ProtoDetail = 'full'): BakedProtoParts {
   const group = buildProtoMech(height, kitId, undefined, detail);
   group.updateMatrixWorld(true);
   const painted: THREE.BufferGeometry[] = [];
@@ -55,8 +63,14 @@ export function bakeProtoMech(kitId: ProtoKitName, height: number, detail: Proto
   });
   disposeProtoMech(group);
 
-  const paintMerged = painted.length === 0 ? null : mergeShapes(painted);
-  const litMerged = lit.length === 0 ? null : mergeShapes(lit);
+  return {
+    painted: painted.length === 0 ? null : mergeShapes(painted),
+    lit: lit.length === 0 ? null : mergeShapes(lit),
+  };
+}
+
+export function bakeProtoMech(kitId: ProtoKitName, height: number, detail: ProtoDetail = 'full'): BakedProto {
+  const { painted: paintMerged, lit: litMerged } = bakeProtoParts(kitId, height, detail);
   let geometry: THREE.BufferGeometry;
   if (paintMerged !== null && litMerged !== null) geometry = mergeShapes([paintMerged, litMerged], true);
   else if (paintMerged !== null) geometry = paintMerged;

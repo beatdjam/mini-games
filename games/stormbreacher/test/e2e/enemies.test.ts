@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { ENEMY_KINDS, SOLDIER_KINDS, type EnemyKind, type SoldierKind } from '../../src/data/enemies.ts';
-import { WARDEN_COLOR } from '../../src/data/colors.ts';
+import { WARDEN_LAMP_COLOR, WARDEN_VENT_IDLE_COLOR } from '../../src/data/colors.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
@@ -29,7 +29,7 @@ function game() {
 }
 
 // Every mesh of a kind: a soldier has the full shape and the far one (SB-2083); the nest has its named sandbags only, and
-// so has the mid boss (SB-1850).
+// so has the mid boss (SB-1850), whose lamps and vents are two more meshes of the same copy (SB-2049).
 const meshNamesOf = (kind: EnemyKind): string[] =>
   kind === 'emplacement' || kind === 'warden'
     ? [enemyMeshName(kind)]
@@ -140,22 +140,30 @@ test('every kind keeps room for its instance colours, so the GPU can draw it', a
       }
       continue;
     }
-    // The mid boss is put out here, in front of the mech, as no wave of this scene brings it: one body shape in one mesh.
-    // Its colour is the body's own, written per copy, so the copy is not white; the room covers the copy all the same.
+    // The mid boss is put out here, in front of the mech, as no wave of this scene brings it: a body, its lamps and its vents
+    // (SB-2049), each one mesh with one copy. The body's colours are painted in and the copy is white; the lamps and the
+    // vents are white in the shape and take their colour per copy. The room covers the copy all the same.
     if (kind === 'warden') {
       const before = drawnEnemies();
       const current = game();
       current.enemies.push(newEnemy('warden-e2e', 'warden', 'warden', current.mech.x, current.mech.z - 12));
       steps(1);
       expect(drawnEnemies(), 'the warden is drawn').toBe(before + 1);
-      const mesh = scene.getObjectByName(enemyMeshName(kind)) as THREE.InstancedMesh;
-      expect(mesh.count, `${mesh.name} copies`).toBe(1);
-      const colors = mesh.instanceColor;
-      if (colors === null) throw new Error(`${kind} (${mesh.name}) has no instance colours`);
-      expect(colors.array.length, `${mesh.name} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
-      mesh.getColorAt(0, colorAt);
-      expect(colorAt.getHex(), `${mesh.name} colour`).toBe(WARDEN_COLOR);
-      expect(mesh.geometry.attributes.color, `${mesh.name} baked colours`).toBeDefined();
+      const wanted: [string, number][] = [
+        [enemyMeshName(kind), 0xffffff],
+        [`${enemyMeshName(kind)}-lamps`, WARDEN_LAMP_COLOR],
+        [`${enemyMeshName(kind)}-vents`, WARDEN_VENT_IDLE_COLOR],
+      ];
+      for (const [name, hex] of wanted) {
+        const mesh = scene.getObjectByName(name) as THREE.InstancedMesh;
+        expect(mesh.count, `${name} copies`).toBe(1);
+        const colors = mesh.instanceColor;
+        if (colors === null) throw new Error(`${kind} (${name}) has no instance colours`);
+        expect(colors.array.length, `${name} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
+        mesh.getColorAt(0, colorAt);
+        expect(colorAt.getHex(), `${name} colour`).toBe(hex);
+        expect(mesh.geometry.attributes.color, `${name} baked colours`).toBeDefined();
+      }
       continue;
     }
     // A soldier's copies are split between the full shape and the far one (SB-2083), so each kind draws in one of the

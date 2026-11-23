@@ -33,11 +33,9 @@ export const WARDEN_TUNE = {
   backMul: 2, // the radiator plate on its back: a shot takes double (and while it is exposed)
   dieSec: 3, // s it smokes before the blast
   addsAt: 0.5, // the share of its health at which it calls the two assaults, once
-  // The look's proportions (m). The body is one instance of three boxes: the body, the shoulder light and the back
-  // plate. The charge band is the red strip the view draws ahead of it.
+  // The look's proportions (m). The body is built from parts in view/wardenModel.ts, 6 m high at the unit its shapes are
+  // written in. The charge band is the red strip the view draws ahead of it.
   look: {
-    bodyW: 5,
-    bodyD: 4,
     bandWidth: 6,
   },
 };

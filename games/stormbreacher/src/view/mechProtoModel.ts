@@ -371,7 +371,7 @@ export function buildProtoMech(
   };
   const legScale: Vec3 = [girth, legLength, girth];
 
-  for (const part of parts.legs) {
+  for (const part of [...parts.legs, ...(kit.legPlus ?? [])]) {
     if (!keepsShape(part, detail)) continue;
     const shape = { ...part, mirror: false };
     const right = legBone(shape, 1);
