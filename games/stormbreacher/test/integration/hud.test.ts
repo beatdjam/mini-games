@@ -3,7 +3,6 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { PILLBOX_TUNE } from '../../src/data/pillbox.ts';
 import { CALLOUT_TUNE, RADIO_TUNE, CUTSCENE_SEC } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
@@ -193,7 +192,7 @@ test('the radio queue does not move while a cutscene hides the HUD', () => {
 });
 
 test('the lock box is the box of the target or enemy the aim is pulled toward', () => {
-  const game = newGame({ ...M1B_HAND, targets: [{ id: 'near', kind: 'pillbox', x: 0, z: -50, yaw: 0 }] });
+  const game = newGame({ ...M1B_HAND, targets: [{ id: 'near', kind: 'depot', x: 0, z: -50, yaw: 0 }] });
   atOrigin(game);
   expect(hudModel(game).lock).toBeNull();
 
@@ -220,14 +219,10 @@ test('the enemy is the living target the aim is pulled toward', () => {
   const game = newGame({ ...M1B_HAND, targets });
   atOrigin(game);
 
+  // a pillbox only a charge breaks has no bar, even if it were named (SB-2043)
   game.aimTarget = 'near';
-  expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 1 });
-
-  // a pillbox's bar is its suppression left (SB-2015), not its health, which shots do not take
-  const state = game.pillboxes.find(pillbox => pillbox.id === 'near');
-  if (!state) throw new Error('the sortie has no pillbox near');
-  state.suppress = PILLBOX_TUNE.suppressSec / 2;
-  expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 0.5 });
+  expect(hudModel(game).enemy).toBeNull();
+  expect(hudModel(game).lock).toBeNull();
 
   game.aimTarget = 'far';
   expect(hudModel(game).enemy).toEqual({ kind: 'depot', ratio: 1 });
@@ -237,13 +232,13 @@ test('the enemy is the living target the aim is pulled toward', () => {
 });
 
 test('with no aim target there is no enemy', () => {
-  const game = newGame({ ...M1B_HAND, targets: [atAngle('inside', 'pillbox', 0, 100)] });
+  const game = newGame({ ...M1B_HAND, targets: [atAngle('inside', 'depot', 0, 100)] });
   atOrigin(game);
   expect(game.aimTarget).toBeNull();
   expect(hudModel(game).enemy).toBeNull();
 
   game.aimTarget = 'inside';
-  expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 1 });
+  expect(hudModel(game).enemy).toEqual({ kind: 'depot', ratio: 1 });
 });
 
 test('the radar turns with the mech', () => {

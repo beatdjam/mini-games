@@ -11,6 +11,7 @@ import { newEnemy } from '../../src/logic/enemies.ts';
 import type { Ray3 } from '../../src/logic/fcs.ts';
 import { newGame, step, targetRect, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
+import { hudModel } from '../../src/logic/hud.ts';
 import { seed } from '../../src/logic/rng.ts';
 
 const DT = 1 / 60;
@@ -307,7 +308,11 @@ test('the autocannon does not reach past its range', () => {
   expect(firstHit(game, { ...idle, fire: true }, 120)).toBeNull();
   expect(game.bullets).toHaveLength(0);
 
-  const subHit = firstHit(game, { ...idle, sub: true }, 120);
+  // the pillbox is no soft-lock candidate (SB-2043), so the aim goes by hand at its middle; no enemy pulls it away
+  game.enemies.length = 0;
+  const oy = game.mech.y + MECH_TUNE.chestHeight;
+  const aim = { ox: game.mech.x, oy, oz: game.mech.z, dx: 0, dy: TARGET_SIZE.pillbox.h / 2 - oy, dz: -150 };
+  const subHit = firstHit(game, { ...idle, sub: true, aim }, 120);
   if (!subHit) throw new Error('the heavy gun hit something');
   expect(subHit.hit.target).toBe('pillbox-1');
   expect(subHit.hit.weapon).toBe('heavyGun');
@@ -465,10 +470,10 @@ test('a shot aimed down stops at the ground', () => {
   expect(game.bullets).toHaveLength(0);
 });
 
-// The mech at the origin facing -z, one pillbox 100 m away at `deg` from the front, no props.
-function withPillboxAtAngle(deg: number): GameModel {
+// The mech at the origin facing -z, one target of `kind` 100 m away at `deg` from the front, no props.
+function withTargetAtAngle(deg: number, kind: 'pillbox' | 'depot' = 'depot'): GameModel {
   const rad = (deg * Math.PI) / 180;
-  const place = { id: 'dummy', kind: 'pillbox' as const, x: Math.sin(rad) * 100, z: -Math.cos(rad) * 100, yaw: 0 };
+  const place = { id: 'dummy', kind, x: Math.sin(rad) * 100, z: -Math.cos(rad) * 100, yaw: 0 };
   const game = newPlayGame({ ...M1B_HAND, props: [], targets: [place] });
   game.mech.x = 0;
   game.mech.z = 0;
@@ -478,7 +483,8 @@ function withPillboxAtAngle(deg: number): GameModel {
 
 test('a target inside the aim circle becomes the aim target and the shots reach it', () => {
   seed(3);
-  const game = withPillboxAtAngle(5);
+  const game = withTargetAtAngle(5);
+  game.targets[0].hp = 100000; // so 90 frames of fire do not break it and drop it from the aim
   let hits = 0;
   for (let i = 0; i < 90; i++) {
     step(game, { ...idle, fire: true }, DT);
@@ -488,8 +494,40 @@ test('a target inside the aim circle becomes the aim target and the shots reach 
   expect(hits).toBeGreaterThan(0);
 });
 
+test('a pillbox alone in the aim circle is not the aim target and gets no lock frame (SB-2043)', () => {
+  const game = withTargetAtAngle(0, 'pillbox');
+  for (let i = 0; i < 30; i++) {
+    step(game, idle, DT);
+    expect(game.aimTarget).toBeNull();
+  }
+  expect(hudModel(game).enemy).toBeNull();
+  expect(hudModel(game).lock).toBeNull();
+});
+
+test('an enemy beside a pillbox in the aim circle is the aim target (SB-2043)', () => {
+  const game = withTargetAtAngle(0, 'pillbox');
+  const rad = (7 * Math.PI) / 180;
+  game.enemies.push(newEnemy('side', 'w', 'grunt', Math.sin(rad) * 100, -Math.cos(rad) * 100));
+  step(game, idle, DT);
+  expect(game.aimTarget).toBe('side');
+});
+
+test('shots aimed by hand at a pillbox still suppress it (SB-2043)', () => {
+  seed(3);
+  const game = withTargetAtAngle(0, 'pillbox');
+  let hits = 0;
+  for (let i = 0; i < 90; i++) {
+    step(game, { ...idle, fire: true }, DT);
+    expect(game.aimTarget).toBeNull();
+    for (const event of game.events) if (event.kind === 'hit' && event.target === 'dummy') hits++;
+  }
+  expect(hits).toBeGreaterThan(0);
+  expect(game.targets[0].hp).toBe(TARGET_HP.pillbox);
+  expect(game.pillboxes.find(pillbox => pillbox.id === 'dummy')?.suppress).toBeGreaterThan(0);
+});
+
 test('a target outside the aim circle is not the aim target', () => {
-  const game = withPillboxAtAngle(12);
+  const game = withTargetAtAngle(12);
   step(game, idle, DT);
   expect(game.aimTarget).toBeNull();
 });
@@ -497,7 +535,7 @@ test('a target outside the aim circle is not the aim target', () => {
 test('the same seed and the same inputs give the same events; another seed gives other shots', () => {
   const run = (n: number): GameEvent[][] => {
     seed(n);
-    const game = withPillboxAtAngle(3);
+    const game = withTargetAtAngle(3);
     const frames: GameEvent[][] = [];
     for (let i = 0; i < 90; i++) {
       step(game, { ...idle, fire: true, sub: i % 30 === 0 }, DT);

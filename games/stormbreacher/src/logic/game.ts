@@ -34,7 +34,7 @@ import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
-import { PROP_HP, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
+import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
 import { BLAST_FACE_TUNE, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
@@ -387,16 +387,20 @@ export function lowerBrokenTargetRects(game: Pick<GameModel, 'map' | 'targets' |
 // counts as not alive, so the soft lock never pulls toward an enemy behind a pillbox's wall.
 function fcsTargets(game: GameModel, chest: { x: number; y: number; z: number }): FcsTarget[] {
   const things = [
-    ...game.targets.map(target => ({ box: target.box, alive: target.hp > 0 })),
-    ...game.enemies.map(enemy => ({ box: enemyBox(enemy), alive: enemy.hp > 0 })),
+    ...game.targets.map(target => ({
+      box: target.box,
+      alive: target.hp > 0,
+      lockable: !TARGET_CHARGE_ONLY[target.kind],
+    })),
+    ...game.enemies.map(enemy => ({ box: enemyBox(enemy), alive: enemy.hp > 0, lockable: true })),
   ];
   // What hides one from the chest: the props and the standing targets (a pillbox's wall hides the enemy behind it).
   const walls = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
-  return things.map(({ box, alive }, id) => {
+  return things.map(({ box, alive, lockable }, id) => {
     const cx = (box.minX + box.maxX) / 2;
     const cy = (box.minY + box.maxY) / 2;
     const cz = (box.minZ + box.maxZ) / 2;
-    return { id, box, cx, cy, cz, alive: alive && inSight(chest, cx, cy, cz, box, walls) };
+    return { id, box, cx, cy, cz, alive: alive && inSight(chest, cx, cy, cz, box, walls), lockable };
   });
 }
 
