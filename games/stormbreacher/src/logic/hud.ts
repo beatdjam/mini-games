@@ -3,9 +3,8 @@
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
-import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CALLOUT_TUNE, RADIO_TUNE, OBJECTIVE_COUNT } from '../data/script.ts';
-import { TARGET_HP } from '../data/props.ts';
+import { TARGET_CHARGE_ONLY, TARGET_HP } from '../data/props.ts';
 import { HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import { WEAPONS, type WeaponId } from '../data/weapons.ts';
@@ -52,7 +51,7 @@ export interface HudModel {
   radio: string | null; // the language key of the radio line on screen while it is within RADIO_TUNE.minSec, else null
   callout: string | null; // the language key of the short order near the aim (SB-2028): the on-screen radio line's `callout` for CALLOUT_TUNE.sec, and never while a shell warning shows; else null
   lock: Aabb | null; // the box of the target or enemy `enemy` describes, for the lock frame; null when `enemy` is
-  enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp, and for a pillbox the suppression left (SB-2015)
+  enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp; a charge-only target (a pillbox) is never shown
   radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange, and the pillboxes' blast points
   front: HudFront; // the line the allies hold, as two points across the map (SB-2010)
   headline: string | null; // the short heading a milestone puts up (`m1.breach`), or null
@@ -115,16 +114,9 @@ export function hudModel(game: GameModel): HudModel {
   const aimedEnemy = game.enemies.find(placed => placed.id === game.aimTarget);
   let enemy: HudModel['enemy'] = null;
   let lock: Aabb | null = null;
-  if (aimed && aimed.hp > 0) {
-    // A pillbox takes no damage from shots (SB-2015), so its bar shows the suppression left: full again when its muzzle
-    // is free, empty while it is held quiet.
-    if (aimed.kind === 'pillbox') {
-      const state = game.pillboxes.find(pillbox => pillbox.id === aimed.id);
-      const suppress = state?.suppress ?? 0;
-      enemy = { kind: aimed.kind, ratio: Math.max(0, 1 - suppress / PILLBOX_TUNE.suppressSec) };
-    } else {
-      enemy = { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] };
-    }
+  // A target only a charge breaks (a pillbox) is never the aim target; if one is named anyway, no bar and no frame.
+  if (aimed && aimed.hp > 0 && !TARGET_CHARGE_ONLY[aimed.kind]) {
+    enemy = { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] };
     lock = aimed.box;
   } else if (aimedEnemy && aimedEnemy.hp > 0) {
     enemy = { kind: aimedEnemy.kind, ratio: aimedEnemy.hp / ENEMIES[aimedEnemy.kind].hp };

@@ -257,7 +257,7 @@ test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind
   expect(shotsWithoutLine).toBe(0);
 });
 
-test('the soft lock does not pull toward an enemy hidden behind a pillbox, but toward the pillbox in front', () => {
+test('the soft lock does not pull toward an enemy hidden behind a pillbox, nor toward the pillbox (SB-2043)', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
   const game = newPlayGame({ ...field([]), targets: [pillbox] });
@@ -275,7 +275,7 @@ test('the soft lock does not pull toward an enemy hidden behind a pillbox, but t
   step(game, idle, DT);
   for (let i = 0; i < 30; i++) {
     step(game, atEnemy(), DT);
-    expect(game.aimTarget).toBe('pillbox-1');
+    expect(game.aimTarget).toBeNull();
   }
   // with the pillbox down the enemy is in sight, and the lock goes to it
   game.targets[0].hp = 0;
