@@ -66,6 +66,7 @@ const DEPOT_GO: readonly string[] = [
   'flag:depot-taken',
   'flag:depot-down',
   'radio:m1.depot-down',
+  'flag:fortress-gun-awake',
 ];
 
 const FORTRESS_GO: readonly string[] = [
@@ -73,6 +74,7 @@ const FORTRESS_GO: readonly string[] = [
   'allyMove:cover-b3',
   'loss:1/1',
   'flag:fortress-skip',
+  'flag:fortress-gun-awake',
   'allyFall:cover-b3:shell',
   'radio:m1.ally-lost',
 ];
