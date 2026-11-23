@@ -38,9 +38,13 @@ async function picture(name: string): Promise<void> {
   await page.screenshot({ path: `${__SHOTS_OUT__}/${name}.png` });
 }
 
+// The yard's walls close in on the gate, so the warden stands in the open yard, DZ m nearer the mech's start; the
+// cameras below are written against the gate and shifted by it.
+const DZ = 20;
+
 function look(pos: readonly [number, number, number], at: readonly [number, number, number]): void {
-  camera.position.set(...pos);
-  camera.lookAt(...at);
+  camera.position.set(pos[0], pos[1], pos[2] + DZ);
+  camera.lookAt(at[0], at[1], at[2] + DZ);
   camera.updateProjectionMatrix();
 }
 
@@ -65,7 +69,7 @@ test('warden', async () => {
   const game = newGame(map);
   game.mech.x = 0;
   game.mech.y = 0;
-  game.mech.z = -95;
+  game.mech.z = -70;
   game.mech.grounded = true;
   game.mech.yaw = 0;
   const model = buildMechVisual(
@@ -77,9 +81,56 @@ test('warden', async () => {
   const enemyView = buildEnemyView();
   const chargeView = buildWardenChargeView();
 
-  const warden = newEnemy('warden-1', 'warden', 'warden', 0, -118);
+  const warden = newEnemy('warden-1', 'warden', 'warden', 0, -118 + DZ);
   if (!warden.warden) throw new Error('the warden has no state');
   game.enemies = [warden];
+
+  // the build's own views (SB-2049): the front faces -z at yaw 0, so the front camera stands beyond it and the back
+  // camera on the mech's side
+  if (wanted('warden-front')) {
+    look([0, 4, -130], [0, 3, -118]);
+    drawEnemies(enemyView, game);
+    await picture('warden-front');
+  }
+
+  if (wanted('warden-front-3q')) {
+    look([-8, 5, -128], [0, 3, -118]);
+    drawEnemies(enemyView, game);
+    await picture('warden-front-3q');
+  }
+
+  if (wanted('warden-side')) {
+    look([12, 3.5, -118], [0, 3, -118]);
+    drawEnemies(enemyView, game);
+    await picture('warden-side');
+  }
+
+  if (wanted('warden-back')) {
+    look([0, 4, -106], [0, 3, -118]);
+    drawEnemies(enemyView, game);
+    await picture('warden-back');
+  }
+
+  if (wanted('warden-charge-front')) {
+    warden.warden.phase = 'charge';
+    warden.warden.timer = WARDEN_TUNE.charge.telegraph;
+    warden.warden.chargeLeft = WARDEN_TUNE.charge.distance;
+    look([-8, 4.5, -128], [0, 3, -118]);
+    drawEnemies(enemyView, game);
+    drawWardenCharge(chargeView, game);
+    await picture('warden-charge-front');
+    warden.warden.phase = 'walkout';
+  }
+
+  if (wanted('warden-burst-front')) {
+    warden.warden.phase = 'burst';
+    warden.warden.burstLeft = WARDEN_TUNE.burst.shots;
+    warden.warden.timer = WARDEN_TUNE.burstTelegraph;
+    look([-8, 4.5, -128], [0, 3, -118]);
+    drawEnemies(enemyView, game);
+    await picture('warden-burst-front');
+    warden.warden.phase = 'walkout';
+  }
 
   if (wanted('warden-appear')) {
     look([18, 9, -92], [0, 4, -118]);
