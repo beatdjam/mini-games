@@ -291,7 +291,7 @@ export function showFcs(_hash: string) {
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
       cam = followCamera(cam, pose, dt, CAMERA_TUNE);
       const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
+      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
 
       updateReticle(camera, fcsKind, tune, frameResult, targets());
       hud.textContent = hudText();

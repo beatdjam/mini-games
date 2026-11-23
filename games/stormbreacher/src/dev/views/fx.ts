@@ -376,7 +376,7 @@ export function showFx(_hash: string) {
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, cameraBoxes);
       cam = followCamera(cam, pose, dt, cameraAtSize);
       const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
+      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
 
       fpsFrames++;

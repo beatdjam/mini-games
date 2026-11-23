@@ -278,7 +278,7 @@ export function showMove(_hash: string) {
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, 0, cameraTune, walls);
       cam = followCamera(cam, pose, dt, cameraTune);
       const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
+      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
 
       // The HUD's numbers: the horizontal speed, the gauge, the ground and the landing stop.
       hud.textContent =
