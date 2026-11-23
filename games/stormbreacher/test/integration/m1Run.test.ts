@@ -222,7 +222,7 @@ function waitingOn(game: GameModel, id: string): boolean {
     if (wave.some(entry => entry.hp > 0 || (entry.warden?.dying ?? 0) > 0)) return true;
     return !game.script.cleared.includes(id);
   }
-  return false;
+  throw new Error(`a hold waits on '${id}', which is no target, enemy or wave`);
 }
 
 // Whether a blast point has a charge on it.
@@ -352,7 +352,7 @@ function playM1(depot = false): Result {
     if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
     step(game, decide(game, bot, route), DT);
   }
-  const result = {
+  return {
     cleared: game.cleared,
     downed: game.downed,
     time: game.time,
@@ -364,7 +364,6 @@ function playM1(depot = false): Result {
     fired: game.script.fired,
     at: { x: game.mech.x, z: game.mech.z, next: bot.next },
   };
-  return result;
 }
 
 // The cues in the order the story runs them; the depot's own cues are left out of the straight-on run's list.
@@ -381,14 +380,14 @@ const STORY = [
   'fortress-ally-lost',
   'fortress-gate',
   'fortress-yard',
-  // the bot downs yard-1 and then the sea gate's two before yard-2 comes (yard-drop, 6 s after the entry), and leaves the
-  // yard before yard-2 is down on this road
+  // the bot downs yard-1 and then the sea gate's two before yard-2 comes (yard-drop, 6 s after the entry); it then stays
+  // in the yard for the mid boss and its two adds, so yard-2 is down before it leaves (SB-1850)
   'yard-gate',
   'yard-3-clear',
   'yard-drop',
-  'fortress-out',
   'yard-2-clear',
   'yard-clear',
+  'fortress-out',
   'gun1',
   'shutter',
   'win',

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { TARGET_SIZE, WRECK_SCALE_Y } from '../../src/data/props.ts';
+import { WARDEN_TUNE } from '../../src/data/warden.ts';
 import { newGame, targetRect } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
@@ -166,7 +167,7 @@ describe('suspend', () => {
     expect(back && JSON.stringify(suspendOf(back))).toBe(JSON.stringify(suspendOf(game)));
   });
 
-  test('the mid boss’s phase, timers and exposure come back', () => {
+  test('the mid boss comes back with its health and the once-only call, at the head of its phase', () => {
     const game = newGame(M1B_HAND);
     const warden = newEnemy('warden-1', 'warden', 'warden', 0, -118);
     if (!warden.warden) throw new Error('the warden has no state');
@@ -179,7 +180,20 @@ describe('suspend', () => {
     warden.warden.called = true;
     game.enemies.push(warden);
     const back = restoreSuspend(stored(suspendOf(game)));
-    expect(back?.enemies[0]).toMatchObject({ id: 'warden-1', hp: 210, warden: warden.warden });
+    // the burst, charge or volley under way is dropped with the shots in flight: it rests, then chooses again
+    expect(back?.enemies[0]).toMatchObject({
+      id: 'warden-1',
+      hp: 210,
+      warden: {
+        phase: 'burst',
+        burstLeft: 0,
+        timer: WARDEN_TUNE.burstRest,
+        chargeLeft: 0,
+        exposed: 0,
+        mortarT: WARDEN_TUNE.mortarEvery,
+        called: true,
+      },
+    });
   });
 
   test('the aimed mortar’s anchor and stay come back', () => {

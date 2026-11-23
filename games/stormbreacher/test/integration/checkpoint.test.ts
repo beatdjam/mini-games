@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { TARGET_SIZE, WRECK_SCALE_Y } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
+import { WARDEN_TUNE } from '../../src/data/warden.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import {
   newGame,
@@ -233,7 +234,7 @@ describe('checkpoint', () => {
     expect(third.rects).toEqual(before?.rects);
   });
 
-  test('the mid boss’s health and phase come back from the checkpoint', () => {
+  test('the mid boss’s health comes back from the checkpoint, at the head of its phase', () => {
     const game = newPlayGame(M1B_HAND);
     const warden = newEnemy('warden-1', 'warden', 'warden', 0, -118);
     if (!warden.warden) throw new Error('the warden has no state');
@@ -250,6 +251,7 @@ describe('checkpoint', () => {
     if (!copy) throw new Error('no checkpoint');
     const savedState = structuredClone(warden.warden);
     const saved = copy.enemies.find(enemy => enemy.id === 'warden-1');
+    // the checkpoint keeps the state as it was, mid charge
     expect(saved).toMatchObject({ hp: 180, warden: savedState });
 
     // the game goes on, the warden takes a burst of the next phase, and a retry comes back at the copy
@@ -259,9 +261,18 @@ describe('checkpoint', () => {
     state.timer = 0.1;
     warden.hp = 90;
     const again = retryFromCheckpoint(game);
+    // the retry drops the shots in flight, so the charge under way restarts as a rest and a fresh choice
     expect(again.enemies.find(enemy => enemy.id === 'warden-1')).toMatchObject({
       hp: 180,
-      warden: savedState,
+      warden: {
+        phase: 'burst',
+        burstLeft: 0,
+        timer: WARDEN_TUNE.burstRest,
+        chargeLeft: 0,
+        exposed: 0,
+        mortarT: WARDEN_TUNE.mortarEvery,
+        called: true,
+      },
     });
   });
 

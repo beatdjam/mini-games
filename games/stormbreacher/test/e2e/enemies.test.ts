@@ -4,10 +4,12 @@ import * as THREE from 'three';
 import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { ENEMY_KINDS, SOLDIER_KINDS, type EnemyKind, type SoldierKind } from '../../src/data/enemies.ts';
+import { WARDEN_COLOR } from '../../src/data/colors.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { enemyFarMeshName, enemyMeshName } from '../../src/view/enemies.ts';
 import { steps, untilSteps } from './steps.ts';
@@ -26,9 +28,12 @@ function game() {
   return current;
 }
 
-// Every mesh of a kind: a soldier has the full shape and the far one (SB-2083); the nest has its named sandbags only.
+// Every mesh of a kind: a soldier has the full shape and the far one (SB-2083); the nest has its named sandbags only, and
+// so has the mid boss (SB-1850).
 const meshNamesOf = (kind: EnemyKind): string[] =>
-  kind === 'emplacement' ? [enemyMeshName(kind)] : [enemyMeshName(kind), enemyFarMeshName(kind as SoldierKind)];
+  kind === 'emplacement' || kind === 'warden'
+    ? [enemyMeshName(kind)]
+    : [enemyMeshName(kind), enemyFarMeshName(kind as SoldierKind)];
 
 // The mesh of every kind; a wave of mixed kinds draws into more than one of them.
 const enemyMeshes = (): THREE.Object3D[] =>
@@ -133,6 +138,24 @@ test('every kind keeps room for its instance colours, so the GPU can draw it', a
         const material = part.material as THREE.MeshLambertMaterial | THREE.MeshBasicMaterial;
         if (!material.vertexColors) expect(material.color.getHex(), `${part.name} colour`).not.toBe(0);
       }
+      continue;
+    }
+    // The mid boss is put out here, in front of the mech, as no wave of this scene brings it: one body shape in one mesh.
+    // Its colour is the body's own, written per copy, so the copy is not white; the room covers the copy all the same.
+    if (kind === 'warden') {
+      const before = drawnEnemies();
+      const current = game();
+      current.enemies.push(newEnemy('warden-e2e', 'warden', 'warden', current.mech.x, current.mech.z - 12));
+      steps(1);
+      expect(drawnEnemies(), 'the warden is drawn').toBe(before + 1);
+      const mesh = scene.getObjectByName(enemyMeshName(kind)) as THREE.InstancedMesh;
+      expect(mesh.count, `${mesh.name} copies`).toBe(1);
+      const colors = mesh.instanceColor;
+      if (colors === null) throw new Error(`${kind} (${mesh.name}) has no instance colours`);
+      expect(colors.array.length, `${mesh.name} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
+      mesh.getColorAt(0, colorAt);
+      expect(colorAt.getHex(), `${mesh.name} colour`).toBe(WARDEN_COLOR);
+      expect(mesh.geometry.attributes.color, `${mesh.name} baked colours`).toBeDefined();
       continue;
     }
     // A soldier's copies are split between the full shape and the far one (SB-2083), so each kind draws in one of the

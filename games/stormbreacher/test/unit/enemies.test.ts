@@ -28,13 +28,11 @@ test('the warden keeps a walker’s nav width: its navRadius, not its hit radius
   expect(NAV_RADIUS).toBe(0.75);
 });
 
-test('a warden is born with its own phase state, which stepEnemy does not touch', () => {
+test('a warden is born with its own phase state', () => {
   const warden = newEnemy('w-1', 'w', 'warden', 0, -60);
   expect(warden.warden).toMatchObject({ phase: 'walkout', called: false, dying: 0 });
-  // stepEnemy's own fields are not what the warden reads: the game sends a warden through stepWarden instead
-  const before = structuredClone(warden.warden);
-  stepEnemy(warden, mechAt(0, 0), OPEN, DT, createRng(1));
-  expect(warden.warden).toEqual(before);
+  // the other kinds carry none
+  expect(newEnemy('g-1', 'w', 'grunt', 0, -60).warden).toBeUndefined();
 });
 
 test('an enemy beyond the notice distance sleeps: it does not move or shoot', () => {

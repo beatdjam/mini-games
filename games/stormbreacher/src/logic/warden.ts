@@ -25,6 +25,7 @@ export interface WardenState {
   chargeLeft: number; // m of the charge still to run
   exposed: number; // s the back plate is open after a stopped charge
   mortarT: number; // s to the next special (a charge, or a mortar in the second phase)
+  rammed: boolean; // whether this charge has already struck the mech (a charge strikes it once)
   called: boolean; // whether the two assaults have been called
   dying: number; // s left before the blast; -1 once it has blown
 }
@@ -42,6 +43,7 @@ export interface WardenStepResult {
   shells: ShellState[];
   addWave: boolean;
   down: boolean;
+  ram: { dx: number; dz: number } | null; // the charge's ground direction on the frame it strikes the mech, once per charge
 }
 
 // The dot of a shot's ground direction with the warden's front, either side of which the plate is the front or the back.
@@ -56,9 +58,24 @@ export function newWarden(): WardenState {
     chargeLeft: 0,
     exposed: 0,
     mortarT: 0,
+    rammed: false,
     called: false,
     dying: 0,
   };
+}
+
+// Puts a warden that comes back from a checkpoint or a resume at the head of its phase (SB-1850). The shots and shells in
+// flight are dropped on the way back, so a burst, a charge, a stagger or a volley under way would be left half done: it
+// waits out a rest instead and chooses again. The walk-out, the fall and the once-only call are left as they were.
+export function restartWarden(state: WardenState): void {
+  if (state.phase === 'walkout' || state.phase === 'dying') return;
+  state.phase = 'burst';
+  state.burstLeft = 0;
+  state.timer = WARDEN_TUNE.burstRest;
+  state.chargeLeft = 0;
+  state.exposed = 0;
+  state.mortarT = WARDEN_TUNE.mortarEvery;
+  state.rammed = false;
 }
 
 // A shot from where the warden stands, at the mech's chest, with the kind's spread.
@@ -136,6 +153,7 @@ function startSpecial(state: WardenState, phase2: boolean): void {
   state.phase = 'charge';
   state.timer = WARDEN_TUNE.charge.telegraph;
   state.chargeLeft = WARDEN_TUNE.charge.distance;
+  state.rammed = false;
 }
 
 // A shell of the mortar volley, around the mech but within the spread.
@@ -153,7 +171,8 @@ function mortarShell(mech: { x: number; z: number }, rng: Rng): ShellState {
 }
 
 // One frame of the warden. The shots it fires and the shells it calls in are returned for game.ts to put out; `addWave`
-// asks for the two assaults once, and `down` comes on the frame the three seconds of smoke end, once.
+// asks for the two assaults once, `down` comes on the frame the three seconds of smoke end, once, and `ram` is the charge's
+// direction on the one frame it strikes the mech.
 export function stepWarden(
   state: WardenState,
   enemy: WardenBody,
@@ -164,7 +183,7 @@ export function stepWarden(
 ): WardenStepResult {
   const shots: EnemyShot[] = [];
   const shells: ShellState[] = [];
-  const result: WardenStepResult = { shots, shells, addWave: false, down: false };
+  const result: WardenStepResult = { shots, shells, addWave: false, down: false, ram: null };
   // already blown: nothing more happens
   if (state.dying < 0) return result;
   if (enemy.hp <= 0) {
@@ -226,6 +245,11 @@ export function stepWarden(
       settle(enemy, world);
       state.chargeLeft = Math.max(0, state.chargeLeft - go);
       const moved = Math.hypot(enemy.x - beforeX, enemy.z - beforeZ);
+      // the run strikes the mech once if their circles meet; game.ts takes the armour and pushes the mech aside
+      if (!state.rammed && Math.hypot(mech.x - enemy.x, mech.z - enemy.z) <= def.radius + MECH_TUNE.radius) {
+        state.rammed = true;
+        result.ram = { dx: -Math.sin(enemy.yaw), dz: -Math.cos(enemy.yaw) };
+      }
       if (go > 0 && moved < go * 0.5) {
         // a wall or a cover stopped the run: the radiator plate is open
         state.phase = 'stagger';

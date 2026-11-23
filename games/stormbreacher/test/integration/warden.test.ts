@@ -6,6 +6,7 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { YARD_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
+import { WARDEN_TUNE } from '../../src/data/warden.ts';
 import { newEnemy, type EnemyState } from '../../src/logic/enemies.ts';
 import { step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
@@ -141,7 +142,7 @@ test('a charge stopped by a wall exposes the back for its stagger', () => {
   expect(exposedAt).toBeGreaterThanOrEqual(0);
   expect(warden.warden?.phase).toBe('stagger');
   expect(warden.warden?.exposed).toBeGreaterThan(1.9);
-  // the whole stagger, and the back takes double even from the front
+  // it stopped at the wall's face and did not go through
   expect(warden.z).toBeGreaterThan(-24);
 });
 
@@ -163,3 +164,80 @@ test(
   },
   LONG,
 );
+
+test('a shot from the front takes the back plate’s double while the warden is exposed', () => {
+  const open = (exposed: number): number => {
+    const { game, warden } = fightAt(0);
+    if (!warden.warden) throw new Error('the warden has no state');
+    warden.warden.exposed = exposed;
+    const z = warden.z - (ENEMIES.warden.radius + 4);
+    game.bullets.push({ weapon: 'autocannon', x: warden.x, y: 3, z, dx: 0, dy: 0, dz: 1, left: 20 });
+    run(game, 1);
+    return ENEMIES.warden.hp - warden.hp;
+  };
+  expect(open(0)).toBe(10 * WARDEN_TUNE.frontMul);
+  expect(open(1)).toBe(10 * WARDEN_TUNE.backMul);
+});
+
+test('a charge that meets the mech takes charge.damage off its armour and pushes it aside once', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.mech.x = 0;
+  game.mech.z = -12;
+  game.mech.y = 0;
+  game.mech.grounded = true;
+  game.rects = [];
+  game.propBoxes = [];
+  game.targets = [];
+  game.enemies = [newEnemy('warden-1', 'warden', 'warden', 0, -30)];
+  const warden = game.enemies[0];
+  if (!warden.warden) throw new Error('the warden has no state');
+  warden.yaw = Math.PI;
+  warden.warden.phase = 'charge';
+  warden.warden.timer = 0;
+  warden.warden.chargeLeft = WARDEN_TUNE.charge.distance;
+  let hits = 0;
+  let pushedTo = -1;
+  for (let i = 0; i < Math.round(2 / DT); i++) {
+    game.shells = [];
+    game.barrages = [];
+    game.aimed = null;
+    game.battery.on = false;
+    game.mines = [];
+    const before = game.armor;
+    game.mech.x = pushedTo < 0 ? 0 : game.mech.x;
+    game.mech.z = -12;
+    step(game, IDLE, DT);
+    if (game.armor < before) {
+      hits++;
+      expect(before - game.armor).toBe(WARDEN_TUNE.charge.damage);
+      expect(game.events.some(event => event.kind === 'damaged' && event.amount === WARDEN_TUNE.charge.damage)).toBe(
+        true,
+      );
+      pushedTo = Math.abs(game.mech.x);
+    }
+  }
+  expect(hits).toBe(1);
+  expect(pushedTo).toBeCloseTo(WARDEN_TUNE.charge.push, 3);
+});
+
+test('the game steps a warden through stepWarden only: it does not wake, and it does not fire during its walk-out', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.mech.x = 0;
+  game.mech.z = 0;
+  game.mech.y = 0;
+  game.mech.grounded = true;
+  game.rects = [];
+  game.propBoxes = [];
+  game.targets = [];
+  game.enemies = [newEnemy('warden-1', 'warden', 'warden', 0, -30)];
+  const warden = game.enemies[0];
+  let bullets = 0;
+  for (let i = 0; i < Math.round((WARDEN_TUNE.walkOutSec - 0.3) / DT); i++) {
+    run(game, 1);
+    bullets += game.bullets.filter(bullet => 'enemy' in bullet && bullet.enemy === 'warden').length;
+  }
+  expect(warden.warden?.phase).toBe('walkout');
+  expect(bullets).toBe(0);
+  // stepEnemy is what sets `awake` (and what would have fired at this range), and it never ran
+  expect(warden.awake).toBe(false);
+});

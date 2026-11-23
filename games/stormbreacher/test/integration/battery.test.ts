@@ -88,16 +88,7 @@ test('the hand map holds M1’s guns and magazine, and the check finds no violat
   for (const id of PARTS) expect(M1B_HAND.targets.map(target => target.id)).toContain(id);
   expect(M1.targets).toEqual(expect.arrayContaining(PARTS));
   const violations = validateMapForMission(M1B_HAND, M1, {
-    waves: [
-      'beach-mortar',
-      'shelling',
-      'yard-1',
-      'yard-2',
-      'yard-3',
-      'warden',
-      'warden-adds',
-      'battery',
-    ],
+    waves: ['beach-mortar', 'shelling', 'yard-1', 'yard-2', 'yard-3', 'warden', 'warden-adds', 'battery'],
   });
   expect(violations).toEqual([]);
 });

@@ -6,7 +6,7 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { WARDEN_TUNE } from '../../src/data/warden.ts';
 import type { GroundRect } from '../../src/logic/collide.ts';
 import { newEnemy, type EnemyState, type EnemyWorld } from '../../src/logic/enemies.ts';
-import { newWarden, stepWarden, wardenDamageMul } from '../../src/logic/warden.ts';
+import { newWarden, restartWarden, stepWarden, wardenDamageMul } from '../../src/logic/warden.ts';
 
 const DT = 1 / 60;
 const OPEN: EnemyWorld = {
@@ -15,6 +15,11 @@ const OPEN: EnemyWorld = {
   bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 },
   nav: null,
   others: [],
+};
+
+// Within a frame of `want` seconds (a count of whole frames cannot be nearer than that).
+const withinFrame = (seconds: number, want: number): void => {
+  expect(Math.abs(seconds - want)).toBeLessThanOrEqual(DT + 1e-9);
 };
 
 const mechAt = (x: number, z: number): { x: number; y: number; z: number } => ({ x, y: 0, z });
@@ -38,9 +43,9 @@ test('a burst first telegraphs for burstTelegraph, then fires its shots interval
   }
   expect(frames).toHaveLength(WARDEN_TUNE.burst.shots);
   // the first step already counted, so the first shot comes a frame short of the telegraph
-  expect((frames[0] + 1) * DT).toBeCloseTo(WARDEN_TUNE.burstTelegraph, 1);
+  withinFrame((frames[0] + 1) * DT, WARDEN_TUNE.burstTelegraph);
   for (let i = 1; i < frames.length; i++) {
-    expect((frames[i] - frames[i - 1]) * DT).toBeCloseTo(WARDEN_TUNE.burst.interval, 1);
+    withinFrame((frames[i] - frames[i - 1]) * DT, WARDEN_TUNE.burst.interval);
   }
   expect(state.burstLeft).toBe(0);
   expect(state.timer).toBeCloseTo(WARDEN_TUNE.burstRest, 6);
@@ -62,7 +67,7 @@ test('a charge crouches for charge.telegraph and then runs the way it faces', ()
     if (enemy.z > start + 1e-6) runFrame = i;
   }
   expect(runFrame).toBeGreaterThanOrEqual(0);
-  expect((runFrame + 1) * DT).toBeCloseTo(WARDEN_TUNE.charge.telegraph, 1);
+  withinFrame((runFrame + 1) * DT, WARDEN_TUNE.charge.telegraph);
   // one frame of the run moves it by charge.speed * dt
   expect(enemy.z).toBeCloseTo(start + WARDEN_TUNE.charge.speed * DT, 3);
 });
@@ -129,10 +134,15 @@ test('the second phase brings the shoulder mortars, the first only charges', () 
   stepWarden(state, enemy, mechAt(0, 0), OPEN, DT, createRng(1));
   expect(state.phase).toBe('mortar');
   let shells: ReturnType<typeof stepWarden>['shells'] = [];
+  let landedAt = -1;
   for (let i = 0; i < Math.round((WARDEN_TUNE.burstTelegraph + 0.1) / DT); i++) {
-    shells = shells.concat(stepWarden(state, enemy, mechAt(0, 0), OPEN, DT, createRng(1)).shells);
+    const out = stepWarden(state, enemy, mechAt(0, 0), OPEN, DT, createRng(1));
+    if (out.shells.length > 0 && landedAt < 0) landedAt = i;
+    shells = shells.concat(out.shells);
   }
   expect(shells).toHaveLength(WARDEN_TUNE.mortar.count);
+  // the shells are put out once the shoulder light has shone for its telegraph; each warning ring then counts `warn`
+  withinFrame((landedAt + 1) * DT, WARDEN_TUNE.burstTelegraph);
   for (const shell of shells) {
     expect(shell.warn).toBe(WARDEN_TUNE.mortar.warn);
     expect(shell.left).toBe(WARDEN_TUNE.mortar.warn);
@@ -194,6 +204,7 @@ test('a new warden walks out without shooting for its walkOutSec', () => {
     chargeLeft: 0,
     exposed: 0,
     mortarT: 0,
+    rammed: false,
     called: false,
     dying: 0,
   });
@@ -203,4 +214,66 @@ test('a new warden walks out without shooting for its walkOutSec', () => {
   }
   expect(shots).toBe(0);
   expect(state.phase).toBe('walkout');
+});
+
+test('a charge that meets the mech strikes it once, with the direction of the run', () => {
+  const enemy = wardenAt(0, -30);
+  enemy.yaw = Math.PI;
+  const state = enemy.warden;
+  if (!state) throw new Error('the warden has no state');
+  state.phase = 'charge';
+  state.timer = 0;
+  state.chargeLeft = WARDEN_TUNE.charge.distance;
+  const rng = createRng(1);
+  const rams: { dx: number; dz: number }[] = [];
+  for (let i = 0; i < Math.round(2 / DT); i++) {
+    const out = stepWarden(state, enemy, mechAt(0, -10), OPEN, DT, rng);
+    if (out.ram) rams.push(out.ram);
+  }
+  expect(rams).toHaveLength(1);
+  expect(rams[0].dx).toBeCloseTo(0, 6);
+  expect(rams[0].dz).toBeCloseTo(1, 6);
+});
+
+test('a charge that misses the mech strikes nothing', () => {
+  const enemy = wardenAt(0, -30);
+  enemy.yaw = Math.PI;
+  const state = enemy.warden;
+  if (!state) throw new Error('the warden has no state');
+  state.phase = 'charge';
+  state.timer = 0;
+  state.chargeLeft = WARDEN_TUNE.charge.distance;
+  const rng = createRng(1);
+  for (let i = 0; i < Math.round(2 / DT); i++) {
+    expect(stepWarden(state, enemy, mechAt(20, -10), OPEN, DT, rng).ram).toBeNull();
+  }
+});
+
+test('restarting puts a half-done burst, charge, stagger or volley back to a rest, and leaves the walk-out and the fall', () => {
+  for (const phase of ['burst', 'charge', 'stagger', 'mortar'] as const) {
+    const state = newWarden();
+    state.phase = phase;
+    state.burstLeft = 2;
+    state.chargeLeft = 9;
+    state.exposed = 1;
+    state.rammed = true;
+    state.called = true;
+    restartWarden(state);
+    expect(state).toMatchObject({
+      phase: 'burst',
+      burstLeft: 0,
+      timer: WARDEN_TUNE.burstRest,
+      chargeLeft: 0,
+      exposed: 0,
+      mortarT: WARDEN_TUNE.mortarEvery,
+      rammed: false,
+      called: true,
+    });
+  }
+  const walking = newWarden();
+  restartWarden(walking);
+  expect(walking).toEqual(newWarden());
+  const dying = { ...newWarden(), phase: 'dying' as const, dying: 1.5 };
+  restartWarden(dying);
+  expect(dying).toMatchObject({ phase: 'dying', dying: 1.5 });
 });

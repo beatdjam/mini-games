@@ -93,6 +93,12 @@ test('a frame maps its events to the table’s sounds', () => {
     'downed',
     'enemyGun',
   ]);
+  // the mid boss's blast at the end of its smoke is the big explosion (SB-1850)
+  expect(
+    planSounds({ events: [{ kind: 'wardenDown', id: 'w', x: 10, z: 0 }], mech: MECH, targets: [], hostile: [] }).map(
+      cue => cue.name,
+    ),
+  ).toEqual(['explosionLarge']);
   // a mine blast is the big explosion too, and the per-frame limit leaves one big blast when two land together
   expect(
     planSounds({

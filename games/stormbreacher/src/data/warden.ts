@@ -16,8 +16,8 @@ export const WARDEN_TUNE = {
     telegraph: 0.8, // s it crouches before it runs
     distance: 25, // m the run may carry it
     speed: 16, // m/s while it runs
-    damage: 25, // the armour a ram takes off a mech (reserved for the card that applies it)
-    push: 3, // m a ram pushes a mech aside (reserved for the same card)
+    damage: 25, // the armour a ram takes off a mech the ram takes it once per charge (game.ts)
+    push: 3, // m a ram pushes a mech aside sideways, out of the way of the run
     stagger: 2, // s it is exposed after a wall stops the run
   },
   mortar: {

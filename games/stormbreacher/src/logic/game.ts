@@ -38,8 +38,9 @@ import { PROP_HP, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts
 import { RADIO_TUNE } from '../data/script.ts';
 import { BLAST_FACE_TUNE, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
+import { WARDEN_TUNE } from '../data/warden.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
-import { rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
+import { pushOutCircle, rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
 import { allyCraftRects, craftBack, craftRects, inCraftLane } from './craft.ts';
 import {
   newBattery,
@@ -106,7 +107,7 @@ import { newMech, stepMech, type MechEvent, type MechInput, type MechState } fro
 import { moveTuneOf } from './mechTune.ts';
 import { stream } from './rng.ts';
 import { newScript, scriptInput, stepScript, type ScriptInput, type ScriptOut, type ScriptState } from './script.ts';
-import { stepWarden, wardenDamageMul } from './warden.ts';
+import { restartWarden, stepWarden, wardenDamageMul } from './warden.ts';
 import { newWeapon, stepWeapon, type WeaponState } from './weapons.ts';
 
 // The radius the enemies' cells are blocked for (m): the widest walking enemy's, so what one can walk through they all
@@ -1296,6 +1297,8 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   // The bullets in flight are gone, so a warning, a burst or a suppression under way is dropped too; the wait stays as
   // the checkpoint kept it, and the next warning comes after it.
   next.cover = null;
+  // the mid boss goes back to the head of its phase, as its shots and shells in flight are gone
+  for (const enemy of next.enemies) if (enemy.warden) restartWarden(enemy.warden);
   next.pillboxes = next.pillboxes.map(pillbox => ({ ...pillbox, warn: 0, shots: 0, shotWait: 0, suppress: 0 }));
   // An old checkpoint kept a broken target's rect at the wall's height; the ground matches the low wreck once the
   // sortie is back.
@@ -1333,7 +1336,7 @@ function stepEnemies(game: GameModel, dt: number): void {
   for (const enemy of game.enemies) {
     // the mid boss runs its own phases rather than the walk, stop and shoot of stepEnemy
     if (enemy.kind === 'warden') {
-      if (enemy.warden === undefined) continue;
+      if (enemy.warden === undefined) throw new Error(`the warden ${enemy.id} has no state`);
       const out = stepWarden(enemy.warden, enemy, game.mech, world, dt, stream('enemies'));
       for (const shot of out.shots) {
         game.bullets.push({ enemy: enemy.kind, ...shot, left: ENEMIES.warden.fireRange });
@@ -1342,6 +1345,7 @@ function stepEnemies(game: GameModel, dt: number): void {
         game.shells.push(shell);
         game.events.push({ kind: 'shellWarn', x: shell.x, z: shell.z, radius: shell.radius });
       }
+      if (out.ram) ramMech(game, enemy, out.ram.dx, out.ram.dz);
       if (out.addWave) addWave = true;
       if (out.down) game.events.push({ kind: 'wardenDown', id: enemy.id, x: enemy.x, z: enemy.z });
       continue;
@@ -1353,6 +1357,22 @@ function stepEnemies(game: GameModel, dt: number): void {
     game.bullets.push({ enemy: enemy.kind, ...shot, left: ENEMIES[enemy.kind].fireRange });
   }
   if (addWave) spawnWave(game, 'warden-adds');
+}
+
+// The mid boss's charge strikes the mech (SB-1850): the ram takes `charge.damage` off its armour and pushes it `charge.push`
+// m aside, to the side of the run it stands on, out of the way of the rest of the run and kept out of the walls.
+function ramMech(game: GameModel, enemy: EnemyState, dx: number, dz: number): void {
+  damageMech(game, WARDEN_TUNE.charge.damage, -dx, -dz);
+  if (game.script.cutscene !== null) return;
+  const side = -dz * (game.mech.x - enemy.x) + dx * (game.mech.z - enemy.z) < 0 ? -1 : 1;
+  const pushed = pushOutCircle(
+    game.mech.x - dz * side * WARDEN_TUNE.charge.push,
+    game.mech.z + dx * side * WARDEN_TUNE.charge.push,
+    MECH_TUNE.radius,
+    game.rects,
+  );
+  game.mech.x = pushed.x;
+  game.mech.z = pushed.z;
 }
 
 // Counts every pillbox still standing down by `dt`; one that sees the mech warns and then fires a burst, and the shots
