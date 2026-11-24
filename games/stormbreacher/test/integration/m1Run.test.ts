@@ -9,7 +9,13 @@ import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { fireRayHit, type Aabb } from '../../src/logic/fire.ts';
 import { enemyBox, newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
-import { seed } from '../../src/logic/rng.ts';
+import { seed, stream } from '../../src/logic/rng.ts';
+import { frontOf } from '../../src/logic/front.ts';
+import { newBattle, stepBattle } from '../../src/logic/battle.ts';
+import { spawnWave } from '../../src/logic/crowd.ts';
+import { M1_NEST_WAVE } from '../../src/data/enemies.ts';
+import { PAYOFF_TUNE } from '../../src/data/payoff.ts';
+import { PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
 
 const DT = 1 / 60;
 const SEED = 7;
@@ -346,7 +352,7 @@ interface Result {
   at: { x: number; z: number; next: number };
 }
 
-function playM1(depot = false): Result {
+function playM1(depot = false, onFrame?: (game: GameModel) => void): Result {
   seed(SEED);
   const route = depot ? ROUTE_DEPOT : ROUTE;
   const game = newGame(M1B_HAND, M1);
@@ -355,6 +361,7 @@ function playM1(depot = false): Result {
     // the cutscene is skipped: the landing
     if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
     step(game, decide(game, bot, route), DT);
+    onFrame?.(game);
   }
   return {
     cleared: game.cleared,
@@ -481,4 +488,140 @@ test(
     expect(second.sub).toBe(first.sub);
   },
   TEST_TIMEOUT,
+);
+
+// SB-2044: how far the allies keep behind the mech, section by section. A section runs from one cue to the next (the
+// first cue that has fired decides it). The three cover mechs are read from the game; the infantry is the view's battle
+// layer, which holds no state in the game, so the bot steps its own copy the way view/play.ts does (the same stream, the
+// same tune, the same front lines).
+const SECTIONS: readonly { name: string; from: string }[] = [
+  { name: 'beach', from: 'intro' },
+  { name: 'line 1', from: 'line1-open' },
+  { name: 'B', from: 'pillboxes' },
+  { name: 'pillboxes', from: 'line2-open' },
+  { name: 'C', from: 'cp1' },
+  { name: 'fortress front', from: 'fortress-gun-wake' },
+  { name: 'yard', from: 'fortress-yard' },
+  { name: 'battery front', from: 'fortress-out' },
+];
+const NEAR = 30; // an ally this near the mech, or ahead of it, counts as keeping up (m)
+const SAMPLE_EVERY = 6; // frames
+const PRINT_TABLE = false; // true prints the section table of both roads to the console
+
+interface Gap {
+  dists: number[];
+  ahead: number;
+  keeping: number;
+}
+
+function measureAllies(depot: boolean): Record<string, { mechs: Gap; infantry: Gap; nearest: Gap }> {
+  const blank = (): Gap => ({ dists: [], ahead: 0, keeping: 0 });
+  const table: Record<string, { mechs: Gap; infantry: Gap; nearest: Gap }> = {};
+  for (const section of SECTIONS) table[section.name] = { mechs: blank(), infantry: blank(), nearest: blank() };
+  let battle: ReturnType<typeof newBattle> | null = null;
+  let frontId = '';
+  let frame = 0;
+  const add = (gap: Gap, mech: { z: number }, ally: { x: number; z: number }, mx: number) => {
+    const dist = Math.hypot(ally.x - mx, ally.z - mech.z);
+    gap.dists.push(dist);
+    const ahead = ally.z <= mech.z;
+    if (ahead) gap.ahead++;
+    if (ahead || dist <= NEAR) gap.keeping++;
+  };
+  playM1(depot, game => {
+    if (battle === null) {
+      const front = frontOf(game.script.flags);
+      battle = newBattle(
+        stream('battle'),
+        game.map.bounds,
+        PLAY_BATTLE_TUNE,
+        front.holdZ,
+        game.map.spawns[M1_NEST_WAVE] ?? [],
+      );
+      frontId = front.id;
+    }
+    if (game.script.cutscene === null) {
+      const front = frontOf(game.script.flags);
+      if (front.id !== frontId) {
+        frontId = front.id;
+        battle.crowd.holdZ = front.holdZ;
+        battle.crowd.holdT = 0;
+        spawnWave(battle.crowd, stream('battle'), game.map.bounds, PAYOFF_TUNE.surgeAllies, PLAY_BATTLE_TUNE);
+      }
+      stepBattle(battle, stream('battle'), DT, PLAY_BATTLE_TUNE, game.mech, front.id !== 'pillboxes');
+    }
+    frame++;
+    if (frame % SAMPLE_EVERY !== 0) return;
+    // the section is the one whose cue fired last (the bot is already inside B when it plants line 1's charge)
+    let section: string | null = null;
+    let latest = -1;
+    for (const entry of SECTIONS) {
+      const at = game.script.fired[entry.from];
+      if (at !== undefined && at >= latest) {
+        section = entry.name;
+        latest = at;
+      }
+    }
+    if (section === null) return;
+    const row = table[section];
+    for (const ally of game.allies) {
+      if (ally.down || !ally.id.startsWith('cover-')) continue;
+      add(row.mechs, game.mech, ally, game.mech.x);
+    }
+    const alive = battle.crowd.soldiers.filter(soldier => soldier.alive);
+    for (const soldier of alive) add(row.infantry, game.mech, soldier, game.mech.x);
+    // the ten nearest the mech: the ones the player sees at his back
+    alive
+      .map(soldier => ({ soldier, dist: Math.hypot(soldier.x - game.mech.x, soldier.z - game.mech.z) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 10)
+      .forEach(item => add(row.nearest, game.mech, item.soldier, game.mech.x));
+  });
+  return table;
+}
+
+function summarize(gap: Gap): string {
+  const n = gap.dists.length;
+  if (n === 0) return 'no samples';
+  const sorted = [...gap.dists].sort((a, b) => a - b);
+  const pct = (v: number) => `${Math.round((v / n) * 100)}%`;
+  return `median ${sorted[Math.floor(n / 2)].toFixed(0)} m, max ${sorted[n - 1].toFixed(0)} m, ahead ${pct(gap.ahead)}, ahead or within ${NEAR} m ${pct(gap.keeping)}`;
+}
+
+function median(gap: Gap): number {
+  return [...gap.dists].sort((x, y) => x - y)[Math.floor(gap.dists.length / 2)];
+}
+
+test(
+  'the cover mechs and the infantry keep up with the mech on both roads',
+  () => {
+    for (const depot of [false, true]) {
+      const table = measureAllies(depot);
+      if (PRINT_TABLE) {
+        console.log(`--- ${depot ? 'depot' : 'straight'} road`);
+        for (const section of SECTIONS) {
+          const row = table[section.name];
+          console.log(
+            `${section.name}\n  mechs: ${summarize(row.mechs)}\n  infantry: ${summarize(row.infantry)}\n  nearest 10 infantry: ${summarize(row.nearest)}`,
+          );
+        }
+      }
+      // from the pillbox line on, the three cover mechs are ahead of the mech or within 30 m of it for a good part of each
+      // section, and never 40 m behind it for long (before this ticket they idled 90 to 130 m back from line 2 to the yard,
+      // and stayed in the yard while the mech went out to the battery)
+      for (const section of SECTIONS.slice(3)) {
+        const mechs = table[section.name].mechs;
+        expect(mechs.dists.length, `${section.name} has mech samples`).toBeGreaterThan(0);
+        expect(mechs.keeping / mechs.dists.length, `${section.name} keeping (${depot})`).toBeGreaterThanOrEqual(0.35);
+        expect(median(mechs), `${section.name} median distance (${depot})`).toBeLessThanOrEqual(40);
+      }
+      // the ten infantry nearest the mech come on behind it: within 80 m for half the time from C to the battery
+      for (const section of SECTIONS.slice(4)) {
+        expect(median(table[section.name].nearest), `${section.name} nearest infantry (${depot})`).toBeLessThanOrEqual(
+          80,
+        );
+      }
+    }
+  },
+  TEST_TIMEOUT * 4,
 );

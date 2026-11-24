@@ -5,6 +5,11 @@ import type { AllyFateBy } from './types.ts';
 
 export const ALLY_TUNE = {
   speed: 9, // how fast it runs along its way (m/s)
+  // SB-2044: an ally with no fate that has fallen behind the player's mech runs faster until it is back with it. Behind
+  // means on the sea side of the mech by more than catchGap; the speed rises from speed to speed x catchMul over catchRamp.
+  catchGap: 40, // it starts to hurry when it is this far from the mech and behind it (m)
+  catchRamp: 20, // and runs at the full catchMul this much farther out (m)
+  catchMul: 2, // how many times `speed` it runs at the full catch-up
   arrive: 1.5, // it counts as at a place this near (m)
   height: 3.4, // its height (m); the player's mech is MECH_TUNE.height
   fireEvery: 0.35, // seconds between two of its tracers (s)

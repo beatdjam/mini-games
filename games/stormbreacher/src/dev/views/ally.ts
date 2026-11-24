@@ -32,6 +32,9 @@ const C_ENEMIES = [
 
 const ALLY_RANGES: Record<string, TuneRange> = {
   speed: { min: 1, max: 20, step: 0.5 },
+  catchGap: { min: 10, max: 150, step: 5 },
+  catchRamp: { min: 0, max: 100, step: 5 },
+  catchMul: { min: 1, max: 4, step: 0.1 },
   arrive: { min: 0, max: 5, step: 0.1 },
   callLead: { min: 0, max: 10, step: 0.5 },
   groundRadius: { min: 0, max: 2, step: 0.1 },
@@ -46,6 +49,9 @@ const ALLY_RANGES: Record<string, TuneRange> = {
 
 const ALLY_LABELS: Record<string, string> = {
   speed: '走る速さ(m/s)',
+  catchGap: '遅れて急ぎ出す距離(m)',
+  catchRamp: '全力で急ぐまでの距離(m)',
+  catchMul: '急ぐときの倍率',
   arrive: '着いたと見る距離(m)',
   callLead: '倒れる前に叫ぶ秒(s)',
   groundRadius: '足元の半径(m)',

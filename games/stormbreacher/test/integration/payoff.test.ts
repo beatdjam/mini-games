@@ -168,7 +168,8 @@ describe('the second bunker', () => {
     const cover = game.allies.find(ally => ally.id === 'cover-b1');
     if (!cover) throw new Error('the sortie has no cover-b1');
     takeCp1(game);
-    expect(cover.way[cover.way.length - 1]).toMatchObject({ x: 0, z: 6 });
+    // C's front post, just past the mech's way through C (SB-2044)
+    expect(cover.way[cover.way.length - 1]).toMatchObject({ x: 42, z: -54 });
   });
 
   test('keeps the front line through a checkpoint and a suspend', () => {

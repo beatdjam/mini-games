@@ -57,7 +57,7 @@ export function stepBattle(
   at: { x: number; z: number },
   held = false,
 ): BattleFrame {
-  const fell = stepCrowd(state.crowd, rng, dt, tune, held);
+  const fell = stepCrowd(state.crowd, rng, dt, tune, held, at.z);
   let shell: ShellFall | null = null;
   if (tune.shellEvery > 0) {
     state.shellT -= dt;

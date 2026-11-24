@@ -240,6 +240,9 @@ export const FX_TUNE = {
   allyWaves: 5, // seconds between one wave and the next (0 makes no more waves)
   allySpeed: 2, // how fast an ally walks landward (m/s)
   allyDeathRate: 0.1, // the chance that one ally falls in a second (0 keeps them all up)
+  allyCatchGap: 40, // an ally this far behind the mech (sea side of it) starts to hurry (m; SB-2044)
+  allySpawnBehind: 0, // a new wave comes in this far behind the mech instead of at the sea edge, once the mech is past it (m; 0 keeps the sea edge; SB-2044)
+  allyCatchMul: 1, // how many times allySpeed it walks at 2 x allyCatchGap behind (1 keeps the pace; #view-fx has no leader)
   holdLossRate: 0, // the chance a second that one held ally falls at the waiting line, before the ramp (SB-2020)
   holdLossRamp: 0, // how much holdLossRate grows for each second the line is held (0 keeps it flat)
   holdLossMax: 0.12, // the most the held line's loss reaches (a chance a second; SB-2020)
@@ -264,6 +267,9 @@ export const BATTLE_TUNE = {
   allyWaves: 10, // seconds between one wave and the next (s)
   allySpeed: 3.5, // how fast an ally walks landward (m/s)
   allyDeathRate: 0.03, // the chance that one ally falls in a second (0 keeps them all up)
+  allyCatchGap: 40, // an ally this far behind the mech starts to hurry after it (m; SB-2044)
+  allySpawnBehind: 60, // a new wave comes in this far behind the mech instead of at the sea edge, once the mech is past it (m)
+  allyCatchMul: 2.5, // how many times allySpeed it walks at 2 x allyCatchGap behind the mech
   // A line held under the machine guns bleeds more the longer it is held (SB-2020): the loss starts at holdLossRate a
   // second and grows by holdLossRamp a second, so the waiting infantry visibly thins before the charge opens the line.
   holdLossRate: 0.02,
@@ -282,7 +288,9 @@ export const BATTLE_TUNE = {
   // line 1 and the cover behind line 2. A guess, to be judged on the screen.
   holdBeachZ: 150,
   holdLine1Z: 122,
-  holdLine2Z: 60,
+  // SB-2044: the wait behind line 2 stood at z 60, 70 to 100 m behind the mech while it fought the pillboxes; it now stands
+  // at z 30, just seaward of the cover mechs' posts before the pillbox line (z 1..9)
+  holdLine2Z: 30,
 };
 
 // Only FxTune's own values: BATTLE_TUNE.holdZ is the view's and must not ride along in the look. All provisional.
@@ -294,6 +302,9 @@ export const PLAY_BATTLE_TUNE: FxTune = {
   allyWaves: BATTLE_TUNE.allyWaves,
   allySpeed: BATTLE_TUNE.allySpeed,
   allyDeathRate: BATTLE_TUNE.allyDeathRate,
+  allyCatchGap: BATTLE_TUNE.allyCatchGap,
+  allyCatchMul: BATTLE_TUNE.allyCatchMul,
+  allySpawnBehind: BATTLE_TUNE.allySpawnBehind,
   holdLossRate: BATTLE_TUNE.holdLossRate,
   holdLossRamp: BATTLE_TUNE.holdLossRamp,
   holdLossMax: BATTLE_TUNE.holdLossMax,

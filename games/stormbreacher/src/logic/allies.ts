@@ -96,11 +96,22 @@ function faceTo(from: GroundSpot, to: GroundSpot): number {
   return Math.atan2(-(to.x - from.x), -(to.z - from.z)) || 0;
 }
 
-// Runs the ally on by `dt` along its way at ALLY_TUNE.speed. Gives back true on the frame it comes within
+// How many times ALLY_TUNE.speed the ally runs this frame (SB-2044). An ally with a fate keeps its pace, as its call is
+// timed by it; so does one with no leader, one level with the leader or ahead of it (+z is the sea, so behind is a larger
+// z), and one within catchGap. Past that it speeds up evenly to catchMul over catchRamp.
+export function catchUp(ally: AllyState, leader?: GroundSpot): number {
+  if (leader === undefined || ally.fate !== null || ally.z <= leader.z) return 1;
+  const over = distXZ(ally, leader) - ALLY_TUNE.catchGap;
+  if (over <= 0) return 1;
+  const share = ALLY_TUNE.catchRamp > 0 ? Math.min(1, over / ALLY_TUNE.catchRamp) : 1;
+  return 1 + (Math.max(1, ALLY_TUNE.catchMul) - 1) * share;
+}
+
+// Runs the ally on by `dt` along its way at ALLY_TUNE.speed (more while it catches up, `leader` being the player's mech). Gives back true on the frame it comes within
 // ALLY_TUNE.arrive of its fate's place, and it is down from then on; a fallen ally, or one at the end of its way, stays.
-export function stepAlly(ally: AllyState, dt: number): boolean {
+export function stepAlly(ally: AllyState, dt: number, leader?: GroundSpot): boolean {
   if (ally.down) return false;
-  let left = ALLY_TUNE.speed * Math.max(0, dt);
+  let left = ALLY_TUNE.speed * catchUp(ally, leader) * Math.max(0, dt);
   while (left > 0 && ally.next < ally.way.length) {
     const to = ally.way[ally.next];
     const dist = distXZ(ally, to);
