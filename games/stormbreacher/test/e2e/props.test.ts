@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { FORTRESS_SHUTTER_TUNE } from '../../src/data/fortress.ts';
 import { MARKER_TUNE, MARKER_MODES } from '../../src/data/marker.ts';
 import { blastPropIndexes } from '../../src/logic/blasts.ts';
 import { sendToScript } from '../../src/logic/game.ts';
@@ -232,7 +233,7 @@ test('a sortie draws every target of the map, the battery’s parts among them',
   }
 });
 
-test('the fortress’s gun stands on the sea wall’s top, not on the ground', async () => {
+test('the fortress’s gun stands on the sea wall’s top, not on the ground, once its plate is open', async () => {
   startSortie();
   steps(1);
   const group = find('targets');
@@ -240,6 +241,24 @@ test('the fortress’s gun stands on the sea wall’s top, not on the ground', a
   if (!gun) throw new Error('the sortie has not drawn the fortress gun');
   const place = currentGame()?.map.targets.find(target => target.id === 'fortress-gun');
   if (!place) throw new Error('the map has no fortress-gun');
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  // asleep (SB-2051): it sits sunk into the wall behind a full plate on the wall's top
+  const plate = find('sb-shutter-fortress-gun');
+  if (!plate) throw new Error('the sortie has not drawn the nest’s plate');
+  expect(plate.visible).toBe(true);
+  expect(plate.scale.y).toBe(1);
+  expect(gun.position.y).toBeCloseTo((place.y ?? 0) - FORTRESS_SHUTTER_TUNE.sink, 6);
+  // the flag stands: the plate rolls up and the gun rises over openSec, then it stands on the wall's top
+  sendToScript(game, { kind: 'enter', area: 'fortress-approach' });
+  steps(Math.round((FORTRESS_SHUTTER_TUNE.openSec / 2) * 60));
+  expect(plate.visible).toBe(true);
+  expect(plate.scale.y).toBeLessThan(1);
+  expect(plate.scale.y).toBeGreaterThan(0);
+  expect(gun.position.y).toBeGreaterThan((place.y ?? 0) - FORTRESS_SHUTTER_TUNE.sink);
+  expect(gun.position.y).toBeLessThan(place.y ?? 0);
+  steps(Math.round(FORTRESS_SHUTTER_TUNE.openSec * 60));
+  expect(plate.visible).toBe(false);
   expect(gun.position.y).toBe(place.y);
   expect(gun.position.y).toBeGreaterThan(0);
 });

@@ -124,13 +124,13 @@ test('the magazine takes no harm while the main guns stand, but its shutter stop
   const game = newBossGame(BATTERY_FRONT);
   const magazine = targetOf(game, 'magazine');
   const full = magazine.hp;
-  expect(game.shutters).toEqual([{ target: 'magazine', open: false }]);
+  expect(game.shutters.find(shutter => shutter.target === 'magazine')).toEqual({ target: 'magazine', open: false });
   const events = run(game, framesOf(2), { ...idle, fire: true, aim: aimAt(game, 'magazine') });
   const hits = events.filter(event => event.kind === 'hit' && event.target === 'magazine');
   expect(hits.length).toBeGreaterThan(5);
   expect(magazine.hp).toBe(full);
   expect(events.some(event => event.kind === 'destroyed')).toBe(false);
-  expect(game.shutters[0].open).toBe(false);
+  expect(game.shutters.find(shutter => shutter.target === 'magazine')?.open).toBe(false);
 });
 
 test('one main gun down leaves the shutter shut; both open it once, and then the magazine breaks and ends the sortie', () => {
@@ -312,9 +312,9 @@ test('a retry from cp3 puts the battery back: the guns, the shutter and the barr
   breakTarget(game, 'main-gun-1');
   breakTarget(game, 'main-gun-2');
   run(game, 2);
-  expect(game.shutters[0].open).toBe(true);
+  expect(game.shutters.find(shutter => shutter.target === 'magazine')?.open).toBe(true);
   const retried = retryFromCheckpoint(game);
-  expect(retried.shutters).toEqual([{ target: 'magazine', open: false }]);
+  expect(retried.shutters.find(shutter => shutter.target === 'magazine')).toEqual({ target: 'magazine', open: false });
   expect(retried.battery).toEqual(game.checkpoint?.battery);
   expect(retried.barrages).toEqual(game.checkpoint?.barrages);
   expect(targetOf(retried, 'main-gun-1').hp).toBeGreaterThan(0);

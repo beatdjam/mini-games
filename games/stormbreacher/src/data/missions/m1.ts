@@ -498,7 +498,11 @@ const CUES = [
     // the wall's nest holds its fire while the mech fights the pillboxes: it starts to sweep once the mech is on the
     // open ground before the sea gate (SB-2045). No `when`: walking there before the leader asks counts too
     trigger: { kind: 'enter', area: 'fortress-approach' },
-    actions: [{ kind: 'flag', name: FORTRESS_GUN_FLAG }],
+    // the plate before the nest rolls up and the nest rises; the radio calls it as the warning (SB-2051)
+    actions: [
+      { kind: 'flag', name: FORTRESS_GUN_FLAG },
+      { kind: 'radio', line: 'm1.fortress-gun-wake' },
+    ],
   },
   {
     id: 'fortress-gate',

@@ -7,6 +7,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { FORTRESS_GUN_FLAG, M1 } from '../../src/data/missions/m1.ts';
 import { sendToScript, step, type GameInput, type GameModel, isFortressBullet } from '../../src/logic/game.ts';
+import { hudModel } from '../../src/logic/hud.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { newPlayGame } from './playGame.ts';
@@ -207,4 +208,141 @@ test('the wake flag survives a suspend, and the restored nest keeps sweeping', (
   back.enemies = [];
   back.pillboxes = [];
   expect(countFortressBullets(back, SECONDS)).toBeGreaterThan(0);
+});
+
+// SB-2051: before it wakes, the nest sits behind its plate: a shot does it no harm and throws a spark off the armour, and
+// the aim does not pick it. Once the flag stands the plate opens and the nest can be hit and broken.
+const NEST = 'fortress-gun';
+// the mech's lock on a standing target: the aim circle's candidates, with the nest in the middle of the screen
+function aimAtNest(game: GameModel): GameInput {
+  const gun = game.targets.find(target => target.id === NEST);
+  if (!gun) throw new Error('the hand map has no fortress-gun');
+  const mech = game.mech;
+  const chestY = mech.y + MECH_TUNE.chestHeight;
+  const cx = (gun.box.minX + gun.box.maxX) / 2;
+  const cy = (gun.box.minY + gun.box.maxY) / 2;
+  const cz = (gun.box.minZ + gun.box.maxZ) / 2;
+  const length = Math.hypot(cx - mech.x, cy - chestY, cz - mech.z);
+  return {
+    ...idle,
+    fire: true,
+    aim: {
+      ox: mech.x,
+      oy: chestY,
+      oz: mech.z,
+      dx: (cx - mech.x) / length,
+      dy: (cy - chestY) / length,
+      dz: (cz - mech.z) / length,
+    },
+  };
+}
+
+function nestHp(game: GameModel): number {
+  return game.targets.find(target => target.id === NEST)?.hp ?? -1;
+}
+
+test('before it wakes, a shot at the nest takes no health, throws a spark off the plate and the aim never picks it', () => {
+  seed(1);
+  const game = nestGame();
+  standAt(game, BEFORE);
+  const full = nestHp(game);
+  expect(game.shutters.find(shutter => shutter.target === NEST)).toEqual({ target: NEST, open: false });
+  let hits = 0;
+  let deflected = 0;
+  let picked = 0;
+  for (let i = 0; i < Math.round(4 / DT); i++) {
+    step(game, aimAtNest(game), DT);
+    for (const event of game.events) {
+      if (event.kind === 'hit' && event.target === NEST) {
+        hits++;
+        if (event.deflected) deflected++;
+      }
+    }
+    if (game.aimTarget === NEST) picked++;
+  }
+  expect(hits).toBeGreaterThan(5);
+  expect(deflected).toBe(hits);
+  expect(nestHp(game)).toBe(full);
+  expect(picked).toBe(0);
+  expect(game.script.flags).not.toContain(FORTRESS_GUN_FLAG);
+  expect(hudModel(game).enemy).toBeNull();
+});
+
+test('once it wakes, the plate is open: the nest takes shots, the aim picks it and shots break it', () => {
+  seed(1);
+  const game = nestGame();
+  standAt(game, OPEN);
+  step(game, idle, DT);
+  step(game, idle, DT);
+  expect(game.script.flags).toContain(FORTRESS_GUN_FLAG);
+  expect(game.shutters.find(shutter => shutter.target === NEST)).toEqual({ target: NEST, open: true });
+  const full = nestHp(game);
+  game.armor = 1e6;
+  let picked = 0;
+  let deflected = 0;
+  for (let i = 0; i < Math.round(20 / DT) && nestHp(game) > 0; i++) {
+    step(game, aimAtNest(game), DT);
+    for (const event of game.events) if (event.kind === 'hit' && event.target === NEST && event.deflected) deflected++;
+    if (game.aimTarget === NEST) picked++;
+  }
+  expect(deflected).toBe(0);
+  expect(picked).toBeGreaterThan(0);
+  expect(nestHp(game)).toBeLessThan(full);
+  expect(nestHp(game)).toBe(0);
+});
+
+test('the plate’s state follows the flag after a suspend, and a suspend from before the plate gets one', () => {
+  seed(1);
+  // asleep: the plate is shut after the round trip and the nest still takes no harm
+  const asleep = nestGame();
+  standAt(asleep, BEFORE);
+  step(asleep, idle, DT);
+  const shut = restoreSuspend(JSON.parse(JSON.stringify(suspendOf(asleep))));
+  if (!shut) throw new Error('the suspend did not restore');
+  expect(shut.shutters.find(shutter => shutter.target === NEST)?.open).toBe(false);
+  standAt(shut, BEFORE);
+  for (let i = 0; i < 30; i++) step(shut, aimAtNest(shut), DT);
+  expect(nestHp(shut)).toBe(shut.targets.find(target => target.id === NEST)?.hp);
+  expect(nestHp(shut)).toBeGreaterThan(0);
+  expect(nestHp(shut)).toBe(300);
+  // awake: the plate is open after the round trip, to match the flag
+  const awake = nestGame();
+  standAt(awake, OPEN);
+  step(awake, idle, DT);
+  step(awake, idle, DT);
+  const open = restoreSuspend(JSON.parse(JSON.stringify(suspendOf(awake))));
+  if (!open) throw new Error('the suspend did not restore');
+  expect(open.script.flags).toContain(FORTRESS_GUN_FLAG);
+  expect(open.shutters.find(shutter => shutter.target === NEST)?.open).toBe(true);
+  // a save from before the plate has no shutter for the nest: it is added to match the flag
+  for (const [game, want] of [
+    [asleep, false],
+    [awake, true],
+  ] as const) {
+    const old = JSON.parse(JSON.stringify(suspendOf(game)));
+    old.game.shutters = old.game.shutters.filter((shutter: { target: string }) => shutter.target !== NEST);
+    if (old.checkpoint)
+      old.checkpoint.shutters = old.checkpoint.shutters.filter(
+        (shutter: { target: string }) => shutter.target !== NEST,
+      );
+    const back = restoreSuspend(old);
+    if (!back) throw new Error('the old suspend did not restore');
+    expect(back.shutters.find(shutter => shutter.target === NEST)?.open).toBe(want);
+  }
+});
+
+test('the sea gate’s checkpoint copies the flag and the open plate together', () => {
+  seed(1);
+  const game = nestGame();
+  standAt(game, OPEN);
+  step(game, idle, DT);
+  step(game, idle, DT);
+  expect(game.shutters.find(shutter => shutter.target === NEST)?.open).toBe(true);
+  // cp2 comes at the sea gate, after the approach has woken the nest; its copy holds the flag and the open plate
+  game.script.flags.push('depot-asked');
+  sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
+  step(game, idle, DT);
+  expect(game.checkpoint?.id).toBe('cp2');
+  expect(game.checkpoint?.script.flags).toContain(FORTRESS_GUN_FLAG);
+  expect(game.checkpoint?.shutters.find(shutter => shutter.target === NEST)?.open).toBe(true);
 });

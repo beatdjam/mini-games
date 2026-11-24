@@ -65,8 +65,8 @@ test('the depot hollow fires its own cue and takes the loss away', () => {
 
   // past the hollow the straight-on answer does not fire
   const approach = scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' });
-  // only the nest's wake-up flag (SB-2045)
-  expect(labels(approach)).toEqual(['flag:fortress-gun-awake']);
+  // only the nest's wake-up flag (SB-2045) and the radio that calls it (SB-2051)
+  expect(labels(approach)).toEqual(['flag:fortress-gun-awake', 'radio']);
   expect(state.flags).not.toContain('fortress-skip');
 });
 

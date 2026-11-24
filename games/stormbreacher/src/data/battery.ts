@@ -1,6 +1,8 @@
 // The boss of M1, the coastal battery (SB-200): the machine guns of its main guns and the shutter that guards the
 // magazine. Every value here is provisional. The secondary guns' barrage is in data/hazards.ts (BARRAGES.battery).
 
+import { FORTRESS_GUN_FLAG } from './missions/m1.ts';
+
 // The wave of the mission's script (data/missions/m1.ts) after which the battery fires at the mech.
 export const BATTERY_WAVE = 'battery';
 
@@ -19,6 +21,8 @@ export const GUN_TUNE = {
 export interface ShutterDef {
   target: string; // the id of the target the shutter guards
   opensWhen: readonly string[]; // the ids of the targets that open it, all down
+  opensOnFlag?: string; // the script's flag that opens it too (SB-2051); left out means no flag is needed. A shutter with
+  // one hides its target from the aim and turns a shot away as armour does
   w: number; // the plate's width along x (m)
   h: number; // its height (m)
   d: number; // its thickness along z (m)
@@ -27,4 +31,6 @@ export interface ShutterDef {
 
 export const M1_SHUTTERS: readonly ShutterDef[] = [
   { target: 'magazine', opensWhen: ['main-gun-1', 'main-gun-2'], w: 10, h: 8, d: 1.5, gap: 0.5 },
+  // the fortress nest sleeps behind its plate until the script wakes it (SB-2051); the plate is as wide and as tall as its box
+  { target: 'fortress-gun', opensWhen: [], opensOnFlag: FORTRESS_GUN_FLAG, w: 16, h: 10, d: 1, gap: 0.05 },
 ];

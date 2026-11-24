@@ -11,6 +11,7 @@ import { WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { blastTarget, nearBlast, targetStands } from './blasts.ts';
 import { pillboxShot } from './blastMarks.ts';
 import type { Aabb } from './fire.ts';
+import { armoured } from './battery.ts';
 import { frontOf } from './front.ts';
 import { enemyBox, type GameModel } from './game.ts';
 import { inCircle } from './hazards.ts';
@@ -114,8 +115,9 @@ export function hudModel(game: GameModel): HudModel {
   const aimedEnemy = game.enemies.find(placed => placed.id === game.aimTarget);
   let enemy: HudModel['enemy'] = null;
   let lock: Aabb | null = null;
-  // A target only a charge breaks (a pillbox) is never the aim target; if one is named anyway, no bar and no frame.
-  if (aimed && aimed.hp > 0 && !TARGET_CHARGE_ONLY[aimed.kind]) {
+  // A target only a charge breaks (a pillbox) or one behind its plate is never the aim target; if one is named anyway, no
+  // bar and no frame.
+  if (aimed && aimed.hp > 0 && !TARGET_CHARGE_ONLY[aimed.kind] && !armoured(game.shutters, aimed.id)) {
     enemy = { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] };
     lock = aimed.box;
   } else if (aimedEnemy && aimedEnemy.hp > 0) {
