@@ -6,6 +6,7 @@ import { scene } from '@engine/render/index.ts';
 import { SEA_FLASH_COLOR, SEA_TRACER_COLOR } from '../data/colors.ts';
 import { GUN_TUNE } from '../data/battery.ts';
 import { FORTRESS_GUN_TUNE } from '../data/fortress.ts';
+import { armoured } from '../logic/battery.ts';
 import type { GameModel } from '../logic/game.ts';
 
 const SEA_FIRE_PERIOD = 3.2; // the seconds between one shot of a gun and the next
@@ -64,7 +65,8 @@ export function buildSeaFire(game: GameModel): SeaFireView {
 export function drawSeaFire(view: SeaFireView, game: GameModel): void {
   view.guns.forEach((gun, i) => {
     const target = game.targets.find(item => item.id === gun.id);
-    const standing = target !== undefined && target.hp > 0;
+    // a nest behind its plate fires at nothing: it sleeps until the plate opens (SB-2051)
+    const standing = target !== undefined && target.hp > 0 && !armoured(game.shutters, target.id);
     // the seconds since this gun's last shot; a negative clock (before its first beat) shows nothing
     const age = (game.time - i * SEA_FIRE_OFFSET) % SEA_FIRE_PERIOD;
     gun.flash.visible = standing && game.time >= i * SEA_FIRE_OFFSET && age < FLASH_TIME;

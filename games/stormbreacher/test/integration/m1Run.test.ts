@@ -7,6 +7,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
+import { armoured } from '../../src/logic/battery.ts';
 import { fireRayHit, type Aabb } from '../../src/logic/fire.ts';
 import { enemyBox, newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { seed, stream } from '../../src/logic/rng.ts';
@@ -181,8 +182,13 @@ function foesInSight(game: GameModel, only: readonly string[] | null): Foe[] {
   // A pillbox takes no damage from shots (SB-2015), so the bot leaves it to the charges and shoots only the enemies
   // and the other targets.
   // The depot is only shot when a point's hold names it, so walking past the hollow does not break the side goal by chance.
+  // A nest behind its plate (SB-2051) takes no harm and is out of the aim, so the bot leaves it alone until the plate opens.
   const standing = game.targets.filter(
-    target => target.hp > 0 && target.kind !== 'pillbox' && (only === null ? target.id !== 'depot' : true),
+    target =>
+      target.hp > 0 &&
+      target.kind !== 'pillbox' &&
+      !armoured(game.shutters, target.id) &&
+      (only === null ? target.id !== 'depot' : true),
   );
   const foes: Foe[] = [
     ...game.enemies

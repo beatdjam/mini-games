@@ -131,7 +131,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - 値: `hudModel` in `src/logic/hud.ts`（純粋）が、HUD に出す値（ブースト・装甲・メインとサブの弾数・台本の今の目標と数えている数 `objective`・今出している1行の無線 `radio`・ソフトロックが狙いを寄せている目標か敵の体力 `enemy` とその箱 `lock`・レーダーの点・着弾予告の警告 `warning`）を `GameModel` から作る。装甲は `armor / MECH_TUNE.armor`。熱は持たない
 - HUD の目標: `objective` は台本の今の目標 `game.script.objective` の言語キー `obj.<id>`。台本がまだ目標を出していないときは null で、何も出さない。数える目標だけ `count: { done, total }` を持ち、画面は「目標 トーチカを2基破壊 1/2」のように数を足して書く。どの目標が何を数えるかは `OBJECTIVE_COUNT` in `src/data/script.ts`（目標 id → 数える目標 id の列。`break-pillboxes` は `pillbox-1`・`pillbox-2`、`silence-battery` は `main-gun-1`・`main-gun-2`）。表に無い目標（`reach-pillboxes`・`stop-fortress-gun`・`bomb-fortress`・`hit-magazine`）は数を出さない。`total` はマップにある目標だけ、`done` はその中で体力 0 のもの。数える目標がマップに1つも無いときも数を出さない
 - HUD の爆薬: `use` は爆破点の近くで `hud.use`（「使う」）と長押しの割合を出し、`charge` は仕掛けた爆薬の `hud.charge`（「爆破まで」）と残り秒・棒を出す。棒の割合は `left / total` で、`total` はその爆薬を仕掛けたときの導火線（`ChargeState.total`。線の爆薬は `CHARGE_TUNE.fuse` の 3 秒、要塞の爆薬は `FORT_BLAST_TUNE.countdownSec` の 20 秒）。新しい行やキーは足さない（SB-1860）
-- HUD の敵の体力: ソフトロックが寄せている目標か敵の `hp / TARGET_HP[kind]` か `hp / ENEMIES[kind].hp`。トーチカは爆薬でしか壊れず（6章「トーチカ」）ソフトロックの候補にならない（SB-2043）ので、体力のバーも制圧の残りも出さない。`hudModel` は、`aimTarget` に `TARGET_CHARGE_ONLY` の目標の id が入っていても、`enemy` と `lock` を null にする。制圧が効いていることは、銃眼の予兆の光が止まることと、銃眼の灰色の煙（`sb-pillbox-smoke`）で見える
+- HUD の敵の体力: ソフトロックが寄せている目標か敵の `hp / TARGET_HP[kind]` か `hp / ENEMIES[kind].hp`。トーチカは爆薬でしか壊れず（6章「トーチカ」）ソフトロックの候補にならない（SB-2043）ので、体力のバーも制圧の残りも出さない。`hudModel` は、`aimTarget` に `TARGET_CHARGE_ONLY` の目標の id が入っていても、`enemy` と `lock` を null にする（旗で開くシャッターの奥の目標、起動の前の要塞の機関砲も同じ。SB-2051）。制圧が効いていることは、銃眼の予兆の光が止まることと、銃眼の灰色の煙（`sb-pillbox-smoke`）で見える
 - HUD の任意の印: `optional` は目標とは別の項目。砲撃の始まり（cue `shelling-start`）が発火済みで、`depot` が生きていて、旗 `depot-down` が無い間だけ `{ key: 'hud.optional.depot', distance: 水平距離 }` を返す。画面は目標の下に「任意 敵の弾薬庫 72m」の1行を出す（`hud.optional` の文字と距離）。壊しても通り過ぎても、目標の文言は変えない。レーダーは今の `depot` の印（`RADAR_MARK.depot`）をそのまま使う
 - HUD の無線: `radio` は今出している1行 `game.radio` の言語キーで、HUD が出ている間の経過（`game.time - game.radio.time`）が `RADIO_TUNE.minSec`（3 秒）に届くまで。その後は null。同時に来た行は列で待ち、1フレームに1行だけ出す（`stepRadio`）。カットシーンの間は HUD を隠すので、`stepRadio` は表示中の行の経過を数えず、列の次の行も上げない。終わってから残りの秒を出し、次の行へ進む。待たせる行は出してよい時刻 `at` を持てて、その時刻まで列の先頭に留まる（`queueRadio` の遅れ）
 - HUD の指示（SB-2028）: 戦闘中は視線が照準のまわりから動かず、下の無線の帯は読めない。そこで、プレイヤーに動いてほしい無線の行（台本の `radio` の `callout`。ゲーム本体が出す行は `queueRadio` の第4引数）には短い指示（12文字前後。`m1.callout.line2-support` 今だ、爆薬を仕掛けろ／`m1.callout.line2-ammo` 援護が切れる、急げ／`m1.callout.line2-hold` 手前で迎え撃て／`m1.callout.pillbox-charge` 横か後ろから爆薬を）を付け、その行が帯に上がってから `CALLOUT_TUNE.sec`（2.5 秒。`RADIO_TUNE.minSec` より短い）の間、`HudModel.callout`（言語キー。なければ null）として照準の円の上に大きめ（`PLAY_HUD_TEXT.callout`、26px。琥珀色）の1行で出す。位置は `PLAY_HUD_LAYOUT.callout`（`top: calc(50% - var(--ring) - 120px)`。着弾予告の警告 `-40px` のさらに上で重ならない）。着弾予告の警告が出ている間（`warning` が `shell`）は `callout` は null で警告が優先し、警告が消えれば指示の残りの秒だけ戻る。無線の帯には、指示のある行も今までどおり出る。カットシーンの間は HUD ごと出ない。雰囲気の会話（歓声・損害の報告）には付けない。`radio` 項目（`game.radio`・`radioQueue`）に任意の `callout` が増えるが、無いものは今までと同じなので `SUSPEND_VERSION` は上げない
@@ -319,7 +319,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 本体の射撃は、速さのある弾を飛ばす（`shoot`・`flyBullet` in `src/logic/game.ts`）。
 - 撃つ: 1発ごとに、弾の出る所（`muzzleOf` in `src/logic/game.ts`。機体の中心から右へ `muzzleSide`・前へ `muzzleForward`、高さは足元から `chestHeight`）から `spreadDir(fcs.shotDir, spreadFor(fcs.shotDist, FCS_TUNE.soft), stream('shots'))` の向きへ弾 `Bullet`（`weapon`・位置・向き `dx dy dz`（長さ1）・射程の残り `left`）を出す。散らしは照準の点までの距離で小さくなる（`spreadFor`）。出来事 `shot`（位置・向き・`weapon`）を残す
-- 狙い: `step` は、入力の `aim`（カメラの狙いの線。無いときは胸から機体の向きへ水平な線）と、生きている目標（`fcsTargets`。id は `game.targets` の番号、中心は箱の真ん中）で `stepFcs(game.fcs, 'soft', FCS_TUNE.soft, …)` を回す。照準の円（`FCS_TUNE.soft.cone`）の中の目標へ狙いが寄り、その目標の id が `game.aimTarget` になる（無ければ null）。爆薬でしか壊せない目標（`TARGET_CHARGE_ONLY` in `src/data/props.ts` が true の `pillbox`）は `fcsTargets` が `lockable: false` で渡し、`circleTargets` が候補にも円の中の目標（`inCone`）にも入れない（SB-2043）。そのため、トーチカだけが円の中にいても `aimTarget` は null で、ロック枠も体力のバーも出ない。弾はそのまま当たる（手で照準を合わせて撃てば制圧は効く）。照準の点（`manualDir`）と、陰になる相手を隠す壁には、これまでどおりトーチカも数える。本体は、画面に使ったカメラの状態（`CameraState` in `src/view/camera.ts`）から `aimRay` で線を作り、`src/app/play.ts` の `update` が前のフレームに画面へ使った線を `step` に渡す。画面の中の線と照準が同じカメラから出るので、壁で肩が縮んだり `closeLook`・`closePitch` が効いたりしても、弾は画面の真ん中へ向かう
+- 狙い: `step` は、入力の `aim`（カメラの狙いの線。無いときは胸から機体の向きへ水平な線）と、生きている目標（`fcsTargets`。id は `game.targets` の番号、中心は箱の真ん中）で `stepFcs(game.fcs, 'soft', FCS_TUNE.soft, …)` を回す。照準の円（`FCS_TUNE.soft.cone`）の中の目標へ狙いが寄り、その目標の id が `game.aimTarget` になる（無ければ null）。爆薬でしか壊せない目標（`TARGET_CHARGE_ONLY` in `src/data/props.ts` が true の `pillbox`）は `fcsTargets` が `lockable: false` で渡し、`circleTargets` が候補にも円の中の目標（`inCone`）にも入れない（SB-2043）。そのため、トーチカだけが円の中にいても `aimTarget` は null で、ロック枠も体力のバーも出ない。旗で開くシャッターの奥にいる目標（起動の前の要塞の機関砲。`armoured`）も同じく `lockable: false` で、シャッターが開くと候補に戻る（SB-2051）。弾はそのまま当たる（手で照準を合わせて撃てば制圧は効く）。照準の点（`manualDir`）と、陰になる相手を隠す壁には、これまでどおりトーチカも数える。本体は、画面に使ったカメラの状態（`CameraState` in `src/view/camera.ts`）から `aimRay` で線を作り、`src/app/play.ts` の `update` が前のフレームに画面へ使った線を `step` に渡す。画面の中の線と照準が同じカメラから出るので、壁で肩が縮んだり `closeLook`・`closePitch` が効いたりしても、弾は画面の真ん中へ向かう
 - 近距離の狙い: `soft` が寄せている相手が `FCS_TUNE.soft.nearRange`（20m）以内なら、25度/秒のゆっくりした寄せを待たず、弾の出る所から相手の箱へ入る点（弾の出る所から見た箱の一番近い点から、中心へ 1/4 進んだ所。`insideAim` in `src/logic/fcs.ts`）へ直接向ける。近くで機体を回しながら撃っても、銃口が的を置いていかない。散らしも距離で小さくなり、`spreadFor` が 0m で `nearSpread` 倍、`nearRange` で `spread` そのものにする
 - 照準の点: ソフトロックが寄せている相手がいないとき、弾は照準の点へ向かう。照準の点は、カメラの狙いの線が、物の箱（`game.propBoxes`）・壊れていない目標の箱・生きている敵の箱・地面（y = 0）のうち最初に当たる点で、`FCS_TUNE.soft.range` の内に当たらなければ、線を `range` 延ばした点。カメラの線の上で、弾の出る所より手前の当たりは数えない。弾はカメラより右の腕の先から出るので、照準の点へ向けないと近くの壁で照準から横にそれる。`manualDir` in `src/logic/fcs.ts`（`fcs.ts` はゲームの表を読まないため、物と敵と地面は `stepFcs` の引数 `world`（`FcsWorld`）で受ける。`world` が無い `#view-fcs` は的の箱だけを見る）。寄せている間は、寄せた向きのまま
 - 進む: 1フレームに min(`speed` × dt, `left`) m 進む。その区間で、生きている目標の箱・物の箱（坂は面に沿った段の箱。`rectBoxes`）・地面（y = 0。下向きの弾だけ）のうち一番手前で止まる。止まった所で出来事 `hit`（位置・`weapon`・`target`（目標の id か null）・`prop`（`map.props` の添字か null）・`enemy`・`mech`・`deflected`（トーチカの正面に弾かれたか。ほかは false）。地面は `target` `prop` `enemy` が null で `mech` は false）を残して弾を外す。止まらなければ `left` を減らし、0 以下で黙って消える
@@ -962,7 +962,7 @@ SB-1840。要塞の中庭（z −122..−74）に入ると、三方の扉から�
 
 SB-200。M1 の要塞の先（z −235〜−250）にある砲台。主砲2門が海の上の味方の艇を撃っていて、機体には副砲（着弾予告つきの砲撃）と機銃で応じる。主砲を2門とも壊すと装甲のシャッターが開いて弾薬庫が見え、そこが弱点で、壊すと出撃が終わる。寄り道の弾薬集積所（`depot`）を壊していると、副砲の砲撃が間遠になる。値はどれも仮。定義は `src/data/battery.ts` と `src/data/hazards.ts`、動きは `src/logic/battery.ts` と `src/logic/game.ts`（`stepBattery`・`checkShutters`・`stepHazards`・`flyBullet`）、見た目は `src/view/world.ts` と `src/view/seaFire.ts`。
 
-- シャッター（表 `M1_SHUTTERS`: `ShutterDef` の一覧。`target`・`opensWhen`・板の大きさ `w`×`h`×`d`・`gap`）
+- シャッター（表 `M1_SHUTTERS`: `ShutterDef` の一覧。`target`・`opensWhen`・省略できる `opensOnFlag`・板の大きさ `w`×`h`×`d`・`gap`。2つ目は要塞の機関砲の板で、旗で開く。「要塞の機関砲」の「起動の前のシャッター」）
   - 守られる目標と、開くきっかけの目標は表で決める。M1 は `magazine` を、`main-gun-1`・`main-gun-2` が両方壊れると開く。守られる目標が地図に無ければシャッターも作らない（`newShutters`）
   - 閉じている間: 機体の弾は弾薬庫の箱で止まり、出来事 `hit`（`target` は弾薬庫の id）を出すが、体力は減らず `destroyed` も出ない（`shuttered`）。弾の止まる順は変わらない
   - 開く: きっかけの目標が全部壊れると `game.shutters` の `open` が true になり、出来事 `shutterOpen`（`target`）を1回だけ出す（`openShutters`）。弾が主砲を壊したフレームで（`destroyed` の直後に）開き、そのあとの弾は弾薬庫に当たる。毎フレームの `checkShutters` が、体力を別の道で 0 にした場合も拾う。台本の印 `shutter-open` と目標 `hit-magazine` は台本の cue が出す
@@ -979,7 +979,7 @@ SB-200。M1 の要塞の先（z −235〜−250）にある砲台。主砲2門�
   - 壊れていない主砲ごとに、`SEA_FIRE_PERIOD` ごとに箱の海側の面の砲口で閃光（`SEA_FLASH_COLOR`）を `FLASH_TIME` 出し、海の方（+z）へ曳光の線（`SEA_TRACER_COLOR`）を `TRACER_TIME` 走らせる。2門目の拍は `SEA_FIRE_OFFSET` ずらす。倒れた主砲は何も出さない。1門目が倒れて無線 `m1.gun1-down` が出ると、海を撃つのが片方止まる
   - 閃光の `Mesh`（名前 `sb-sea-flash`）と線の `Line`（名前 `sb-sea-tracer`）を主砲ごとに1つずつ作り、`buildSeaFire` が組み、`removeSeaFire` が片付ける（`clearPlay` から）
 - チェックポイント: `shutters` と `battery` はコピーに入る（「本体のチェックポイントとやり直し」）。cp3 は波 `battery` を出した直後に取るので、戻すと機銃は動いたままで待ちはコピーの値、シャッターは閉じ、主砲は元の体力、副砲の砲撃は続く。落ちる前の予告 `shells` と飛んでいる弾は持ち越さない
-- HUD: シャッターで守られていても、弾薬庫にロック枠と体力は出る。守られていることを示す文言や印は無い
+- HUD: シャッターで守られていても、弾薬庫にロック枠と体力は出る。守られていることを示す文言や印は無い。旗で開くシャッター（起動の前の要塞の機関砲。SB-2051）は別で、閉じている間は `hudModel` が `enemy` と `lock` を null にし、体力のバーもロック枠も出さない
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -1007,7 +1007,7 @@ SB-200。M1 の要塞の先（z −235〜−250）にある砲台。主砲2門�
 
 ### 要塞の機関砲
 
-SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の前の開けた所を掃射する。同時に海の艇を撃っていて、壁の上からは閃光と線が海へ走る（艇の mesh は作らない）。目標は `fortress-gun`（種類 `fortressGun`）で、壊すと掃射が止まる。値はどれも仮で、`#view-fortress` の調整パネルで決める。定義は `src/data/fortress.ts` の `FORTRESS_GUN_TUNE`、動きは `src/logic/fortress.ts` の `stepFortressGun` と `src/logic/game.ts` の `stepFortressGunNest`、見た目は `src/view/outdoor.ts` の `TARGET_SHAPES.fortressGun` と `src/view/seaFire.ts`。
+SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の前の開けた所を掃射する。同時に海の艇を撃っていて、壁の上からは閃光と線が海へ走る（艇の mesh は作らない）。目標は `fortress-gun`（種類 `fortressGun`）で、壊すと掃射が止まる。値はどれも仮で、`#view-fortress` の調整パネルで決める。定義は `src/data/fortress.ts` の `FORTRESS_GUN_TUNE`、動きは `src/logic/fortress.ts` の `stepFortressGun` と `src/logic/game.ts` の `stepFortressGunNest`、見た目は `src/view/outdoor.ts` の `TARGET_SHAPES.fortressGun`・`src/view/world.ts` のシャッターと `src/view/seaFire.ts`。
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -1021,18 +1021,31 @@ SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の
 | `bulletSpeed` | 200 | m/s。弾の速さ |
 | `muzzle` | 0.7 | 撃つ高さ。目標の箱の上端に対する割合 |
 | `muzzleGap` | 0.3 | m。目標の箱の海側の面から弾が出る所まで |
+
+シャッターの値は `FORTRESS_SHUTTER_TUNE`（`src/data/fortress.ts`。`#view-fortress` の調整パネルの2つ目の表）。
+
+| 名前 | 値 | 単位・意味 |
+|---|---|---|
+| `openSec` | 0.9 | s。シャッターが巻き上がり、砲がせり出す秒数。最初の掃射は起動から `rest`（2.5 s）後なので、開き切ってから撃つ |
+| `sink` | 7 | m。閉じている間、砲が壁の中へ沈む深さ（壁の高さ 12m の中） |
 | `TARGET_SIZE.fortressGun` | 16×10×6 | m。幅・高さ・奥行き。奥行きは壁の厚みと同じで、箱は壁の足元の中に収まる |
 | `TARGET_HP.fortressGun` | 300 | 体力（機関砲30発・砲5発。仮） |
 
 - 置き場所: 目標は `TargetPlace.y` を持ち、箱の下端を地面から `y` m 上げる。`fortress-gun` は海側の壁の上（`FORTRESS_TUNE.wallH` = 12m）に載る。`targetBox` は `minY = y`・`maxY = y + TARGET_SIZE[place.kind].h` を返し、`buildTargets` は `mesh.position.y = y` に置く。`mapBlockers` は `y` を知らないが、箱の足元（z −74〜−68・x 12〜28）は `fortWall` の四角の内側なので、地面に見えない壁を足さない
-- 撃つ（`stepFortressGun`）: `wait` を `dt` ずつ減らし、0 になったとき、弾の出る所（下記）から機体の足元までの水平距離が `range` 以内で、箱の中心・箱の上端の `muzzle` 倍の高さ・箱の海側の面から `muzzleGap` 先（弾の出る所）から機体の胸への線が、物の箱とほかの壊れていない目標の箱に遮られないなら、1発撃つ。弾の出る所は固定値を持たず、箱から決める。最初の掃射は `rest` 後。起動の条件は持たず、射程の中で線が通るかぎり台本の進みに関わらず撃つ（範囲を絞るかは未決）
+- 撃つ（`stepFortressGun`）: `wait` を `dt` ずつ減らし、0 になったとき、弾の出る所（下記）から機体の足元までの水平距離が `range` 以内で、箱の中心・箱の上端の `muzzle` 倍の高さ・箱の海側の面から `muzzleGap` 先（弾の出る所）から機体の胸への線が、物の箱とほかの壊れていない目標の箱に遮られないなら、1発撃つ。弾の出る所は固定値を持たず、箱から決める。最初の掃射は `rest` 後。この関数は起動の条件を持たず、旗は `stepFortressGunNest` が見る（下の「起動の条件」）
 - 掃射: 機体への水平の向きを、その発の掃射の中の位置で `-arcDeg/2` から `+arcDeg/2` まで等分に回し（`index` 0 が左端、`shots - 1` が右端。1発なら回さない）、`spread` の散らしを重ねる。1発ごとに機体の今の位置を狙い直す。1発のあと `wait` を `interval` にし、最後の1発のあと `rest` に戻す。掃射の途中で線が通らなくなったら、その掃射をやめて `rest` 待つ。乱数は `stream('battery')` から引く
-- 起動の条件（SB-2045）: 台本の旗 `fortress-gun-awake` が立つまで、機関砲は撃たない（`stepFortressGunNest` が旗を見る。待ち `wait` も進めないので、起動から `rest` 秒後が最初の掃射）。旗は cue `fortress-gun-wake`（`enter fortress-approach`、`when` なし）が立てる。トーチカの区画を戦っている間は、射程 160m の中で線が通っても撃たれない。`fortress-approach` は問いのあとに `rearm` されるが、旗を立てるだけなので何度入っても同じ。起動の前でも目標は弾に当たり、壊せる。起動の前に壊された機関砲は、旗が立っても撃たない（目標が倒れているので動かない）。旗は台本の状態 `flags` に入るので、チェックポイント・中断・retry で保たれる（保存の形は変わらず `SUSPEND_VERSION` はそのまま）。「撃ってくる」の合図は、既存の海への閃光と線、掃射の曳光と着弾で足りるとして足さない（起動の瞬間の無線はない）
+- 起動の条件（SB-2045）: 台本の旗 `fortress-gun-awake` が立つまで、機関砲は撃たない（`stepFortressGunNest` が旗を見る。待ち `wait` も進めないので、起動から `rest` 秒後が最初の掃射）。旗は cue `fortress-gun-wake`（`enter fortress-approach`、`when` なし）が立てる。トーチカの区画を戦っている間は、射程 160m の中で線が通っても撃たれない。`fortress-approach` は問いのあとに `rearm` されるが、旗を立てるだけなので何度入っても同じ。起動の前に壊された機関砲は、旗が立っても撃たない（目標が倒れているので動かない）。旗は台本の状態 `flags` に入るので、チェックポイント・中断・retry で保たれる（保存の形は変わらず `SUSPEND_VERSION` はそのまま）
+- 起動の前のシャッター（SB-2051）: 機関砲の前に装甲の板があり、旗が立つまで閉じている。これはボスの弾薬庫と同じ仕組みの `M1_SHUTTERS` の2つ目（`target` は `fortress-gun`、`opensWhen` は空、`opensOnFlag` は `FORTRESS_GUN_FLAG`、板は 16×10×1・`gap` 0.05）で、開く条件が目標でなく旗。`openShutters` は旗が立った次のフレームの `checkShutters` で開け、出来事 `shutterOpen` を1回出す
+  - 閉じている間: 弾は目標の箱で止まるが体力は減らず（`damageTarget` の `shuttered`）、爆薬や拳も同じ。出来事 `hit` の `deflected` は true で、板の前面（箱の海側の面から `gap + d` の所）に火花を出す（トーチカの正面の弾きと同じ見せ方）。ソフトロックの候補にも円の中にも入れず（`fcsTargets` の `lockable`、`armoured`）、体力のバーもロック枠も出さない（`hudModel`）。目標は生きているので、狙いの線の止まりや陰になる相手の壁には数える。ボスのシャッター（旗で開かない）は `armoured` にならず、ロック枠も体力も今までどおり出る
+  - 海を撃つ演出（`seaFire`）は閉じている間は止める。閉じた板の前から海を撃つと変なため。旗が立つと、シャッターが開いた次のフレームから続く
+  - 見た目: 板は `THREE.Mesh`（`sb-shutter-fortress-gun`、壁の上に載る）。閉じている間、砲は `FORTRESS_SHUTTER_TUNE.sink` だけ壁の中へ沈む。開くと `openSec` 秒かけて、板が上の縁を止めたまま下から巻き上がり（`scale.y` が 1 から 0）、砲が元の高さまでせり出す（なめらかな往復、`syncWorld` の `rollShutter`）。巻き上がりの進みは板の `userData.open` に持つ。チェックポイント・中断で戻ったときに最初から開いている板は、巻き上げずに開いた形から始める。壊れた砲は動かさない
+  - 起動の知らせ: 旗を立てる cue `fortress-gun-wake` が、無線 `m1.fortress-gun-wake`（「要塞の機関砲が出てくるぞ！」）を1回出す。開き切るまでの `openSec` と、最初の掃射までの `rest` が、予兆の間になる
+  - 保存: シャッターの状態は `game.shutters` と台本の旗で決まり、中断・チェックポイントのコピーに入る（`shutters` は元から保存の対象）。シャッターの無い古い保存（機関砲の板より前）を読むときは、`restoreSuspend` が足りないシャッターを足し、旗が立っていれば開けておく（`SUSPEND_VERSION` はそのまま）
 - 弾: 型 `FortressBullet`（`fort` に撃った目標の id）。速さ `bulletSpeed`、威力 `damage`、飛ぶ距離 `range`。扱いは敵の弾と同じ（機体・物・壊れていない目標・地面で止まり、機体に当たると装甲が減って `damaged` を出す）。`isHostileBullet` に入るので、敵の弾の線（`src/view/play.ts`）と敵の射撃の音（`src/view/sound.ts`）にそのまま乗る
 - 主砲との違い: `newBattery` は `kind === 'gun'` の目標だけを `battery.guns` にする。`fortressGun` は入らず、主砲の機銃の値と動きは変えない
 - 海を撃つ拍: `buildSeaFire` は `battery.guns` の後ろに `fortressGun` の目標を1つ足し、その箱から（主砲は `GUN_TUNE`、機関砲は `FORTRESS_GUN_TUNE` の）`muzzle`・`muzzleGap` の所に閃光（`sb-sea-flash`）と海へ向かう線（`sb-sea-tracer`）を出す。倒れた目標は何も出さない。艇の mesh は作らない（`camera.far` 260 の外で、要塞の前から海は見えない）。沈む艇の画は L7 の出現カットシーンで見せる
 - 壁の上の波 `fortress-drop`: `fortress-gate` の cue が `spawn fortress-drop` を出し、`M1_WAVE_ENEMY['fortress-drop'] = ['assault', 'grunt', 'assault']` の3体が、海側の壁の上（`M1_WAVE_DROP['fortress-drop'] = FORTRESS_TUNE.wallH` = 12m）から海側へ降りる。場所は x −20・8・32、z −70 で、門（x −6〜6）と目標の箱（x 12〜28）を避ける。落ち方は `seawall-drop` と同じ `fall` で、海（+z）へ跳ねながら壁の海側に着地する
-- テスト: 純粋な関数は `test/unit/fortress.test.ts`（`rest` 後の開始・`interval`・扇・射線が切れたら止まる・弾の出る所・同じ seed）、ゲームの中は `test/integration/fortressGun.test.ts`（開けた所では装甲が減り、遮蔽の陰では減らない・壊すと止まる・壁の上の波が降りて着地する）、`test/integration/hud.test.ts` の目標の数、`test/e2e/battery.test.ts` の海を撃つ拍、`test/e2e/props.test.ts` の目標の高さ
+- テスト: 純粋な関数は `test/unit/fortress.test.ts`（`rest` 後の開始・`interval`・扇・射線が切れたら止まる・弾の出る所・同じ seed）、ゲームの中は `test/integration/fortressGun.test.ts`（開けた所では装甲が減り、遮蔽の陰では減らない・壊すと止まる・壁の上の波が降りて着地する・旗の前は撃っても体力が減らず火花が弾かれて照準も寄らない・旗のあとは当たって壊れる・中断とチェックポイントでシャッターが旗と合う）、`test/unit/battery.test.ts` の旗で開くシャッター、`test/integration/hud.test.ts` の目標の数、`test/e2e/battery.test.ts` の海を撃つ拍、`test/e2e/props.test.ts` の目標の高さとシャッター（閉じた沈み・巻き上がり・開いた高さ）。絵は `shots/fortress-gun-shutter.shots.ts`
 
 ### 要塞の爆破と脱出
 
@@ -1091,7 +1104,7 @@ SB-1860。中ボスの `wardenDown` のあと、要塞の陸側の壁の中の�
 - `#view-allies`: 本体の出撃を始め、導入のカットシーンを飛ばして、味方機5機を試す入口。どのボタンも先に `ashore` を送って艇を降りた状態にする。「B の手前へ」は線1の l1-b を爆破してから機体を (0,140) に置いて `enter b-line` を起こし、4機（覆いの3機と `gunner`）が穴を抜ける所と、`gunner` が B の手前で倒れる所を見る。「C の手前へ」は線2の l2-a を爆破してから機体を (35,-30) に置き、トーチカ2基を壊して cp1 を起こし、3機が C の投稿へ動く所を見る。「要塞の門へ」は機体を (0,-60) に置いて `enter fortress-gate` を起こし、3機が海側の門から中庭へ動く所を見る。「B の手前に敵」「C の手前に敵」は、その区画の味方機の `engageRange` 以内に grunt を3体出し、味方機の曳光が敵へ、敵の曳光が味方機へ向くのを見る（当たりは無い）。「やり直す」で最初から。右上の調整パネルが `ALLY_TUNE`（走る速さ・着いたと見る距離・倒れる前に叫ぶ秒・足元の半径・上がれる高さ・落ちる速さ・撃つ敵を探す距離・味方機の散らし・敵の曳光の間隔・敵が探す距離・敵の散らし）と `RADIO_TUNE`（1行を出す秒・待たせる行の上限）を書き換える。`ALLY_TUNE` には遅れて急ぎ出す距離・全力で急ぐまでの距離・急ぐときの倍率（SB-2044）も入る。座標はこの入口の `const` に置き、本編のデータには置かない。保存はしない
 - `#view-droid`: 浜の歩兵ドロイド1体を大きく見る入口。M1 の浜の開けた所（x 40・z 166）に1体を置き、正面・斜め・横のカメラと「回転」を出す。`?turn=front|quarter|side`（既定 `front`）、`?pose=stand|wait|fallen`（既定 `stand`。待ち線のしゃがみと仰向けの倒れ）と `?spin=0` で選べる。近くで見る所なので近い形（`DROID_PARTS.near`、味方の明るい灰・黄色・青緑）で描く。`window.sbDroidReport()` が向き・回転・ポーズ・描く回数・三角形・高さを JSON の文字列で返す。`#view-squad` の歩兵と `#view-landing` の同乗者は同じドロイドで、倒れ方も同じ `SOLDIER_POSE` を使う（同乗者はいつも近い形）
 - `#view-squad`: 本体の出撃を始め、導入のカットシーンを飛ばして、戦場の層の歩兵ドロイドを試す入口。`?seed=<n>` は波の種。最初の波（20体）は海側から来て、5体の分隊2つが機銃座（`M1_NEST_WAVE` の `map.spawns`）へ歩き、機銃座から `squadFallRadius`（10m）以内で `squadFallShare` の体数が倒れる。残りの10体は幅いっぱいに散らばり、`allyDeathRate` の確率で倒れる。砲撃の着弾の `shellFallRadius` 以内の歩兵ドロイドも倒れる。「B の手前へ」で機体を (0,140) に置いて `enter b-line` を起こす。「出撃し直す」は `startSortie` で群れを作り直すので、右上の調整パネルの `PLAY_BATTLE_TUNE`（1波の体数・波の間隔・歩く速さ・1秒に倒れる確率・分隊の数と体数・線で倒れる割合と機銃座からの距離・着弾で倒れる半径と確率）の変更はこのボタンで反映する。保存はしない
-- `#view-fortress`: 手書きマップの要塞の海側の壁の上の機関砲を、機体を (0, −50) に置いて見る入口。右上の調整パネルが `FORTRESS_GUN_TUNE`（射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで・散らし・弾の速さ・撃つ高さ・箱の面からの離れ）を書き換え、「掃射を始める」で壁の上から開けた所への掃射（この入口だけの曳光で描く）、「壁の上の波を出す」で `M1B_HAND.spawns['fortress-drop']` の3体を壁の上から降らせ、「戻す」で止めて状態を戻す。`window.sbFortressReport()` が機体・機関砲（体力・`y`・待ち・掃射の残り）・弾の数・敵の数・`?stats` の数字を JSON の文字列で返す
+- `#view-fortress`: 手書きマップの要塞の海側の壁の上の機関砲を、機体を (0, −50) に置いて見る入口。右上の調整パネルが `FORTRESS_GUN_TUNE`（射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで・散らし・弾の速さ・撃つ高さ・箱の面からの離れ）と `FORTRESS_SHUTTER_TUNE`（シャッターが開く秒数・閉じた砲の沈み）を書き換え、「掃射を始める」で壁の上から開けた所への掃射（この入口だけの曳光で描く）、「壁の上の波を出す」で `M1B_HAND.spawns['fortress-drop']` の3体を壁の上から降らせ、「戻す」で止めて状態を戻す。`window.sbFortressReport()` が機体・機関砲（体力・`y`・待ち・掃射の残り）・弾の数・敵の数・`?stats` の数字を JSON の文字列で返す
 - `#view-warden`: 手書きマップの中庭に機体を (0, −95) に置き、陸側の門の内側 (0, −118) から中ボス「重装指揮機」を出して見る入口。右上の調整パネルが `WARDEN_TUNE`（旋回・出てから撃つまで・段階2の体力・三連射・予兆・突進・迫撃砲・装甲・倒れる秒・突撃型を呼ぶ割合・赤い帯の幅）を書き換え、「段階1」「段階2」「突進」「よろけ」「倒す」「戻す」でその場で試せる。`window.sbWardenReport()` が機体・中ボス（体力・段階・残り秒・露出・呼んだか・倒れている秒）・弾の数・迫撃砲の輪の数・`?stats` の数字を JSON の文字列で返す
 - `#view-mapedit`: マップの簡易エディタ。上から見下ろすカメラで、ホイールかピンチで寄り・引き、右ドラッグか2本指で動かす。右の一覧で物の8種か目標の4種を選び、地面をクリックかタップすると置く。目標は `id` を一覧から選ぶ。置いた物はドラッグで動き、`R` か回転のボタンで15度ずつ回り、`Delete` か削除のボタンで消える。「手書き」「生成（種）」「空」から始められ、置くたびに `validateMapForMission` を回して違反を出し、通り道が無ければ赤くする。「書き出し」は JSON を `<textarea>` に出し、「読み込み」はその JSON を読む。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` で歩ける
 - `#view-sound`: 音の表の音を聞く入口。仕様は10章「音」。
@@ -1184,7 +1197,7 @@ SB-1860。中ボスの `wardenDown` のあと、要塞の陸側の壁の中の�
 | `depot` | `destroyed depot` | `flag depot-down`・`radio m1.depot-down` |
 | `pillbox1` | `destroyed pillbox-1, pillbox-2`（どれか1つ） | `payoff bunker1`（1基目だけの小さい決め） |
 | `cp1` | `destroyed pillbox-1, pillbox-2` | `radio m1.pillboxes-down`・`flag pillboxes-down`・`payoff bunker`・`checkpoint cp1`・`allyMove cover-b1/b2/b3 c-front-1/2/3`（C の前、機体の通り道の先の投稿へ） |
-| `fortress-gun-wake` | `enter fortress-approach` | `flag fortress-gun-awake`（要塞の機関砲が撃ち始める。SB-2045） |
+| `fortress-gun-wake` | `enter fortress-approach` | `flag fortress-gun-awake`（要塞の機関砲のシャッターが開き、撃ち始める。SB-2045・2051）・`radio m1.fortress-gun-wake` |
 | `fortress-gate` | `enter fortress-gate` | `checkpoint cp2`・`objective stop-fortress-gun`・`radio m1.fortress-gate`・`spawn fortress-drop`・`allyMove cover-b1/b2/b3 yard-run-1/2/3`（海側の門から中庭へ。壁の上の3体を機体の後ろに降らせる） |
 | `fortress-yard` | `enter fortress-yard` | `radio m1.fortress-yard`・`radio m1.yard-trap`・`spawn yard-1`・`assist ['yard-1','yard-2','yard-3']`・`allyMove cover-b1/b2/b3 yard-cover`（三方から囲まれ、生き残った味方機が門で撃ち始める） |
 | `yard-drop` | `after fortress-yard 6` | `spawn yard-2`（中庭の奥から2機） |

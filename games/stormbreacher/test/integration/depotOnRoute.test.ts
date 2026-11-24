@@ -80,8 +80,8 @@ test('walking past the depot costs nothing and the gate opens either way', () =>
     if (depotDown) scriptInput(state, M1, { kind: 'destroyed', target: 'depot' });
     stepScript(state, M1, 10.1);
     const approach = scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' });
-    // only the nest's wake-up flag (SB-2045)
-    expect(labels(approach)).toEqual(['flag:fortress-gun-awake']);
+    // only the nest's wake-up flag (SB-2045) and the radio that calls it (SB-2051)
+    expect(labels(approach)).toEqual(['flag:fortress-gun-awake', 'radio']);
     const gate = scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' });
     expect(gate.some(event => event.kind === 'checkpoint')).toBe(true);
   }

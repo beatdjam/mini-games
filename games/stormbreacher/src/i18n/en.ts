@@ -109,6 +109,7 @@ LANG.en = {
     'm1.bunker-down': 'BUNKER DOWN',
     'm1.pillbox-charge': 'The front won’t give! Go round the side or back and plant a charge',
     'm1.wave2-lost': 'The second wave is lost. Push through with what we have.',
+    'm1.fortress-gun-wake': 'The fortress gun is coming up!',
     'm1.fortress-gate': 'Through the fortress gate',
     'm1.fortress-yard': 'Into the yard',
     'm1.yard-trap': "It's a trap. We're surrounded.",
