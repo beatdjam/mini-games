@@ -278,14 +278,29 @@ test(
       return { x: ally.x, z: ally.z };
     });
 
+    // l2-a blows: they follow through its hole at once, without waiting for the pillboxes (SB-2044)
+    sendToScript(game, { kind: 'blast', id: 'l2-a' });
+    COVERS.forEach((id, i) => {
+      const ally = allyById(game.allies, id);
+      expect(ally.way[0]).toEqual(posts[i]);
+      expect(ally.next).toBe(1);
+    });
+    runQuiet(game, 60 * 25);
+    const pillboxPosts = COVERS.map(id => {
+      const ally = allyById(game.allies, id);
+      expect(ally.next).toBe(ally.way.length);
+      expect(ally.z).toBeLessThan(15); // the posts before the pillbox line
+      return { x: ally.x, z: ally.z };
+    });
+
     breakPillboxes(game);
     COVERS.forEach((id, i) => {
       const ally = allyById(game.allies, id);
       // the next way starts at the post the ally stands on
-      expect(ally.way[0]).toEqual(posts[i]);
+      expect(ally.way[0]).toEqual(pillboxPosts[i]);
       expect(ally.next).toBe(1);
     });
-    // the wave2-sinks cutscene holds them, then they run on to C
+    // the wave2-sinks cutscene holds them, then they run on to C's front
     runQuiet(game, 60 * 40);
     const cPosts = COVERS.map(id => {
       const ally = allyById(game.allies, id);

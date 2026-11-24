@@ -23,7 +23,8 @@ const PILLBOXES = ['pillbox-1', 'pillbox-2'] as const;
 const BEACH = { eye: [12, 14, 192], at: [14, 1, 160] } as const;
 const B_POSTS = { eye: [35, 18, 158], at: [35, 1, 120] } as const;
 const GUNNER = { eye: [52, 12, 140], at: [45, 1, 112] } as const;
-const C_POSTS = { eye: [22, 18, 55], at: [22, 1, 2] } as const;
+const C_POSTS = { eye: [22, 18, 55], at: [22, 1, 2] } as const; // the posts before the pillbox line
+const C_FRONT = { eye: [35, 20, -30], at: [35, 1, -60] } as const; // C's front posts, past the way through C
 const BOSS_POSTS = { eye: [0, 24, -125], at: [0, 1, -80] } as const;
 
 const wanted = (name: string) => !__SHOTS_ONLY__ || name.includes(__SHOTS_ONLY__);
@@ -118,11 +119,16 @@ test('ally-mechs', async () => {
   advance(8);
   await picture('ally-mechs-b-posts', B_POSTS);
 
-  // C: cp1 sends the three on past lines 2 and 3 to their posts at C (the wave2-sinks cutscene is passed)
+  // line 2's charge blows: the three follow through its hole to the posts before the pillbox line (SB-2044)
+  sendToScript(game(), { kind: 'blast', id: 'l2-a' });
+  advance(40);
+  await picture('ally-mechs-pillbox-posts', C_POSTS);
+
+  // C: cp1 sends the three on to C's front, past the way through C (the wave2-sinks cutscene is passed)
   breakPillboxes();
   sendToScript(game(), { kind: 'skip' });
   advance(40);
-  await picture('ally-mechs-c-posts', C_POSTS);
+  await picture('ally-mechs-c-posts', C_FRONT);
 
   // the boss's cover: the three go through the sea gate and into the yard
   sendToScript(game(), { kind: 'enter', area: 'fortress-gate' });

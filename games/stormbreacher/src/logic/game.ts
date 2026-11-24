@@ -1541,7 +1541,7 @@ function stepHazards(game: GameModel, dt: number): void {
 function stepAllies(game: GameModel, dt: number): void {
   const running = game.script.cutscene === null;
   for (const ally of game.allies) {
-    const fell = running ? stepAlly(ally, dt) : false;
+    const fell = running ? stepAlly(ally, dt, game.mech) : false;
     const ground = groundAt(ally.x, ally.z, ALLY_TUNE.groundRadius, game.rects, ALLY_TUNE.maxGround);
     if (ground > ally.y) ally.y = ground;
     else ally.y = Math.max(ground, ally.y - ALLY_TUNE.fallSpeed * dt);
