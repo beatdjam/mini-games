@@ -82,9 +82,16 @@ export const HUD_COLOR = {
 // The enemies wear the enemy row of PROTO_PALETTES (SB-2083): dark grey armour, near-black joints, red accents and red
 // lamps. What an enemy that is down is multiplied by (the instance colour over the baked colours).
 export const ENEMY_DOWN_TINT = 0x574d46;
-// The mid boss's body (SB-1850, 仮): a grey-blue, apart from the soldiers' dark grey and red. It is the instance colour
-// over a white baked shape, so the shoulder light's warning can swap it for PILLBOX_WARN_COLOR.
-export const WARDEN_COLOR = 0x56657d;
+// The mid boss (SB-1850, built from parts by SB-2049) is painted into its shape in the boss row of PROTO_PALETTES, lightened
+// a little (as SB-2083 lightened the enemy row): the row's near-black armour lost its plates under the beach's light. Its
+// lamps and vents are white in the shape and take these colours per copy: the lamps glow red and warm to
+// PILLBOX_WARN_COLOR while it warns of a burst, the radiator's vents smoulder and burn open while it is exposed, and
+// both go dark when it is down.
+export const WARDEN_PALETTE = { armor: 0x474e57, frame: 0x22262b, accent: 0xb3262b, mark: 0xd9a63a };
+export const WARDEN_LAMP_COLOR = 0xff2a22;
+export const WARDEN_VENT_IDLE_COLOR = 0x7a1812;
+export const WARDEN_VENT_OPEN_COLOR = 0xffb25a;
+export const WARDEN_LIGHT_OFF_COLOR = 0x241614;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
 
 // The machine-gun nest's model (SB-1981, provisional): sandbags of a dark grey-green, far from the dry sand and the hedgehogs'
@@ -166,6 +173,8 @@ export const PROTO_PALETTES: Record<ProtoPaletteId, Record<ProtoMaterial, number
   // SB-2083: a little lighter than SB-2080's row, so the dark machine still shows its plates under the beach's light
   enemy: { armor: 0x5a6067, frame: 0x2b3035, accent: 0xa52e33, glow: 0xff3b36, mark: 0xa52e33 },
   boss: { armor: 0x24262a, frame: 0x141618, accent: 0xa01e22, glow: 0xff1a1a, mark: 0xa01e22 },
+  // SB-2049: the mid boss, the boss's black lightened as the enemy row was, with the gold of the command mark
+  warden: { ...WARDEN_PALETTE, glow: 0xff2a22 },
   allyWreck: { armor: 0x2e3234, frame: 0x1e2022, accent: 0x35332c, glow: 0x1e2022, mark: 0x35332c },
 };
 

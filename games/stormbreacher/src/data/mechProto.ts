@@ -166,7 +166,7 @@ export interface ProtoArmPose {
 
 // The colours a kit wears, by faction and type (data/colors.ts's PROTO_PALETTES). [armor, frame/joints, accent, glow,
 // mark]. `allyWreck` is the allies' pale colours gone dark, for the model lying over once one has fallen.
-export const PROTO_PALETTE_IDS = ['player', 'ally', 'sniper', 'scout', 'enemy', 'boss', 'allyWreck'] as const;
+export const PROTO_PALETTE_IDS = ['player', 'ally', 'sniper', 'scout', 'enemy', 'boss', 'warden', 'allyWreck'] as const;
 export type ProtoPaletteId = (typeof PROTO_PALETTE_IDS)[number];
 
 // The legs: the foot's sole, toe and heel, the ankle's drum, the shin, the knee, the thigh, the hydraulics and the hip
@@ -2075,6 +2075,130 @@ const ENEMY_RIFLE: readonly ProtoShape[] = [
   { kind: 'plate', material: 'glow', size: [0.004, 0.006, 0.1], at: [0.08, 0.155, -0.06], bevel: 0.001 },
 ];
 
+// The mid boss, the heavy command machine (SB-1850, rebuilt on the kit by SB-2049's second pass): the boss's own parts
+// above, with layers of armour added so it stands clearly above the line machines it commands. The thick legs, the stepped
+// chest, the stacked pauldrons, the fin stack and the nozzles of the back and the command crest of the head are written
+// here; the gold `mark` is the command mark (the crest, the chevrons, the pauldron stripes). The back of this kit has no
+// lit grilles: the slits and the nozzles that burn open while it is exposed are drawn apart (view/wardenModel.ts).
+function wp(material: ProtoMaterial, size: Vec3, at: Vec3, more: Partial<ProtoShape> = {}): ProtoShape {
+  return { kind: 'plate', material, size, at, bevel: 0.004, ...more };
+}
+function wtube(material: ProtoMaterial, radius: number, length: number, at: Vec3, more: Partial<ProtoShape> = {}) {
+  return { kind: 'tube', material, radius, length, at, ...more } satisfies ProtoShape;
+}
+function wring(material: ProtoMaterial, radius: number, tube: number, at: Vec3, more: Partial<ProtoShape> = {}) {
+  return { kind: 'ring', material, radius, tube, at, ...more } satisfies ProtoShape;
+}
+function wbolts(material: ProtoMaterial, radius: number, count: number, at: Vec3, more: Partial<ProtoShape> = {}) {
+  return { kind: 'bolts', material, radius, count, bolt: 0.005, at, ...more } satisfies ProtoShape;
+}
+function wpiston(radius: number, length: number, at: Vec3, more: Partial<ProtoShape> = {}) {
+  return { kind: 'piston', material: 'frame', radius, length, at, ...more } satisfies ProtoShape;
+}
+
+// The legs: an outer skirt of armour on the shin and the thigh, a big knee guard with its red band and bolts, a stack of
+// ridges down the shin, slats on the calf and the back of the thigh, a sock over the ankle and a hydraulic at the side.
+const WARDEN_LEGS: readonly ProtoShape[] = [
+  wp('armor', [0.045, 0.2, 0.17], [0.2, 0.225, 0], { bevel: 0.008, taper: { top: 1.1 }, mirror: true }),
+  wp('armor', [0.05, 0.17, 0.16], [0.205, 0.44, 0.005], { bevel: 0.008, taper: { top: 1.08 }, mirror: true }),
+  wp('armor', [0.17, 0.1, 0.1], [0.115, 0.365, -0.1], {
+    bevel: 0.01,
+    taper: { front: 0.7, nose: 0.55, drop: 0.2 },
+    mirror: true,
+  }),
+  wp('accent', [0.15, 0.02, 0.09], [0.115, 0.305, -0.095], { mirror: true }),
+  wbolts('frame', 0.03, 8, [0.115, 0.365, -0.155], { axis: 'z', mirror: true }),
+  ...[0.16, 0.2, 0.24].map(y =>
+    wp('frame', [0.1, 0.022, 0.05], [0.115, y, -0.105], { taper: { nose: 0.7 }, mirror: true }),
+  ),
+  ...[0.15, 0.18, 0.21, 0.24, 0.27].map(y => wp('frame', [0.1, 0.01, 0.05], [0.115, y, 0.1], { mirror: true })),
+  ...[0.4, 0.43, 0.46, 0.49].map(y => wp('frame', [0.11, 0.01, 0.05], [0.115, y, 0.09], { mirror: true })),
+  wp('armor', [0.15, 0.06, 0.18], [0.115, 0.125, 0], { bevel: 0.008, taper: { top: 0.9 }, mirror: true }),
+  wp('armor', [0.15, 0.035, 0.1], [0.115, 0.085, -0.19], {
+    bevel: 0.006,
+    taper: { front: 0.6, nose: 0.6 },
+    mirror: true,
+  }),
+  wpiston(0.014, 0.2, [0.235, 0.23, 0.03], { mirror: true }),
+  wbolts('frame', 0.04, 8, [0.232, 0.44, 0.005], { axis: 'x', mirror: true }),
+  wring('accent', 0.03, 0.006, [0.228, 0.225, 0], { axis: 'x', mirror: true }),
+];
+
+// The chest: a brow plate over the slab, a stepped belly under it, the gold command chevrons over the lamp, rivets at the
+// slab's corners, slats down the side plates, a belt of blocks round the waist and struts to the collar.
+const WARDEN_TORSO_PLUS: readonly ProtoShape[] = [
+  wp('armor', [0.38, 0.045, 0.1], [0, 0.285, -0.14], {
+    bevel: 0.008,
+    taper: { front: 0.85, nose: 0.7, drop: 0.1 },
+  }),
+  wp('armor', [0.3, 0.07, 0.07], [0, 0.105, -0.125], { bevel: 0.006, taper: { bottom: 0.8, front: 0.9 } }),
+  wp('frame', [0.22, 0.04, 0.05], [0, 0.045, -0.12], { bevel: 0.004 }),
+  wp('mark', [0.09, 0.014, 0.01], [-0.045, 0.302, -0.17], { rot: [0, 0, 0.35], bevel: 0.002 }),
+  wp('mark', [0.09, 0.014, 0.01], [0.045, 0.302, -0.17], { rot: [0, 0, -0.35], bevel: 0.002 }),
+  wp('mark', [0.12, 0.012, 0.01], [0, 0.325, -0.17], { bevel: 0.002 }),
+  wbolts('frame', 0.02, 8, [0.15, 0.31, -0.165], { axis: 'z', bolt: 0.004, mirror: true }),
+  wbolts('frame', 0.02, 8, [0.15, 0.15, -0.165], { axis: 'z', bolt: 0.004, mirror: true }),
+  ...Array.from({ length: 11 }, (_, i) =>
+    wp('frame', [0.01, 0.008, 0.12], [0.208, 0.15 + i * 0.015, 0.01], { bevel: 0.001, mirror: true }),
+  ),
+  ...Array.from({ length: 7 }, (_, i) =>
+    wp(i % 2 === 0 ? 'armor' : 'frame', [0.04, 0.05, 0.03], [-0.12 + i * 0.04, 0.03, -0.12], { bevel: 0.004 }),
+  ),
+  wpiston(0.012, 0.1, [0.1, 0.33, -0.02], { rot: [0, 0, 0.5], mirror: true }),
+  wp('armor', [0.1, 0.1, 0.06], [0.1, 0.14, -0.13], { taper: { front: 0.7 }, bevel: 0.006, mirror: true }),
+];
+
+// The pauldron, which a kit's left slot mirrors: a second and third tier over it with a ring of bolts, fins down the outer
+// face, a gold stripe, two front spikes, ribs behind it and a hydraulic.
+const WARDEN_SHOULDER_PLUS: readonly ProtoShape[] = [
+  wp('armor', [0.26, 0.04, 0.3], [0.305, 0.52, 0], { bevel: 0.007, taper: { top: 0.9 } }),
+  wp('frame', [0.2, 0.02, 0.24], [0.305, 0.55, 0], { bevel: 0.004 }),
+  wbolts('frame', 0.06, 10, [0.305, 0.562, 0], { axis: 'y', bolt: 0.007 }),
+  ...[0.33, 0.385, 0.44].map(y => wp('frame', [0.025, 0.045, 0.23], [0.435, y, 0], { bevel: 0.004 })),
+  wp('mark', [0.012, 0.018, 0.2], [0.427, 0.485, 0], { bevel: 0.002 }),
+  wp('armor', [0.05, 0.07, 0.1], [0.38, 0.4, -0.17], { taper: { front: 0.4, nose: 0.4 }, bevel: 0.006 }),
+  wp('armor', [0.05, 0.07, 0.1], [0.23, 0.4, -0.17], { taper: { front: 0.4, nose: 0.4 }, bevel: 0.006 }),
+  ...[0.34, 0.38, 0.42, 0.46].map(y => wp('frame', [0.14, 0.012, 0.03], [0.3, y, 0.15], { bevel: 0.002 })),
+  wpiston(0.014, 0.14, [0.4, 0.3, 0.08]),
+  wtube('frame', 0.02, 0.06, [0.45, 0.45, 0], { axis: 'z' }),
+];
+
+// The back, on the boss's pack: its plates without the lit grilles, a stack of heat fins over the pack, radiator blocks
+// at its sides, a third nozzle, the rivets of its corners, two whip antennas and a tank under it.
+const WARDEN_BACK: readonly ProtoShape[] = [
+  ...BOSS_BACK.filter(shape => shape.material !== 'glow'),
+  ...Array.from({ length: 6 }, (_, i) =>
+    wp('frame', [0.012, 0.1, 0.1], [-0.15 + i * 0.06, 0.45, 0.19], { bevel: 0.002 }),
+  ),
+  ...Array.from({ length: 6 }, (_, i) =>
+    wp('frame', [0.065, 0.008, 0.105], [0.205, 0.15 + i * 0.03, 0.2], { bevel: 0.001, mirror: true }),
+  ),
+  wp('armor', [0.06, 0.2, 0.1], [0.205, 0.24, 0.2], { bevel: 0.006, mirror: true }),
+  wtube('frame', 0.035, 0.07, [0, 0.08, 0.28], { axis: 'z' }),
+  wring('accent', 0.04, 0.006, [0, 0.08, 0.33], { axis: 'z' }),
+  wbolts('frame', 0.025, 8, [0.13, 0.35, 0.275], { axis: 'z', mirror: true }),
+  wbolts('frame', 0.025, 8, [0.13, 0.13, 0.275], { axis: 'z', mirror: true }),
+  wtube('frame', 0.004, 0.16, [0.17, 0.47, 0.17], { mirror: true }),
+  wring('mark', 0.012, 0.004, [0.17, 0.55, 0.17], { axis: 'x', mirror: true }),
+  wp('frame', [0.3, 0.08, 0.1], [0, 0.1, 0.2], { bevel: 0.008 }),
+];
+
+// The head: the boss's helmet with a gold command crest and its side fins, a sensor mast and a pod with a lens on each
+// side, and slats on the cheeks.
+const WARDEN_HEAD_PLUS: readonly ProtoShape[] = [
+  wp('mark', [0.02, 0.06, 0.16], [0, 0.505, 0], { bevel: 0.003, taper: { nose: 0.8 } }),
+  wp('mark', [0.012, 0.05, 0.1], [0.05, 0.495, 0.01], { rot: [0, 0, -0.3], bevel: 0.002, mirror: true }),
+  wtube('frame', 0.005, 0.1, [0.075, 0.49, 0.03]),
+  wring('mark', 0.014, 0.004, [0.075, 0.54, 0.03], { axis: 'y' }),
+  wtube('frame', 0.004, 0.07, [-0.075, 0.48, 0.03]),
+  wp('frame', [0.035, 0.05, 0.07], [0.098, 0.405, -0.02], { bevel: 0.004, mirror: true }),
+  wp('glow', [0.01, 0.02, 0.02], [0.118, 0.41, -0.045], { bevel: 0.001, mirror: true }),
+  ...Array.from({ length: 4 }, (_, i) =>
+    wp('frame', [0.01, 0.008, 0.05], [0.082, 0.43 + i * 0.012, 0.045], { bevel: 0.001, mirror: true }),
+  ),
+  wp('armor', [0.05, 0.03, 0.06], [0, 0.49, -0.08], { taper: { front: 0.6, nose: 0.5 }, bevel: 0.004 }),
+];
+
 // The left pod mirrors the right, so a pair of pods reads as one design and its stripe faces outward; the heavy's one pod
 // is on the left.
 const ENEMY_POD4_L = mirrorShapes(ENEMY_POD4);
@@ -2087,6 +2211,7 @@ export const PROTO_HEADS = {
   scout: { shapes: SCOUT_HEAD },
   enemy: { shapes: ENEMY_HEAD },
   boss: { shapes: BOSS_HEAD },
+  warden: { shapes: [...BOSS_HEAD, ...WARDEN_HEAD_PLUS] },
 } as const satisfies Record<string, ProtoHeadPart>;
 export type ProtoHeadId = keyof typeof PROTO_HEADS;
 
@@ -2097,6 +2222,7 @@ export const PROTO_TORSOS = {
   enemy: { shapes: ENEMY_TORSO },
   enemyHeavy: { shapes: ENEMY_HEAVY_TORSO },
   boss: { shapes: BOSS_TORSO },
+  warden: { shapes: [...BOSS_TORSO, ...WARDEN_TORSO_PLUS] },
 } as const satisfies Record<string, ProtoTorsoPart>;
 export type ProtoTorsoId = keyof typeof PROTO_TORSOS;
 
@@ -2128,6 +2254,12 @@ export const PROTO_SHOULDERS = {
     onRight: { shapes: BOSS_POD6, mount: [0.4, 0.52, 0.08] },
     onLeft: { shapes: BOSS_TURRET, mount: [-0.36, 0.4, 0.0] },
   } satisfies ProtoShoulderPart,
+  // SB-2049: the mid boss's pauldron with its added tiers, under the same pod and turret
+  warden: {
+    shapes: [...BOSS_SHOULDER, ...WARDEN_SHOULDER_PLUS],
+    onRight: { shapes: BOSS_POD6, mount: [0.4, 0.52, 0.08] },
+    onLeft: { shapes: BOSS_TURRET, mount: [-0.36, 0.4, 0.0] },
+  } satisfies ProtoShoulderPart,
 } as const satisfies Record<string, ProtoShoulderPart>;
 export type ProtoShoulderId = keyof typeof PROTO_SHOULDERS;
 
@@ -2156,6 +2288,7 @@ export const PROTO_BACKS = {
   enemy: { shapes: ENEMY_BACK, exhaust: ENEMY_EXHAUST },
   enemyRifle: { shapes: ENEMY_RIFLE_BACK, exhaust: ENEMY_EXHAUST },
   boss: { shapes: BOSS_BACK, exhaust: BOSS_EXHAUST },
+  warden: { shapes: WARDEN_BACK, exhaust: BOSS_EXHAUST },
 } as const satisfies Record<string, ProtoBackPart>;
 export type ProtoBackId = keyof typeof PROTO_BACKS;
 
@@ -2210,6 +2343,7 @@ export interface ProtoKit {
   weapon: ProtoWeaponId;
   handL?: ProtoHandId; // the free hand, when the kit does not wear the skeleton's open palm
   scale?: number; // how much larger than the height it is built at (1 when left out)
+  legPlus?: readonly ProtoShape[]; // armour added over the skeleton's legs (SB-2049: the mid boss's thick legs)
   arms?: ProtoArmPose; // the hold, when the weapon needs both hands
 }
 
@@ -2232,7 +2366,7 @@ export const PROTO_ALLY_KIT_IDS = ['allySniper', 'allyScout'] as const;
 export type ProtoAllyKitId = (typeof PROTO_ALLY_KIT_IDS)[number];
 // The enemies' three roles (SB-2083). They are not offered as the player's paint in the confirmation view; the enemy
 // view (#view-grunts) builds them.
-export const PROTO_ENEMY_KIT_IDS = ['enemyRifle', 'enemyGunner', 'enemyHeavy'] as const;
+export const PROTO_ENEMY_KIT_IDS = ['enemyRifle', 'enemyGunner', 'enemyHeavy', 'warden'] as const;
 export type ProtoEnemyKitId = (typeof PROTO_ENEMY_KIT_IDS)[number];
 export type ProtoKitName = ProtoKitId | ProtoAllyKitId | ProtoEnemyKitId;
 
@@ -2353,6 +2487,21 @@ export const PROTO_KITS: Record<ProtoKitName, ProtoKit> = {
     weapon: 'bossGatling',
     handL: 'claw',
     scale: 1.18,
+    arms: { offShoulder: 0.9, leftIn: 0.1 },
+  },
+  // SB-2049: the mid boss, the boss's machine with the added layers: thick legs, stacked pauldrons, a stepped chest, the
+  // fin stack and the nozzles of the back, and the command crest, in the warden row of the palettes
+  warden: {
+    palette: 'warden',
+    head: 'warden',
+    torso: 'warden',
+    shoulderR: 'warden',
+    shoulderL: 'warden',
+    back: 'warden',
+    weapon: 'bossGatling',
+    handL: 'claw',
+    scale: 1.18,
+    legPlus: WARDEN_LEGS,
     arms: { offShoulder: 0.9, leftIn: 0.1 },
   },
 };
