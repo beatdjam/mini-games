@@ -172,12 +172,12 @@ export function hudModel(game: GameModel): HudModel {
     warning === null && radio?.callout !== undefined && game.time - radio.time < CALLOUT_TUNE.sec
       ? radio.callout
       : null;
-  // The side goal: the depot stays worth showing after the leader asks and while it still stands; the flag, not the
-  // walk into the hollow, is what takes it away.
+  // The side goal: the depot stays worth showing once the shelling has started and while it still stands; the flag, not
+  // the walk into the hollow, is what takes it away.
   const depot = game.targets.find(target => target.id === 'depot' && target.hp > 0);
-  const asked = Object.prototype.hasOwnProperty.call(game.script.fired, 'depot-ask');
+  const started = Object.prototype.hasOwnProperty.call(game.script.fired, 'shelling-start');
   let optional: HudModel['optional'] = null;
-  if (depot !== undefined && asked && !game.script.flags.includes('depot-down')) {
+  if (depot !== undefined && started && !game.script.flags.includes('depot-down')) {
     const x = (depot.box.minX + depot.box.maxX) / 2;
     const z = (depot.box.minZ + depot.box.maxZ) / 2;
     optional = { key: 'hud.optional.depot', distance: Math.hypot(x - game.mech.x, z - game.mech.z) };

@@ -30,6 +30,17 @@ export const DEFENSE_COLOR = {
   bunkerDoor: 0x232320, // the dark of a bunker's side entrance
   rebar: 0xb07048, // the exposed reinforcing bar in a chipped corner
   crack: 0x3a3833, // a crack across a concrete face
+  pillboxPlinth: 0xb8b4ac, // the footing a pillbox stands on, darker than its walls
+  pillboxRoof: 0xe0dcd6, // a pillbox's roof slab, a little lighter than its walls
+  pillboxNet: 0x6f7a4e, // the camouflage net over a pillbox's roof
+  pillboxStain: 0x8a8680, // a rain streak or a patch of soot on a concrete face
+  pillboxMark: 0xd2432f, // the red of the target mark: the striped roof lip and the band over the embrasure (SB-2050 v2)
+  pillboxMarkWhite: 0xe6e1d6, // the white between the red stripes
+  pillboxSteel: 0x34363a, // the embrasure's frame, visor, rivets and gun, and the doorway's door
+  pillboxEarth: 0xb5a47c, // a sandbag's earth; each bag shades this a little
+  pillboxNetDark: 0x4a5236, // the darker patches of the camouflage net
+  pillboxNetBrown: 0x6d5e41, // the brown patches of the camouflage net
+  pillboxSoot: 0x2c2a27, // the soot over the embrasure
 };
 
 // The landing craft (SB-1470, 仮): its hull and deck, and the seams, hinges, chains, windows and bow plate that dress

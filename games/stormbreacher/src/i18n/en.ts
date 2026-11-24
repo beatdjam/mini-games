@@ -56,10 +56,6 @@ LANG.en = {
     'result.net': 'Take-home {cr} cr',
     'result.funds': 'Funds {cr} cr',
     'result.noCredit': 'Not added to funds',
-    'result.losses': v =>
-      Number(v.allies) + Number(v.squads) === 0
-        ? 'Losses: none'
-        : `Losses: ${Number(v.allies)} mech(s), ${Number(v.squads)} squad(s)`,
     'hud.armor': 'Armor',
     'hud.boost': 'Boost',
     'hud.main': 'Main',
@@ -112,11 +108,6 @@ LANG.en = {
     'm1.pillboxes-down': 'Bunkers silent! Push up!',
     'm1.bunker-down': 'BUNKER DOWN',
     'm1.pillbox-charge': 'The front won’t give! Go round the side or back and plant a charge',
-    'm1.depot-ask-1': 'Three here. Enemy ammo depot under the right cliff.',
-    'm1.depot-ask-2': 'Hit it and the shelling eases. Go for it, or straight to the fortress?',
-    'm1.depot-go': 'We have you. Go.',
-    'm1.depot-skip': 'No time. Straight in.',
-    'm1.ally-lost': 'Four is down',
     'm1.wave2-lost': 'The second wave is lost. Push through with what we have.',
     'm1.fortress-gun-wake': 'The fortress gun is coming up!',
     'm1.fortress-gate': 'Through the fortress gate',

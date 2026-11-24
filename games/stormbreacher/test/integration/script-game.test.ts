@@ -41,8 +41,6 @@ function label(event: ScriptOut): string {
       return `allyFall:${event.id}:${event.by}`;
     case 'assist':
       return `assist:${event.waves.join(',')}`;
-    case 'loss':
-      return `loss:${event.allies}/${event.squads}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -118,8 +116,8 @@ function runM1(
   breakTarget('pillbox-1');
   breakTarget('pillbox-2'); // cp1 fires once both pillboxes are down
   const clearedAfterTargets = game.cleared;
-  // the leader's question comes 10 s after cp1; the enemies and the shells would shoot the mech down while it waits, and
-  // this test reads the script's line alone
+  // the shelling starts 10 s after cp1; the enemies and the shells would shoot the mech down while it waits, and this
+  // test reads the script's line alone
   game.enemies = [];
   game.armor = 10000;
   game.downed = false;
@@ -240,14 +238,8 @@ test(
     const game = newGame(M1B_HAND);
     const { outs, cleared, clearedAfterTargets } = runM1(game, true);
     expect(clearedAfterTargets).toBe(false);
-    // the other answer's cues do not fire: the depot's detour takes it
-    const skipped = new Set(['fortress-go', 'fortress-ally-lost']);
-    expect(Object.keys(game.script.fired).sort()).toEqual(
-      M1.cues
-        .map(cue => cue.id)
-        .filter(id => !skipped.has(id))
-        .sort(),
-    );
+    // every cue fires on the way through the depot
+    expect(Object.keys(game.script.fired).sort()).toEqual(M1.cues.map(cue => cue.id).sort());
     const objectives: string[] = [];
     for (const event of outs) if (event.kind === 'objective') objectives.push(event.id);
     expect(objectives).toEqual([
@@ -261,7 +253,6 @@ test(
     expect(game.script.ended).toBe('cleared');
     expect(game.cleared).toBe(true);
     expect(cleared).toBe(1);
-    expect(game.losses).toEqual({ allies: 0, squads: 0 });
   },
   LONG,
 );
@@ -271,8 +262,8 @@ test(
   () => {
     const game = newGame(M1B_HAND);
     const { cleared } = runM1(game, false);
-    // the depot's own cues do not fire: the mech never walks into the hollow
-    const depots = new Set(['depot-go', 'depot']);
+    // the depot's own cues do not fire: the mech never walks into the hollow and never breaks it
+    const depots = new Set(['depot-guard', 'depot']);
     expect(Object.keys(game.script.fired).sort()).toEqual(
       M1.cues
         .map(cue => cue.id)
@@ -282,7 +273,6 @@ test(
     expect(game.script.ended).toBe('cleared');
     expect(game.cleared).toBe(true);
     expect(cleared).toBe(1);
-    expect(game.losses).toEqual({ allies: 1, squads: 1 });
   },
   LONG,
 );

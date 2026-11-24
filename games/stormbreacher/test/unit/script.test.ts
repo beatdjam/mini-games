@@ -128,7 +128,7 @@ test('validateMission refuses names the mission does not have', () => {
   }
   {
     const def = cloneM1();
-    cueOf(def, 'depot-go').trigger = { kind: 'after', cue: 'no-such-cue', sec: 1 };
+    cueOf(def, 'depot-guard').trigger = { kind: 'after', cue: 'no-such-cue', sec: 1 };
     expect(() => validateMission(def)).toThrow(/cue/);
   }
   {

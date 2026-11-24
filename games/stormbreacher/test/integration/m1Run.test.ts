@@ -76,7 +76,7 @@ const TO_PILLBOXES: readonly Waypoint[] = [
   { x: 0, z: -30, why: 'back to the middle, behind the broken line' },
 ];
 
-// The answer the skipped depot costs: through C's low cover at x 35, then on to the sea gate. The ally falls here.
+// The way past the depot: through C's low cover at x 35, then on to the sea gate. The depot is left standing.
 const TO_FORTRESS: readonly Waypoint[] = [
   { x: 35, z: -30, why: 'before C at x 35' },
   { x: 35, z: -46, why: 'down through C, before the fortress approach' },
@@ -90,12 +90,12 @@ const TO_FORTRESS: readonly Waypoint[] = [
   { x: 0, z: -58, why: 'before the fortress gate (area fortress-approach)' },
 ];
 
-// The depot answer: across to the right cliff, down into the hollow and back to the approach. The way is long enough
-// that the leader's 10 s question comes before the depot falls, so `depot-go` raises its flag first.
+// The way through the depot: across to the right cliff, down into the hollow, breaking the depot, and back to the
+// approach. The way is long enough that the shelling starts (10 s after cp1) before the depot falls.
 const TO_DEPOT: readonly Waypoint[] = [
   { x: 35, z: -30, why: 'before C at x 35' },
   { x: 35, z: -46, why: 'down through C, before the fortress approach' },
-  { x: 50, z: -50, why: 'across to the right cliff, outside both areas' },
+  { x: 50, z: -50, why: 'across to the right cliff, outside the hollow' },
   { x: 70, z: -45, why: 'into the depot hollow from the left' },
   { x: 75, z: -34, why: 'in front of the depot, which it holds for', hold: ['depot'] },
   { x: 68, z: -42, why: 'back from the depot, towards the fortress' },
@@ -348,7 +348,6 @@ interface Result {
   main: number;
   sub: number;
   retries: number;
-  losses: { allies: number; squads: number };
   fired: Record<string, number>;
   at: { x: number; z: number; next: number };
 }
@@ -371,7 +370,6 @@ function playM1(depot = false): Result {
     main: game.main.ammo,
     sub: game.sub.ammo,
     retries: game.retries,
-    losses: game.losses,
     fired: game.script.fired,
     at: { x: game.mech.x, z: game.mech.z, next: bot.next },
   };
@@ -386,9 +384,7 @@ const STORY = [
   'line2-approach',
   'line2-open',
   'cp1',
-  'depot-ask',
-  'fortress-go',
-  'fortress-ally-lost',
+  'shelling-start',
   'fortress-gate',
   'fortress-yard',
   // the bot downs yard-1 and then the sea gate's two before yard-2 comes (yard-drop, 6 s after the entry); it then stays
@@ -406,7 +402,7 @@ const STORY = [
   'win',
 ];
 
-// The depot run's cues: the other answer does not fire.
+// The depot run's cues: the guard comes out when the mech walks into the hollow.
 const STORY_DEPOT = [
   'intro',
   'beach',
@@ -415,8 +411,8 @@ const STORY_DEPOT = [
   'line2-approach',
   'line2-open',
   'cp1',
-  'depot-ask',
-  'depot-go',
+  'shelling-start',
+  'depot-guard',
   'depot',
   'fortress-gate',
   'fortress-yard',
@@ -441,15 +437,15 @@ test(
     expect(result.cleared).toBe(true);
     expect(result.downed).toBe(false);
     expect(result.retries).toBe(0);
-    expect(result.losses).toEqual({ allies: 1, squads: 1 });
     // every cue of the straight-on story fired, one after another
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    expect(result.fired['depot-go']).toBeUndefined();
+    expect(result.fired['depot-guard']).toBeUndefined();
     expect(result.fired['depot']).toBeUndefined();
-    // the answer comes after the question, not with it (a bot at seed 7: the question at 105.2 s, the answer at 106.9 s)
-    expect((result.fired['fortress-go'] ?? 0) - (result.fired['depot-ask'] ?? 0)).toBeGreaterThan(1);
+    // nothing asks the player to choose, and nothing is lost for leaving the depot standing
+    expect(result.fired['depot-ask']).toBeUndefined();
+    expect(result.fired['fortress-go']).toBeUndefined();
     // seed 7 took about 131 s of game time and left 174 armour (of 200) and 65 of 400 autocannon shots and 1 of 12 heavy
     // gun shots. The limits below keep room for a retune of the values, and fail if the sortie turns out hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
@@ -467,14 +463,11 @@ test(
     expect(result.cleared).toBe(true);
     expect(result.downed).toBe(false);
     expect(result.retries).toBe(0);
-    expect(result.losses).toEqual({ allies: 0, squads: 0 });
     const times = STORY_DEPOT.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    expect(result.fired['fortress-go']).toBeUndefined();
-    expect(result.fired['fortress-ally-lost']).toBeUndefined();
-    // the depot's answer comes after the question (seed 7: the question at 105.2 s, the hollow at 109.0 s)
-    expect((result.fired['depot-go'] ?? 0) - (result.fired['depot-ask'] ?? 0)).toBeGreaterThan(1);
+    // the guard comes out after the shelling has started (seed 7: the shelling at 105.2 s, the hollow at about 109 s)
+    expect((result.fired['depot-guard'] ?? 0) - (result.fired['shelling-start'] ?? 0)).toBeGreaterThan(1);
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);
     expect(result.main).toBeGreaterThan(0);
@@ -492,7 +485,6 @@ test(
     expect(second.armor).toBe(first.armor);
     expect(second.main).toBe(first.main);
     expect(second.sub).toBe(first.sub);
-    expect(second.losses).toEqual(first.losses);
   },
   TEST_TIMEOUT,
 );

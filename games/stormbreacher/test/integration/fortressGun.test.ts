@@ -117,8 +117,6 @@ test('the wave on the wall’s top falls and lands on its sea side', () => {
   const gun = game.targets.find(target => target.id === 'fortress-gun');
   if (!gun) throw new Error('the hand map has no fortress-gun');
   gun.hp = 0; // this test is about where the wave lands, not the nest's fire
-  // the gate's cue waits for the leader's question; the wave is what this test is after
-  game.script.flags.push('depot-asked');
   sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
   const wave = game.enemies.filter(enemy => enemy.wave === 'fortress-drop');
   expect(wave).toHaveLength(M1B_HAND.spawns['fortress-drop'].length);

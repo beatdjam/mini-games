@@ -39,13 +39,10 @@ export const FORTRESS_SHUTTER_TUNE = {
   sink: 7, // how far the shut nest sits below its place, into the wall (m)
 } as const;
 
-// The depot detour (SB-1820): the leader asks after cp1, and the mech answers by walking down to the depot or on to the
-// fortress. Every value is provisional and settled on #view-breach's panel.
+// The depot (SB-1820, SB-2046): the shelling starts a while after cp1, and falls harder while the depot on the way
+// stands. Every value is provisional and settled on #view-breach's panel.
 export const DEPOT_CHOICE_TUNE = {
-  askSec: 10, // seconds after cp1 before the leader asks (s)
-  allyFallSec: 1.5, // seconds after the answer before the lost ally falls (s)
-  lossAllies: 1, // the friends lost when the mech passes the depot
-  lossSquads: 1, // the squads lost when the mech passes the depot
+  shellingSec: 10, // seconds after cp1 before the shelling starts (s)
 } as const;
 
 // The fortress blast (SB-1860): the charge in the land wall's magazine, its countdown, the blast that brings the walls

@@ -315,8 +315,9 @@ export const seaTexture = (): THREE.Texture | null => (CAN_PAINT ? material(NAME
 
 // A target's own material: its kind's picture with the target's colour on it, so the four kinds still read apart.
 export function targetMaterial(name: SurfaceName, color: number): SurfaceMaterial {
-  if (!CAN_PAINT) return new THREE.MeshLambertMaterial({ color });
+  if (!CAN_PAINT) return new THREE.MeshLambertMaterial({ color, vertexColors: true });
   const made = ownMaterial(NAME[name]);
   made.color.setHex(color);
+  made.vertexColors = true; // a target's details (a dark slit, a sandbag, a crack) carry their own vertex colours
   return made;
 }

@@ -11,7 +11,7 @@ import {
   type ScriptState,
 } from '../../src/logic/script.ts';
 
-// The kinds and names M1 should give, in order, from the landing to cp1 and the leader's question. The skip of the
+// The kinds and names M1 should give, in order, from the landing to cp1 and the shelling. The skip of the
 // landing is in the flow.
 const COMMON: readonly string[] = [
   'cutscene:landing',
@@ -52,34 +52,20 @@ const COMMON: readonly string[] = [
   'allyMove:cover-b1',
   'allyMove:cover-b2',
   'allyMove:cover-b3',
-  'flag:depot-asked',
   'spawn:shelling',
-  'radio:m1.depot-ask-1',
-  'radio:m1.depot-ask-2',
 ];
 
-// The two answers: down to the depot first, or straight on to the fortress.
+// The two ways: breaking the depot on the way (SB-2046), or going straight on to the fortress.
 const DEPOT_GO: readonly string[] = [
-  'radio:m1.depot-go',
   'spawn:depot-guard',
   'map:depot:on',
-  'flag:depot-taken',
   'flag:depot-down',
   'radio:m1.depot-down',
   'flag:fortress-gun-awake',
   'radio:m1.fortress-gun-wake',
 ];
 
-const FORTRESS_GO: readonly string[] = [
-  'radio:m1.depot-skip',
-  'allyMove:cover-b3',
-  'loss:1/1',
-  'flag:fortress-skip',
-  'flag:fortress-gun-awake',
-  'radio:m1.fortress-gun-wake',
-  'allyFall:cover-b3:shell',
-  'radio:m1.ally-lost',
-];
+const STRAIGHT_ON: readonly string[] = ['flag:fortress-gun-awake', 'radio:m1.fortress-gun-wake'];
 
 const TAIL: readonly string[] = [
   'checkpoint:cp2',
@@ -140,8 +126,6 @@ function label(event: ScriptOut): string {
       return `allyFall:${event.id}:${event.by}`;
     case 'assist':
       return `assist:${event.waves.join(',')}`;
-    case 'loss':
-      return `loss:${event.allies}/${event.squads}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -159,8 +143,8 @@ function label(event: ScriptOut): string {
   }
 }
 
-// Runs M1 up to cp1 and the leader's question (10 s after cp1). A depot run then walks into the hollow and breaks the
-// depot; the other goes no further, so `fromCp1` can take the fortress's answer.
+// Runs M1 up to cp1 and the shelling (10 s after cp1). A depot run then walks into the hollow and breaks the depot; the
+// other goes no further and passes it by.
 function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[] } {
   const state = newScript(M1);
   const outputs: ScriptOut[] = [];
@@ -173,7 +157,7 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
   outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l2-a' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-1' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-2' }));
-  // cp1's `after 10` question
+  // cp1's `after 10` shelling
   outputs.push(...stepScript(state, M1, 10));
   if (destroyDepot) {
     outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'depot-approach' }));
@@ -182,12 +166,10 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
   return { state, outputs };
 }
 
-// Plays the fortress's gate and yard, the field, the two guns, the magazine and the ending; the skipped depot's ally
-// falls 1.5 s after the answer. The yard's waves are handed to the script with `cleared`, as the assist brings them down.
-function fromCp1(state: ScriptState, destroyDepot: boolean): ScriptOut[] {
+// Plays the fortress's gate and yard, the field, the two guns, the magazine and the ending; the yard's waves are handed to the script with `cleared`, as the assist brings them down.
+function fromCp1(state: ScriptState): ScriptOut[] {
   const outputs: ScriptOut[] = [];
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' }));
-  if (!destroyDepot) outputs.push(...stepScript(state, M1, 2));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-yard' }));
   // yard-2 comes YARD_TUNE.waveGapSec after the cue that sent yard-1
@@ -208,7 +190,7 @@ function fromCp1(state: ScriptState, destroyDepot: boolean): ScriptOut[] {
 
 function runM1(destroyDepot: boolean): { state: ScriptState; events: string[] } {
   const { state, outputs } = toCp1(destroyDepot);
-  outputs.push(...fromCp1(state, destroyDepot));
+  outputs.push(...fromCp1(state));
   return { state, events: outputs.map(label) };
 }
 
@@ -218,29 +200,28 @@ test('M1 runs to the cleared result by going for the depot', () => {
   expect(run.state.ended).toBe('cleared');
 });
 
-test('M1 runs to the cleared result by going straight on, and the skipped depot costs an ally and a squad', () => {
+test('M1 runs to the cleared result by going straight on, and the skipped depot costs nothing', () => {
   const run = runM1(false);
-  expect(run.events).toEqual([...COMMON, ...FORTRESS_GO, ...TAIL]);
+  expect(run.events).toEqual([...COMMON, ...STRAIGHT_ON, ...TAIL]);
   expect(run.state.ended).toBe('cleared');
-  expect(run.state.flags).toContain('fortress-skip');
   expect(run.state.flags).not.toContain('depot-down');
 });
 
 test('restoring cp1 drops the cues after it and replays the same column', () => {
   const { state } = toCp1(false);
-  scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' }); // the choice has fired
+  scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' }); // the nest's wake-up has fired
 
   const restored = restoreCheckpoint(state);
   expect(restored.fired.cp1).toBeTypeOf('number');
-  expect(restored.fired['fortress-go']).toBeUndefined();
+  expect(restored.fired['fortress-gun-wake']).toBeUndefined();
   expect(restored.ended).toBeNull();
   // the flag is one of cp1's actions before the checkpoint, so the copy holds it
   expect(restored.flags).toContain('pillboxes-down');
 
-  // the question is after the checkpoint, so the restored game gets it again
+  // the shelling is after the checkpoint, so the restored game gets it again
   const replayed = stepScript(restored, M1, 10);
-  expect(replayed.map(label)).toEqual(COMMON.slice(COMMON.indexOf('flag:depot-asked')));
-  expect(fromCp1(restored, false).map(label)).toEqual([...FORTRESS_GO, ...TAIL]);
+  expect(replayed.map(label)).toEqual(COMMON.slice(COMMON.indexOf('spawn:shelling')));
+  expect(fromCp1(restored).map(label)).toEqual([...STRAIGHT_ON, ...TAIL]);
   expect(restored.ended).toBe('cleared');
 });
 

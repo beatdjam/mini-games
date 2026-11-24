@@ -4,7 +4,6 @@
 import { expect, test } from 'vitest';
 import { YARD_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import type { AllyState } from '../../src/logic/allies.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { sendToScript, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
@@ -47,24 +46,17 @@ function enterYard(game: GameModel): void {
   run(game, 1);
 }
 
-function allyById(allies: readonly AllyState[], id: string): AllyState {
-  const ally = allies.find(entry => entry.id === id);
-  if (!ally) throw new Error(`the sortie has no ally "${id}"`);
-  return ally;
-}
-
-// Takes cp1 (both pillboxes) and waits out the leader's 10 s question, so the two answers can fire (they wait for it:
-// SB-1810).
-function atTheQuestion(game: GameModel): void {
+// Takes cp1 (both pillboxes) and waits out the 10 s before the shelling starts.
+function afterCp1(game: GameModel): void {
   for (const id of ['pillbox-1', 'pillbox-2']) {
     const target = game.targets.find(entry => entry.id === id);
     if (!target) throw new Error(`the map has no ${id}`);
     target.hp = 0;
     sendToScript(game, { kind: 'destroyed', target: id });
   }
-  // the milestone's short slow makes the script's clock run a little behind the frames, so run until the question is asked
-  for (let frame = 0; frame < 60 * 20 && !game.script.flags.includes('depot-asked'); frame++) run(game, 1);
-  expect(game.script.flags).toContain('depot-asked');
+  // the milestone's short slow makes the script's clock run a little behind the frames, so run until the shelling starts
+  for (let frame = 0; frame < 60 * 20 && game.script.fired['shelling-start'] === undefined; frame++) run(game, 1);
+  expect(game.script.fired['shelling-start']).toBeDefined();
 }
 
 // Stands the mech in the middle of one of the mission's areas and runs a few frames, so the game sends the `enter` itself.
@@ -148,46 +140,23 @@ test(
 );
 
 test(
-  'the cover mechs that lived keep shooting from the sea gate: three when the depot was broken, two when it was passed',
+  'the cover mechs keep shooting from the sea gate: all three, whether the depot was broken or passed (SB-2046)',
   () => {
-    // the depot broken: cover-b3 lives and all three go to the gate
-    const depot = newPlayGame(M1B_HAND);
-    sendToScript(depot, { kind: 'destroyed', target: 'depot' });
-    atTheQuestion(depot);
-    walkTo(depot, 'fortress-approach');
-    expect(depot.script.fired['fortress-go']).toBeUndefined(); // the answer was the depot
-    enterYard(depot);
-    run(depot, Math.round(60 * 35));
-    const survivors = depot.allies.filter(ally => ally.id.startsWith('cover-') && !ally.down);
-    expect(survivors.map(ally => ally.id).sort()).toEqual(['cover-b1', 'cover-b2', 'cover-b3']);
-    for (const ally of survivors) {
-      expect(ally.next).toBe(ally.way.length);
-      expect(ally.z).toBeGreaterThan(-80);
-      expect(ally.z).toBeLessThan(-70);
-      expect(Math.abs(ally.x)).toBeLessThanOrEqual(6);
-    }
-
-    // straight on: cover-b3 falls to the skipped depot, and its move to the gate does nothing
-    const straight = newPlayGame(M1B_HAND);
-    atTheQuestion(straight);
-    walkTo(straight, 'fortress-approach');
-    run(straight, Math.round(60 * 2));
-    expect(straight.script.fired['fortress-go']).toBeTypeOf('number');
-    const b3 = allyById(straight.allies, 'cover-b3');
-    expect(b3.down).toBe(true);
-    const way = structuredClone(b3.way);
-    const place = { x: b3.x, z: b3.z };
-
-    enterYard(straight);
-    expect(b3.way).toEqual(way); // a fallen ally is not sent anywhere
-    expect({ x: b3.x, z: b3.z }).toEqual(place);
-    run(straight, Math.round(60 * 35));
-    const alive = straight.allies.filter(ally => ally.id.startsWith('cover-') && !ally.down);
-    expect(alive.map(ally => ally.id).sort()).toEqual(['cover-b1', 'cover-b2']);
-    for (const ally of alive) {
-      expect(ally.next).toBe(ally.way.length);
-      expect(ally.z).toBeGreaterThan(-80);
-      expect(ally.z).toBeLessThan(-70);
+    for (const broken of [true, false]) {
+      const game = newPlayGame(M1B_HAND);
+      if (broken) sendToScript(game, { kind: 'destroyed', target: 'depot' });
+      afterCp1(game);
+      walkTo(game, 'fortress-approach');
+      enterYard(game);
+      run(game, Math.round(60 * 35));
+      const survivors = game.allies.filter(ally => ally.id.startsWith('cover-') && !ally.down);
+      expect(survivors.map(ally => ally.id).sort()).toEqual(['cover-b1', 'cover-b2', 'cover-b3']);
+      for (const ally of survivors) {
+        expect(ally.next).toBe(ally.way.length);
+        expect(ally.z).toBeGreaterThan(-80);
+        expect(ally.z).toBeLessThan(-70);
+        expect(Math.abs(ally.x)).toBeLessThanOrEqual(6);
+      }
     }
   },
   LONG,
