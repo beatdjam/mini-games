@@ -43,6 +43,32 @@ export const DEFENSE_COLOR = {
   pillboxSoot: 0x2c2a27, // the soot over the embrasure
 };
 
+// The fortress's walls, the sea-wall nest and its shutter (SB-2052). On the wall and the nest these are multipliers of
+// the concrete's own grey (they cannot make it lighter), like the pillbox's; the shutter's are absolute colours.
+export const FORT_COLOR = {
+  groove: 0x4e4c47, // a pour line, a formwork joint
+  tieHole: 0x2b2926, // the hole a formwork tie left
+  dark: 0x161513, // the dark inside a loophole or a hatch
+  murk: 0x2c2a27, // the soot, and the inside of a loophole near the face
+  gloom: 0x45423d, // the inside of a loophole's sides
+  steel: 0x34363a, // frames, rails, rungs, the gun and its mount
+  steelLight: 0x5a5e64, // the lit edge of steel, rivets and bolts
+  armour: 0x868a90, // the nest's armour plates
+  armourLight: 0xa4a8ae, // a plate's bevel and the sloped faces
+  scarRim: 0x4a4742, // the ragged patch round a shell scar
+  streakLight: 0xe8e4dc, // a rain streak that has washed the wall clean
+  footBand: 0x77736c, // the dark band along a wall's foot, where the ground splashes up
+  rust: 0x8a5a3c, // rust running down from a steel fitting
+  lens: 0xfff2c8, // a lamp's glass
+  hazardYellow: 0xdcae2a, // the warning stripes on a buttress's foot and on the shutter
+  hazardBlack: 0x1d1c1a, // the black between them
+  brass: 0xc9a24a, // a belt's cartridges and the casings on the deck
+  ammoBox: 0x56603f, // an ammunition box
+  shutterBeam: 0x3f444a, // the shutter's beams and guides
+  shutterRivet: 0x7a8088, // the shutter's rivets
+  shutterDark: 0x23262a, // the shutter's gaps and its drum's shadow
+};
+
 // The landing craft (SB-1470, 仮): its hull and deck, and the seams, hinges, chains, windows and bow plate that dress
 // them. These are absolute colours on the craft's one vertex-coloured material (not multipliers).
 export const CRAFT_COLOR = {

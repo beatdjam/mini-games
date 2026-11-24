@@ -8,6 +8,8 @@ import { DEFENSE_DETAIL } from '../data/defenses.ts';
 import { PROP_SIZE, TARGET_SIZE, TILE_SIZE, type PropSize, type TargetSize } from '../data/props.ts';
 import { SAND_SURFACE } from '../data/surfaces.ts';
 import type { Prop, PropKind, TargetKind, TargetPlace } from '../data/types.ts';
+import { fortGunGeometry } from './fortGunModel.ts';
+import { fortWallGeometry } from './fortWallModel.ts';
 import { pillboxGeometry } from './pillboxModel.ts';
 import { groundMaterial, surfaceMaterial, targetMaterial, type SurfaceName } from './surfaces.ts';
 
@@ -45,6 +47,9 @@ const KINDS: PropKind[] = [
   'fortWall',
 ];
 
+// The kinds that are never split into chunks, however many triangles they hold in all (see buildOutdoor).
+const WHOLE_KINDS: PropKind[] = ['fortWall'];
+
 // Each kind's colour. The tile has none: its ground plane takes its colour from the look (view/look.ts). The concrete
 // kinds sit around a grey 0x8a8780 so the overcast light does not turn them into glowing white boxes.
 const KIND_COLOR: Record<Exclude<PropKind, 'tile'>, number> = {
@@ -58,7 +63,7 @@ const KIND_COLOR: Record<Exclude<PropKind, 'tile'>, number> = {
   lowWall: 0x827f78,
   stairs: 0x88857e,
   ramp: 0x88857e,
-  fortWall: 0x7f7c76,
+  fortWall: 0xa4a099, // a wall piece is built in view/fortWallModel.ts (SB-2052); its details are multipliers of this grey
 };
 
 // The kinds that wear a surface picture (view/surfaces.ts). The cliff and the crater keep their colour alone.
@@ -356,11 +361,6 @@ function seawallGeometry(): THREE.BufferGeometry {
   return merge([box(8, 5, 4, 0, 2.5, 0), box(8.4, 0.6, 4.4, 0, 5.3, 0)]);
 }
 
-// The fortress's wall: one thick concrete box, 12 m square by 6 m deep (PROP_SIZE.fortWall).
-function fortWallGeometry(): THREE.BufferGeometry {
-  return box(12, 12, 6, 0, 6, 0);
-}
-
 function cliffGeometry(): THREE.BufferGeometry {
   return merge([box(20, 24, 16, 0, 12, 0), box(8, 30, 10, 6, 15, 2)]);
 }
@@ -591,7 +591,12 @@ export function buildOutdoor(items: Prop[], opts: OutdoorBuildOpts): OutdoorBuil
     if (list) addKind(group, kind, list);
   }
 
+  // A kind in WHOLE_KINDS stays one mesh when the rest are split: its copies are few and spread over the whole map, so
+  // chunks would turn one draw into one per chunk in view (the fortress's twenty walls, SB-2052)
+  const whole = group.children.filter(child => WHOLE_KINDS.includes(child.name as PropKind));
+  for (const mesh of whole) group.remove(mesh);
   const chunks = opts.chunk > 0 ? chunkInstances(group, opts.chunk, opts.chunkMin) : [];
+  for (const mesh of whole) group.add(mesh);
   // The chunks remake the matrices, so a prop is found by its kind and its place, not by an index.
   const slots = new Map<Prop, PropSlot>();
   for (const item of items) {
@@ -657,18 +662,9 @@ function magazineTargetGeometry(): THREE.BufferGeometry {
   return merge([box(7, 4, 7, 0, 2, 0), box(8, 0.7, 8, 0, 4.3, 0), box(2, 2, 1, 0, 1, 4)]);
 }
 
-// The fortress's heavy machine-gun nest: a deck plate, a mount and a turret with twin barrels pointing seaward (+z),
-// under an armour plate.
+// The fortress's heavy machine-gun nest is built in view/fortGunModel.ts (SB-2052): one shape, so it is still one draw.
 function fortressGunTargetGeometry(): THREE.BufferGeometry {
-  return merge([
-    box(14, 1.2, 5.2, 0, 0.6, 0),
-    box(9, 2.6, 4.4, 0, 2.5, 0),
-    box(6, 3.4, 3.6, 0, 5.5, 0),
-    box(0.8, 0.8, 7, -1.5, 6, 2),
-    box(0.8, 0.8, 7, 1.5, 6, 2),
-    box(9, 0.6, 4, 0, 7.6, 0),
-    box(2, 1.6, 0.6, 0, 5.4, -2.2),
-  ]);
+  return fortGunGeometry();
 }
 
 const TARGET_SHAPES: Record<TargetKind, () => THREE.BufferGeometry> = {
@@ -684,7 +680,7 @@ const TARGET_COLORS: Record<TargetKind, number> = {
   depot: 0xd4a017,
   gun: 0x3f6f8f,
   magazine: 0x7a4fa0,
-  fortressGun: 0x4a4843, // a dark grey, darker than the gun's rust steel
+  fortressGun: 0xc4c0b8, // the concrete's own grey, like the pillbox's; the metal and the red and white are vertex colours
 };
 
 // The surface each target wears; its own colour still tells the kinds apart from above.
@@ -693,7 +689,7 @@ const TARGET_SURFACE: Record<TargetKind, SurfaceName> = {
   depot: 'wood',
   gun: 'rust',
   magazine: 'concrete',
-  fortressGun: 'rust',
+  fortressGun: 'concrete',
 };
 
 // The mission's targets as one group, each turned the way the map says.
