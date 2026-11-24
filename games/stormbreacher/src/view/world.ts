@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
 import { M1_SHUTTERS, type ShutterDef } from '../data/battery.ts';
-import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
+import { SKY_COLOR } from '../data/colors.ts';
 import { FORTRESS_SHUTTER_TUNE } from '../data/fortress.ts';
 import { PILLBOX_BREAK } from '../data/pillbox.ts';
 import { TARGET_SIZE, TILE_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
@@ -16,6 +16,7 @@ import { cameraBoxesOfRect } from './camera.ts';
 import { buildAtmosphere } from './atmosphere.ts';
 import { addFadeProp, dropFade, lowRects, newFadeSet, type FadeSet } from './fade.ts';
 import { buildShore } from './shore.ts';
+import { shutterHousingGeometry, shutterPlateGeometry } from './shutterModel.ts';
 import { breakPropSlot, buildOutdoor, buildTargets, type OutdoorBuild, type PropSlot } from './outdoor.ts';
 
 const FOG_NEAR = 100; // m
@@ -101,11 +102,15 @@ export function buildWorld(map: MapDef, air = true): World {
   for (const def of M1_SHUTTERS) {
     const place = map.targets.find(target => target.id === def.target);
     if (!place) continue;
-    const plate = new THREE.Mesh(
-      new THREE.BoxGeometry(def.w, def.h, def.d),
-      new THREE.MeshLambertMaterial({ color: SHUTTER_COLOR }),
-    );
+    // the plate and, standing on its top edge, the winding machine (view/shutterModel.ts, SB-2052); both take their colours
+    // from their vertices
+    const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const plate = new THREE.Mesh(shutterPlateGeometry(def.w, def.h, def.d), material);
     plate.name = `sb-shutter-${def.target}`;
+    const housing = new THREE.Mesh(shutterHousingGeometry(def.w, def.d), material);
+    housing.name = `sb-shutter-housing-${def.target}`;
+    housing.position.y = def.h / 2;
+    plate.add(housing);
     const baseY = place.y ?? 0; // a nest stands on the wall's top
     plate.userData.baseY = baseY;
     plate.position.set(place.x, baseY + def.h / 2, place.z + TARGET_SIZE[place.kind].d / 2 + def.gap + def.d / 2);
@@ -188,9 +193,11 @@ function rollShutter(
   const k = share * share * (3 - 2 * share); // smooth in and out
   const baseY = typeof plate.userData.baseY === 'number' ? plate.userData.baseY : 0;
   plate.visible = k < 1;
-  // the plate rolls up with its top edge fixed
+  // the plate rolls up with its top edge fixed, and the machine over it keeps its own height
   plate.scale.y = Math.max(0.001, 1 - k);
   plate.position.y = baseY + def.h - (def.h * plate.scale.y) / 2;
+  const housing = plate.children[0];
+  if (housing) housing.scale.y = 1 / plate.scale.y;
   const target = game.targets.find(item => item.id === def.target);
   const mesh = world.targets.get(def.target);
   if (mesh && target && target.hp > 0) mesh.position.y = baseY - FORTRESS_SHUTTER_TUNE.sink * (1 - k);

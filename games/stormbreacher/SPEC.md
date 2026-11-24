@@ -1007,7 +1007,7 @@ SB-200。M1 の要塞の先（z −235〜−250）にある砲台。主砲2門�
 
 ### 要塞の機関砲
 
-SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の前の開けた所を掃射する。同時に海の艇を撃っていて、壁の上からは閃光と線が海へ走る（艇の mesh は作らない）。目標は `fortress-gun`（種類 `fortressGun`）で、壊すと掃射が止まる。値はどれも仮で、`#view-fortress` の調整パネルで決める。定義は `src/data/fortress.ts` の `FORTRESS_GUN_TUNE`、動きは `src/logic/fortress.ts` の `stepFortressGun` と `src/logic/game.ts` の `stepFortressGunNest`、見た目は `src/view/outdoor.ts` の `TARGET_SHAPES.fortressGun`・`src/view/world.ts` のシャッターと `src/view/seaFire.ts`。
+SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の前の開けた所を掃射する。同時に海の艇を撃っていて、壁の上からは閃光と線が海へ走る（艇の mesh は作らない）。目標は `fortress-gun`（種類 `fortressGun`）で、壊すと掃射が止まる。値はどれも仮で、`#view-fortress` の調整パネルで決める。定義は `src/data/fortress.ts` の `FORTRESS_GUN_TUNE`、動きは `src/logic/fortress.ts` の `stepFortressGun` と `src/logic/game.ts` の `stepFortressGunNest`、見た目は `src/view/fortGunModel.ts`（砲台）・`src/view/shutterModel.ts` と `src/view/world.ts`（シャッター）・`src/view/fortWallModel.ts`（壁。「物と目標の見た目」の `fortWall`）と `src/view/seaFire.ts`。
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -1045,7 +1045,7 @@ SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の
 - 主砲との違い: `newBattery` は `kind === 'gun'` の目標だけを `battery.guns` にする。`fortressGun` は入らず、主砲の機銃の値と動きは変えない
 - 海を撃つ拍: `buildSeaFire` は `battery.guns` の後ろに `fortressGun` の目標を1つ足し、その箱から（主砲は `GUN_TUNE`、機関砲は `FORTRESS_GUN_TUNE` の）`muzzle`・`muzzleGap` の所に閃光（`sb-sea-flash`）と海へ向かう線（`sb-sea-tracer`）を出す。倒れた目標は何も出さない。艇の mesh は作らない（`camera.far` 260 の外で、要塞の前から海は見えない）。沈む艇の画は L7 の出現カットシーンで見せる
 - 壁の上の波 `fortress-drop`: `fortress-gate` の cue が `spawn fortress-drop` を出し、`M1_WAVE_ENEMY['fortress-drop'] = ['assault', 'grunt', 'assault']` の3体が、海側の壁の上（`M1_WAVE_DROP['fortress-drop'] = FORTRESS_TUNE.wallH` = 12m）から海側へ降りる。場所は x −20・8・32、z −70 で、門（x −6〜6）と目標の箱（x 12〜28）を避ける。落ち方は `seawall-drop` と同じ `fall` で、海（+z）へ跳ねながら壁の海側に着地する
-- テスト: 純粋な関数は `test/unit/fortress.test.ts`（`rest` 後の開始・`interval`・扇・射線が切れたら止まる・弾の出る所・同じ seed）、ゲームの中は `test/integration/fortressGun.test.ts`（開けた所では装甲が減り、遮蔽の陰では減らない・壊すと止まる・壁の上の波が降りて着地する・旗の前は撃っても体力が減らず火花が弾かれて照準も寄らない・旗のあとは当たって壊れる・中断とチェックポイントでシャッターが旗と合う）、`test/unit/battery.test.ts` の旗で開くシャッター、`test/integration/hud.test.ts` の目標の数、`test/e2e/battery.test.ts` の海を撃つ拍、`test/e2e/props.test.ts` の目標の高さとシャッター（閉じた沈み・巻き上がり・開いた高さ）。絵は `shots/fortress-gun-shutter.shots.ts`
+- テスト: 純粋な関数は `test/unit/fortress.test.ts`（`rest` 後の開始・`interval`・扇・射線が切れたら止まる・弾の出る所・同じ seed）、ゲームの中は `test/integration/fortressGun.test.ts`（開けた所では装甲が減り、遮蔽の陰では減らない・壊すと止まる・壁の上の波が降りて着地する・旗の前は撃っても体力が減らず火花が弾かれて照準も寄らない・旗のあとは当たって壊れる・中断とチェックポイントでシャッターが旗と合う）、`test/unit/battery.test.ts` の旗で開くシャッター、`test/integration/hud.test.ts` の目標の数、`test/e2e/battery.test.ts` の海を撃つ拍、`test/e2e/props.test.ts` の目標の高さとシャッター（閉じた沈み・巻き上がり・開いた高さ）。絵は `shots/fortress-gun-shutter.shots.ts`・`shots/fortress-detail.shots.ts`（SB-2052。壁・砲台・シャッターを前後で撮る）。形の寸法と三角形の数は `test/unit/fortModel.test.ts`
 
 ### 要塞の爆破と脱出
 
@@ -1315,6 +1315,9 @@ M1 の浜・B トーチカ線・C・防波堤・要塞と砲台の場所（z −
   - `hedgehog`: 3本の梁を L 字の断面（細い箱2枚）にし、交点に板を溶接した形。錆の絵はそのまま。1体の三角形は 84 に抑える
   - `bunker`: 胴と屋根の角を落とした（面取り）コンクリの塊。正面に横長の銃眼があり、奥は暗い箱、手前の柱と上下の枠で奥行きを出す。屋根に土嚢と草、左側面に暗い入口。壊れた物は同じ形のまま `BROKEN_SCALE_Y` で低く暗くする（形とは別）
   - 目標の `pillbox`（SB-2050）: `src/view/pillboxModel.ts` が頂点色つきの1つの形（約6,900三角形、1基1メッシュ・1回の描画）で作る。材質の色は中立のコンクリートの灰（`TARGET_COLORS.pillbox`）で、目標の印の赤は頂点色（屋根の縁の赤白の縞と、銃眼の上の赤い帯）に持たせる。銃眼は前の壁を実際にくり抜き（鉄の枠・庇・リベット・中の銃）、左の壁に入口と開いた扉、前に4段の土嚢、屋根に網・見張り台・通風管、壁に型枠の継ぎ目・ひび・欠けと鉄筋・雨だれ・瓦礫を付ける。銃眼の高さ・当たりの箱（12 x 6 x 8m）・爆破点は変えない。壊れた姿は同じ形を縮めて沈める（`syncWorld`）
+  - `fortWall`（SB-2052）: `src/view/fortWallModel.ts` が頂点色つきの1つの形（1枚 約2,900三角形）で作る。21枚が1つの `InstancedMesh`・1回の描画で、チャンクには割らない（`WHOLE_KINDS` in `src/view/outdoor.ts`。割ると描く回数が増える）。面取りの土台・厚さ 5m の胴・窓の下の笠木・先細りの控え壁（足に黄黒の警告縞）・両縁に並ぶ胸壁・実際にくり抜いた銃眼（鉄の枠・庇・奥の暗がり）を、海側（+z）と中庭側（-z）に同じく付け、型枠の継ぎ目・打継ぎの溝・ボルト穴・砲撃の傷と出た鉄筋・ひび・雨だれ・錆・煤・投光器を足す。中庭側にははしごと安全かごがある。色はコンクリートの灰（`KIND_COLOR.fortWall`）への掛け率。高さ 12m・当たりの箱・2048 の透かしの対象外は変えない
+  - 目標の `fortressGun`（SB-2052）: `src/view/fortGunModel.ts` が頂点色つきの1つの形（約7,400三角形）で作る。材質はトーチカと同じコンクリートの灰（`TARGET_COLORS.fortressGun`）で、鉄は暗い頂点色、目標の印の赤白の縞は甲板の縁。面取りの甲板・装甲の台座（斜めの前面・左右の翼に弾薬庫と発電機）・旋回輪と胴・八角の砲塔・5枚の盾（砲口が2つ）・二連の砲身（受け台・防盾・冷却の帯・砲口制退機）・弾帯・薬莢・後ろの射手の囲い（のぞき窓・はしご）・マスト・土嚢を付ける。砲口（箱の高さの 0.7 の所、海側の面）と当たりの箱（16×10×6m）は変えない
+  - シャッター（SB-2052）: `src/view/shutterModel.ts` が板（`shutterPlateGeometry`）と巻き上げの機械（`shutterHousingGeometry`）を作る。板は厚い胴に箱割りの装甲板をリベットで留め、I 形の梁・斜めの筋交い・足の吊り棒と黄黒の縞・両側の案内溝・傷と錆を付ける。機械は上端に立つ巻き胴・歯車の箱・電動機・警告灯で、板の子の `Mesh` として付き、板が巻き上がっても高さを保つ（`rollShutter` in `src/view/world.ts` が板の縮みを打ち消す）。板が見えなくなれば機械も隠れる。大きさ・巻き上がる 0.9 秒は変えない
   - `block`・`lowWall`: 上の角（低い壁は端）を欠かし、欠けた所から鉄筋を出し、正面に細い割れを入れる。欠けは箱を2段に分けて作る（削る計算はしない）
   - `揚陸艇`（`src/view/shore.ts`）: 船体の側面に板の継ぎ目、ランプに桟・蝶番・鎖、操舵室に窓、船首に波よけ。船体・甲板・ランプの3つの `Mesh`（船体の group は2つ）は変えず、色は頂点色で分ける
   - どの作り込みも頂点色（`color`）で部品の色を分け、物は種類ごとの `InstancedMesh` 1つ、艇は共有の材質1つにまとめる。描く回数は種類ごとに1回のまま（前後の数は `test/e2e/battle.test.ts` で見る）、三角形だけが増える
