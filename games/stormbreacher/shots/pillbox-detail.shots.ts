@@ -9,6 +9,7 @@ import { currentGame, startSortie } from '../src/app/play.ts';
 import { boot } from '../src/app/boot.ts';
 import { CHARGE_TUNE } from '../src/data/charge.ts';
 import { PILLBOX_TUNE } from '../src/data/pillbox.ts';
+import { newEnemy } from '../src/logic/enemies.ts';
 import { sendToScript } from '../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
@@ -98,6 +99,24 @@ test('pillbox-detail', async () => {
     if (wanted('pillbox-angle')) {
       await standAt(PILLBOX.x - 15, -6, 0, 8);
       await picture('pillbox-angle');
+    }
+    if (wanted('pillbox-with-grunt')) {
+      // the pillbox and a mass-produced mech in one picture, to judge the density against each other
+      await standAt(PILLBOX.x + 6, 4, 8);
+      const grunt = newEnemy('shot-detail-grunt', 'shot', 'grunt', PILLBOX.x + 12, -10);
+      grunt.dormant = true;
+      grunt.yaw = Math.PI;
+      game().enemies.push(grunt);
+      await picture('pillbox-with-grunt');
+      game().enemies = [];
+    }
+    if (wanted('pillbox-far-30')) {
+      await standAt(PILLBOX.x - 1, 17, -7);
+      await picture('pillbox-far-30');
+    }
+    if (wanted('pillbox-far-60')) {
+      await standAt(PILLBOX.x - 1, 43, -7);
+      await picture('pillbox-far-60');
     }
     if (wanted('pillbox-warn')) {
       await standAt(PILLBOX.x + 2, -4, -11);
