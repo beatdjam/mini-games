@@ -3,8 +3,9 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
 import { GUN_TUNE, M1_SHUTTERS } from '../../src/data/battery.ts';
+import { FORTRESS_GUN_FLAG } from '../../src/data/missions/m1.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
-import { newBattery, newShutters, openShutters, shuttered, stepGun } from '../../src/logic/battery.ts';
+import { armoured, newBattery, newShutters, openShutters, shuttered, stepGun } from '../../src/logic/battery.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
 
 const DT = 1 / 60;
@@ -83,7 +84,9 @@ test('a battery has a gun for each target of kind gun, all off', () => {
 });
 
 test('the magazine’s shutter is shut and opens only when both main guns are down', () => {
-  expect(M1_SHUTTERS.map(def => [def.target, def.opensWhen])).toEqual([['magazine', ['main-gun-1', 'main-gun-2']]]);
+  expect(M1_SHUTTERS.filter(def => def.target === 'magazine').map(def => def.opensWhen)).toEqual([
+    ['main-gun-1', 'main-gun-2'],
+  ]);
   const shutters = newShutters(['main-gun-1', 'main-gun-2', 'magazine']);
   expect(shuttered(shutters, 'magazine')).toBe(true);
   expect(shuttered(shutters, 'main-gun-1')).toBe(false);
@@ -93,6 +96,22 @@ test('the magazine’s shutter is shut and opens only when both main guns are do
   expect(shuttered(shutters, 'magazine')).toBe(false);
   // once open it is not reported again
   expect(openShutters(shutters, () => 0)).toEqual([]);
+});
+
+test('the fortress nest’s plate opens on its flag alone, and hides the nest from the aim while it is shut (SB-2051)', () => {
+  const shutters = newShutters(['fortress-gun']);
+  expect(shuttered(shutters, 'fortress-gun')).toBe(true);
+  expect(armoured(shutters, 'fortress-gun')).toBe(true);
+  // no target opens it, and the flag is the only way
+  expect(openShutters(shutters, () => 0)).toEqual([]);
+  expect(openShutters(shutters, () => 0, ['other'])).toEqual([]);
+  expect(openShutters(shutters, () => 300, [FORTRESS_GUN_FLAG])).toEqual(['fortress-gun']);
+  expect(shuttered(shutters, 'fortress-gun')).toBe(false);
+  expect(armoured(shutters, 'fortress-gun')).toBe(false);
+});
+
+test('the magazine’s shutter is not armour that hides it from the aim', () => {
+  expect(armoured(newShutters(['magazine']), 'magazine')).toBe(false);
 });
 
 test('a map without the magazine has no shutter', () => {

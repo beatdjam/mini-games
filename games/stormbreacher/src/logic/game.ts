@@ -23,7 +23,7 @@ import { ALLY_TUNE, COVER_TUNE } from '../data/allies.ts';
 import { LINE2_FLAG } from '../data/front.ts';
 import { DEFENDER_POSTS, defenderPostOf } from '../data/defenders.ts';
 import { ENEMIES, ENEMY_CHEST, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
-import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
+import { BATTERY_WAVE, GUN_TUNE, M1_SHUTTERS } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { FORT_BLAST_TUNE, FORTRESS_GUN_TUNE, FORTRESS_TUNE, YARD_TUNE } from '../data/fortress.ts';
@@ -43,6 +43,7 @@ import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { pushOutCircle, rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
 import { allyCraftRects, craftBack, craftRects, inCraftLane } from './craft.ts';
 import {
+  armoured,
   newBattery,
   newShutters,
   openShutters,
@@ -156,7 +157,7 @@ export type GameEvent =
       prop: number | null; // the prop's place in map.props when a prop stopped it
       enemy: string | null; // the enemy's id when an enemy stopped the bullet
       mech: boolean; // whether the mech stopped the bullet; all of these are empty at the ground and at a mine
-      deflected: boolean; // whether a pillbox's front turned the bullet away; false everywhere else
+      deflected: boolean; // whether a pillbox's front or a nest's plate turned the bullet away; false everywhere else
     }
   | { kind: 'destroyed'; id: string }
   | { kind: 'shutterOpen'; target: string } // the shutter before this target opened
@@ -394,7 +395,8 @@ function fcsTargets(game: GameModel, chest: { x: number; y: number; z: number })
     ...game.targets.map(target => ({
       box: target.box,
       alive: target.hp > 0,
-      lockable: !TARGET_CHARGE_ONLY[target.kind],
+      // a nest behind its plate is out of the aim until the plate opens (SB-2051)
+      lockable: !TARGET_CHARGE_ONLY[target.kind] && !armoured(game.shutters, target.id),
     })),
     ...game.enemies.map(enemy => ({ box: enemyBox(enemy), alive: enemy.hp > 0, lockable: true })),
   ];
@@ -502,17 +504,22 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   // A pillbox's front takes a quarter of the shot; everything else takes it whole. The way it came from is the
   // bullet's own direction turned around, so this is settled before the damage is taken.
   const mul = target && target.kind === 'pillbox' ? pillboxDamageMul(target.yaw, bullet.dx, bullet.dz) : 1;
+  // A shot at a target behind its plate shows where the plate stops it, not at the box behind: the sparks stand in front
+  // of the plate. The box's own spot is kept for the damage, which the plate takes away.
+  const plated = target !== null && armoured(game.shutters, target.id);
+  const plateZ = plated && target ? plateFront(target) : 0;
+  const back = plated && bullet.dz < 0 && z < plateZ ? (plateZ - z) / -bullet.dz : 0;
   game.events.push({
     kind: 'hit',
-    x,
-    y,
-    z,
+    x: x - bullet.dx * back,
+    y: y - bullet.dy * back,
+    z: z - bullet.dz * back,
     weapon: hostile ? null : bullet.weapon,
     target: target ? target.id : null,
     prop: propBox >= 0 ? game.propRefs[propBox] : null,
     enemy: enemy ? enemy.id : null,
     mech: asMech,
-    deflected: mul < 1,
+    deflected: mul < 1 || plated,
   });
   if (asMech) damageMech(game, damage, -bullet.dx, -bullet.dz);
   // an enemy's bullet does not break a prop
@@ -533,6 +540,12 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   }
   damageTarget(game, target, damage * mul);
   return true;
+}
+
+// The z of the front face of the plate before a target that has one: the box's seaward face, the gap and the plate's depth.
+function plateFront(target: TargetState): number {
+  const def = M1_SHUTTERS.find(item => item.target === target.id);
+  return target.box.maxZ + (def ? def.gap + def.d : 0);
 }
 
 // What a shot or a blow does to a pillbox (SB-2015): the muzzle is quieted for a while and the armour is left alone. The
@@ -569,7 +582,8 @@ function damageTarget(game: GameModel, target: TargetState, damage: number): voi
 // was taken some other way opens its shutter too.
 function checkShutters(game: GameModel): void {
   const hpOf = (id: string): number => game.targets.find(target => target.id === id)?.hp ?? 0;
-  for (const target of openShutters(game.shutters, hpOf)) game.events.push({ kind: 'shutterOpen', target });
+  for (const target of openShutters(game.shutters, hpOf, game.script.flags))
+    game.events.push({ kind: 'shutterOpen', target });
 }
 
 // The height of the face a blast at (x, z) stands on: the ground, or the top of a prop or a target there (the seawall's

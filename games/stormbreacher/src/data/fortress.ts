@@ -31,6 +31,14 @@ export const FORTRESS_GUN_TUNE = {
   muzzleGap: 0.3, // how far in front of the box's seaward face a shot starts (m)
 } as const;
 
+// The plate before the fortress nest and the nest behind it (SB-2051): shut, the nest sits sunk into the wall; when the
+// script wakes it the plate rolls up and the nest rises. The seconds are the view's: the nest's first shot comes
+// FORTRESS_GUN_TUNE.rest after the wake, so it never fires through a shut plate while the seconds here stay under it.
+export const FORTRESS_SHUTTER_TUNE = {
+  openSec: 0.9, // the seconds the plate takes to roll up and the nest to rise (s)
+  sink: 7, // how far the shut nest sits below its place, into the wall (m)
+} as const;
+
 // The depot (SB-1820, SB-2046): the shelling starts a while after cp1, and falls harder while the depot on the way
 // stands. Every value is provisional and settled on #view-breach's panel.
 export const DEPOT_CHOICE_TUNE = {

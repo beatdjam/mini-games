@@ -7,7 +7,7 @@ import { addSystem, el } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
 import { M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../data/enemies.ts';
-import { FORTRESS_GUN_TUNE } from '../../data/fortress.ts';
+import { FORTRESS_GUN_TUNE, FORTRESS_SHUTTER_TUNE } from '../../data/fortress.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../../data/mech.ts';
@@ -49,6 +49,8 @@ const TUNE_RANGES: Record<string, TuneRange> = {
   bulletSpeed: { min: 50, max: 400, step: 10 },
   muzzle: { min: 0.2, max: 1, step: 0.05 },
   muzzleGap: { min: 0, max: 3, step: 0.1 },
+  openSec: { min: 0.2, max: 2, step: 0.05 },
+  sink: { min: 0, max: 10, step: 0.5 },
 };
 const TUNE_LABELS: Record<string, string> = {
   range: '射程（m）',
@@ -61,6 +63,8 @@ const TUNE_LABELS: Record<string, string> = {
   bulletSpeed: '弾の速さ（m/s）',
   muzzle: '撃つ高さ（箱の高さの割合）',
   muzzleGap: '箱の海側の面から（m）',
+  openSec: 'シャッターが開く秒数（s）',
+  sink: '閉じた砲の沈み（m）',
 };
 
 interface Shell {
@@ -188,7 +192,10 @@ export function showFortress(_hash: string) {
   createTunePanel({
     title: '要塞の機関砲 #view-fortress',
     extra,
-    groups: [{ name: 'FORTRESS_GUN_TUNE', table: FORTRESS_GUN_TUNE, ranges: TUNE_RANGES, labels: TUNE_LABELS }],
+    groups: [
+      { name: 'FORTRESS_GUN_TUNE', table: FORTRESS_GUN_TUNE, ranges: TUNE_RANGES, labels: TUNE_LABELS },
+      { name: 'FORTRESS_SHUTTER_TUNE', table: FORTRESS_SHUTTER_TUNE, ranges: TUNE_RANGES, labels: TUNE_LABELS },
+    ],
   });
 
   window.sbFortressReport = () => {

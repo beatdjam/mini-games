@@ -2,8 +2,9 @@
 // are seen through. The game and the dev views that walk a map both build it from here.
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
-import { M1_SHUTTERS } from '../data/battery.ts';
+import { M1_SHUTTERS, type ShutterDef } from '../data/battery.ts';
 import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
+import { FORTRESS_SHUTTER_TUNE } from '../data/fortress.ts';
 import { PILLBOX_BREAK } from '../data/pillbox.ts';
 import { TARGET_SIZE, TILE_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { CAMERA_TUNE } from '../data/tune.ts';
@@ -105,7 +106,9 @@ export function buildWorld(map: MapDef, air = true): World {
       new THREE.MeshLambertMaterial({ color: SHUTTER_COLOR }),
     );
     plate.name = `sb-shutter-${def.target}`;
-    plate.position.set(place.x, def.h / 2, place.z + TARGET_SIZE[place.kind].d / 2 + def.gap + def.d / 2);
+    const baseY = place.y ?? 0; // a nest stands on the wall's top
+    plate.userData.baseY = baseY;
+    plate.position.set(place.x, baseY + def.h / 2, place.z + TARGET_SIZE[place.kind].d / 2 + def.gap + def.d / 2);
     targetGroup.add(plate);
     shutters.set(def.target, plate);
   }
@@ -166,6 +169,33 @@ export function buildWorld(map: MapDef, air = true): World {
   };
 }
 
+// The nest's plate rolls up and the nest rises over FORTRESS_SHUTTER_TUNE.openSec once the shutter is open (SB-2051); shut,
+// the plate stands full and the nest sits sunk into the wall. The progress is the plate's own (`userData.open`): a plate
+// first seen open (a checkpoint or a suspend brings one back) starts fully open, and one seen shut starts at 0, so
+// the state needs nothing more than the shutter's `open`.
+function rollShutter(
+  world: World,
+  game: GameModel,
+  plate: THREE.Mesh,
+  def: ShutterDef,
+  open: boolean,
+  dt: number,
+): void {
+  const before = typeof plate.userData.open === 'number' ? plate.userData.open : 1;
+  const sec = FORTRESS_SHUTTER_TUNE.openSec;
+  const share = open ? Math.min(1, before + (sec <= 0 ? 1 : dt / sec)) : 0;
+  plate.userData.open = share;
+  const k = share * share * (3 - 2 * share); // smooth in and out
+  const baseY = typeof plate.userData.baseY === 'number' ? plate.userData.baseY : 0;
+  plate.visible = k < 1;
+  // the plate rolls up with its top edge fixed
+  plate.scale.y = Math.max(0.001, 1 - k);
+  plate.position.y = baseY + def.h - (def.h * plate.scale.y) / 2;
+  const target = game.targets.find(item => item.id === def.target);
+  const mesh = world.targets.get(def.target);
+  if (mesh && target && target.hp > 0) mesh.position.y = baseY - FORTRESS_SHUTTER_TUNE.sink * (1 - k);
+}
+
 // Lowers and darkens every target whose health is gone, lowers its camera box to the wreck's height, hides every shutter
 // that is open, and every prop the game has broken or a blast has opened: its copy becomes a low, dark wreck and its box
 // leaves cameraBoxes in place (play.ts hands that same array to the camera every frame). A blasted line is drawn open
@@ -199,7 +229,13 @@ export function syncWorld(world: World, game: GameModel, dt: number): void {
   }
   for (const shutter of game.shutters) {
     const plate = world.shutters.get(shutter.target);
-    if (plate) plate.visible = !shutter.open;
+    if (!plate) continue;
+    const def = M1_SHUTTERS.find(item => item.target === shutter.target);
+    if (def?.opensOnFlag === undefined) {
+      plate.visible = !shutter.open;
+      continue;
+    }
+    rollShutter(world, game, plate, def, shutter.open, dt);
   }
   for (const breakable of game.breakables) {
     if (breakable.hp > 0) continue;

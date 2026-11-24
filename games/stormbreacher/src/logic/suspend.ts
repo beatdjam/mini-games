@@ -1,9 +1,11 @@
 // The suspended sortie (SB-210): the game written out when the player suspends from the pause menu, and read back when
 // the title's "continue" is pressed. Pure: reading and writing storage is app/storage.ts.
+import { M1_SHUTTERS } from '../data/battery.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { M1 } from '../data/missions/m1.ts';
 import type { MapDef, MissionDef } from '../data/types.ts';
 import { lowerBrokenTargetRects, type GameModel, type GameSnapshot } from './game.ts';
+import { newShutters } from './battery.ts';
 import { newNav } from './nav.ts';
 import { restartWarden } from './warden.ts';
 
@@ -117,6 +119,15 @@ function hasGameShape(value: unknown): boolean {
   return Object.entries(GAME_SHAPE).every(([key, shape]) => hasShape(value[key], shape));
 }
 
+// A save from before the fortress nest's plate has no shutter for it: add it, open when its flag already stands.
+function addMissingShutters(held: Pick<GameModel, 'targets' | 'shutters' | 'script'>): void {
+  for (const shutter of newShutters(held.targets.map(target => target.id))) {
+    if (held.shutters.some(item => item.target === shutter.target)) continue;
+    const flag = M1_SHUTTERS.find(def => def.target === shutter.target)?.opensOnFlag;
+    held.shutters.push({ ...shutter, open: flag !== undefined && held.script.flags.includes(flag) });
+  }
+}
+
 // The game a suspend holds, with the shots in flight and the events empty, or null when the data is not a suspend this
 // version can read (another version, an unknown map or mission, a missing or wrong field). A copy: the data stays as it was.
 export function restoreSuspend(data: unknown): GameModel | null {
@@ -133,6 +144,8 @@ export function restoreSuspend(data: unknown): GameModel | null {
   // An old save kept a broken target's rect at the wall's height; the wreck the view draws is low, so the rect is too.
   const game = { ...kept, map, mission, bullets: [], shells: [], nav: newNav(), events: [], checkpoint };
   lowerBrokenTargetRects(game);
+  addMissingShutters(game);
+  if (checkpoint !== null) addMissingShutters(checkpoint);
   // the shots and shells in flight are gone, so the mid boss starts its phase again (SB-1850)
   for (const enemy of game.enemies) if (enemy.warden) restartWarden(enemy.warden);
   return game;

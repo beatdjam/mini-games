@@ -62,9 +62,10 @@ const DEPOT_GO: readonly string[] = [
   'flag:depot-down',
   'radio:m1.depot-down',
   'flag:fortress-gun-awake',
+  'radio:m1.fortress-gun-wake',
 ];
 
-const STRAIGHT_ON: readonly string[] = ['flag:fortress-gun-awake'];
+const STRAIGHT_ON: readonly string[] = ['flag:fortress-gun-awake', 'radio:m1.fortress-gun-wake'];
 
 const TAIL: readonly string[] = [
   'checkpoint:cp2',

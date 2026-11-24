@@ -45,13 +45,25 @@ export function shuttered(shutters: readonly ShutterState[], id: string): boolea
   return shutters.some(shutter => shutter.target === id && !shutter.open);
 }
 
-// Opens every shutter whose targets are all down (`hpOf` is a target's health left) and returns the ids it guards.
-export function openShutters(shutters: ShutterState[], hpOf: (id: string) => number): string[] {
+// Whether the target is behind a shut shutter that opens on a script flag (SB-2051): the plate hides the target from the
+// aim and turns a shot away as armour. The magazine's shutter opens on targets alone and is not one.
+export function armoured(shutters: readonly ShutterState[], id: string): boolean {
+  return shuttered(shutters, id) && M1_SHUTTERS.some(def => def.target === id && def.opensOnFlag !== undefined);
+}
+
+// Opens every shutter whose targets are all down (`hpOf` is a target's health left) and whose flag, if it has one, stands
+// in `flags`, and returns the ids it guards.
+export function openShutters(
+  shutters: ShutterState[],
+  hpOf: (id: string) => number,
+  flags: readonly string[] = [],
+): string[] {
   const opened: string[] = [];
   for (const shutter of shutters) {
     if (shutter.open) continue;
     const def = M1_SHUTTERS.find(item => item.target === shutter.target);
     if (!def || !def.opensWhen.every(id => hpOf(id) <= 0)) continue;
+    if (def.opensOnFlag !== undefined && !flags.includes(def.opensOnFlag)) continue;
     shutter.open = true;
     opened.push(shutter.target);
   }
