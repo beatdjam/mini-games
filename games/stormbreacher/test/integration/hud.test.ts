@@ -341,13 +341,13 @@ test('a planted charge shows its fuse left and full length', () => {
   expect(hudModel(game).charge).toEqual({ left: CHARGE_TUNE.fuse / 2, total: CHARGE_TUNE.fuse });
 });
 
-test('the optional depot mark comes after the question and goes when the depot is down', () => {
+test('the optional depot mark comes once the shelling has started and goes when the depot is down', () => {
   const game = newGame(M1B_HAND);
   atOrigin(game);
   expect(hudModel(game).optional).toBeNull();
 
-  // the leader has asked: the side goal shows, with the distance on the ground
-  game.script.fired['depot-ask'] = 0;
+  // the shelling has started: the side goal shows, with the distance on the ground
+  game.script.fired['shelling-start'] = 0;
   const depot = targetAt(game, 'depot');
   const cx = (depot.box.minX + depot.box.maxX) / 2;
   const cz = (depot.box.minZ + depot.box.maxZ) / 2;

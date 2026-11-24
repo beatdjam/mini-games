@@ -49,8 +49,6 @@ function eventText(event: ScriptOut): string {
       return `allyFall ${event.id} ${event.by}`;
     case 'assist':
       return `assist ${event.waves.join(',')}`;
-    case 'loss':
-      return `loss ${event.allies} ${event.squads}`;
     case 'cutscene':
       return `cutscene ${event.id}`;
     case 'cutsceneEnd':

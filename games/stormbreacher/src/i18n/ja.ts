@@ -55,10 +55,6 @@ LANG.ja = {
     'result.net': '手取り {cr} cr',
     'result.funds': '所持金 {cr} cr',
     'result.noCredit': '所持金には足さない',
-    'result.losses': v =>
-      Number(v.allies) + Number(v.squads) === 0
-        ? '味方の損耗 なし'
-        : `味方の損耗 味方機 ${Number(v.allies)}、分隊 ${Number(v.squads)}`,
     'hud.armor': '装甲',
     'hud.boost': 'ブースト',
     'hud.main': 'メイン',
@@ -111,11 +107,6 @@ LANG.ja = {
     'm1.pillboxes-down': 'トーチカ沈黙！押し上げろ！',
     'm1.bunker-down': 'トーチカ沈黙',
     'm1.pillbox-charge': '正面は抜けない！横か後ろに回って爆薬を仕掛けろ',
-    'm1.depot-ask-1': '3号機だ。右の崖下に敵の弾薬庫がある',
-    'm1.depot-ask-2': '叩けば砲撃が弱まる。寄るか、真っ直ぐ要塞か',
-    'm1.depot-go': '援護する、行け',
-    'm1.depot-skip': '時間が無い。正面から行く',
-    'm1.ally-lost': '4号機がやられた',
     'm1.wave2-lost': '第2波の艇が沈んだ。今いる戦力で押し切れ',
     'm1.fortress-gate': '要塞の門へ。抜けるぞ',
     'm1.fortress-yard': '中庭だ。突き進む',

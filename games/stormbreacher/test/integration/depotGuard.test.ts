@@ -1,5 +1,5 @@
 // The depot's guard on its new hollow under the right cliff (SB-1820): the four enemies of `depot-guard` stand round the
-// depot, and the wave comes out once the mech walks into `depot-approach` after the leader's question. Walked with
+// depot, and the wave comes out once the mech walks into `depot-approach`. Walked with
 // inputs.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
@@ -56,7 +56,7 @@ function newWalkGame(map: MapDef = openBreach({ ...M1B_HAND, mines: [] }, ['l1-b
   return game;
 }
 
-// Takes cp1 and waits for the leader's question (10 s), so `depot-go` can fire; the waves already out are cleared, as
+// Takes cp1 and waits for the shelling to start (10 s); the waves already out are cleared, as
 // this walk is about the depot's guard.
 function toAsked(game: GameModel): void {
   sendToScript(game, { kind: 'enter', area: 'b-line' });
@@ -98,7 +98,7 @@ test('the hand map holds the depot’s guard and passes the check against M1', (
   expect(violations).toEqual([]);
 });
 
-test('walking into the hollow after the question puts out the guard’s four in the wave’s order and kind', () => {
+test('walking into the hollow puts out the guard’s four in the wave’s order and kind', () => {
   const game = newWalkGame();
   toAsked(game);
   const places = M1B_HAND.spawns['depot-guard'];
@@ -121,7 +121,7 @@ test('walking into the hollow after the question puts out the guard’s four in 
   expect(rectDistance(rect, game.mech.x, game.mech.z)).toBeLessThan(AT_DEPOT);
 });
 
-test('the guard comes out once, when the mech walks into the hollow after the question', () => {
+test('the guard comes out once, when the mech walks into the hollow', () => {
   const game = newWalkGame();
   toAsked(game);
   game.mech.x = 55;
