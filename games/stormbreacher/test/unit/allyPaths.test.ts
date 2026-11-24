@@ -22,6 +22,9 @@ interface Box {
 }
 
 const WALKABLE: readonly PropKind[] = ['ramp', 'stairs', 'seawall'];
+// The ways run after the charge in the land wall has blown (SB-1860, SB-2044): the walls and the land gate's door that
+// the blast takes away (`collapse`) are no longer there to run through.
+const AFTER_BLAST = /^field-run-/;
 const BLASTS = M1B_HAND.blasts ?? [];
 const LINE_ZS = [...new Set(BLASTS.flatMap(place => (place.line === null ? [] : [place.line])))];
 
@@ -74,6 +77,7 @@ test('no ally’s way runs through a prop, a pillbox or a craft beside the playe
     for (let i = 0; i < game.propBoxes.length; i++) {
       const prop = game.map.props[game.propRefs[i]];
       if (WALKABLE.includes(prop.kind)) continue;
+      if (prop.collapse === true && AFTER_BLAST.test(name)) continue;
       boxes.push({ box: game.propBoxes[i], what: `${prop.kind} at (${prop.x}, ${prop.z})` });
     }
     for (const target of game.targets) boxes.push({ box: target.box, what: target.id });

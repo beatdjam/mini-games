@@ -204,22 +204,19 @@ const PATHS = {
     { x: 40, z: 20 },
     { x: 45, z: 9 },
   ],
-  // the boss's ground: through C at its x 35 breakthrough, then over to the fortress's sea gate (x 0, z -68) and into
-  // the yard (x 0, z -95); the walls leave only that way through
-  'boss1-run': [
+  // C's front posts (SB-2044), just past the player's way through C's x 35 breakthrough, so the cover mechs stand ahead of
+  // the mech when it gets there. They run from the line 2 posts (the first point is only a stand-in) the way the mech goes:
+  // up out of the block at (0, 0) (its box reaches z 2) and the wreck at (45, 3) (it reaches x 39..51), then through C
+  'c-front-1': [
     { x: 0, z: 6 },
     { x: 35, z: -4 },
     { x: 35, z: -20 },
     { x: 35, z: -30 },
     { x: 35, z: -46 },
     { x: 35, z: -58 },
-    { x: 20, z: -60 },
-    { x: 0, z: -62 },
-    { x: 0, z: -68 },
-    { x: 0, z: -95 },
+    { x: 42, z: -54 },
   ],
-  // up out of the block at (0, 0) first: its box reaches z 2
-  'boss2-run': [
+  'c-front-2': [
     { x: -7, z: 1 },
     { x: -7, z: 8 },
     { x: 35, z: -4 },
@@ -227,19 +224,37 @@ const PATHS = {
     { x: 35, z: -30 },
     { x: 35, z: -46 },
     { x: 35, z: -58 },
-    { x: 20, z: -60 },
-    { x: 0, z: -62 },
-    { x: 0, z: -68 },
-    { x: 0, z: -95 },
+    { x: 27, z: -60 },
   ],
-  // the wreck at (45, 3) reaches x 39..51: go round it on the land side of x 35
-  'boss3-run': [
+  'c-front-3': [
     { x: 45, z: 9 },
     { x: 35, z: 9 },
     { x: 35, z: -20 },
     { x: 35, z: -30 },
     { x: 35, z: -46 },
     { x: 35, z: -58 },
+    { x: 46, z: -56 },
+  ],
+  // from C's front posts over to the fortress's sea gate (x 0, z -68) and into the yard (x 0, z -95); the walls leave only
+  // that way through
+  'yard-run-1': [
+    { x: 42, z: -54 },
+    { x: 35, z: -56 },
+    { x: 20, z: -60 },
+    { x: -3, z: -62 },
+    { x: -3, z: -68 },
+    { x: 0, z: -95 },
+  ],
+  'yard-run-2': [
+    { x: 27, z: -60 },
+    { x: 20, z: -60 },
+    { x: 3, z: -62 },
+    { x: 3, z: -68 },
+    { x: 0, z: -95 },
+  ],
+  'yard-run-3': [
+    { x: 46, z: -56 },
+    { x: 35, z: -56 },
     { x: 20, z: -60 },
     { x: 0, z: -62 },
     { x: 0, z: -68 },
@@ -252,6 +267,47 @@ const PATHS = {
     { x: -5, z: -76 },
     { x: 0, z: -75 },
     { x: 5, z: -76 },
+  ],
+  // once the yard's waves are down the three go on to the middle of the yard (SB-2044), by the mech while it holds for the
+  // mid boss; the way keeps to x 0, clear of the wrecks at x +-14. They start at the yard-cover posts above.
+  'yard-front-1': [
+    { x: -5, z: -76 },
+    { x: 0, z: -88 },
+    { x: -8, z: -106 },
+  ],
+  'yard-front-2': [
+    { x: 5, z: -76 },
+    { x: 0, z: -88 },
+    { x: 8, z: -106 },
+  ],
+  'yard-front-3': [
+    { x: 0, z: -75 },
+    { x: 0, z: -88 },
+    { x: 0, z: -102 },
+  ],
+  // after the blast through the land gate (x -6..6, now open) to the field, the three abreast (x -3, 3 and 0), and up behind the mech's post before the main guns
+  'field-run-1': [
+    { x: -8, z: -106 },
+    { x: -3, z: -112 },
+    { x: -3, z: -121 },
+    { x: -3, z: -132 },
+    { x: 0, z: -160 },
+    { x: -10, z: -201 },
+  ],
+  'field-run-2': [
+    { x: 8, z: -106 },
+    { x: 3, z: -112 },
+    { x: 3, z: -121 },
+    { x: 3, z: -132 },
+    { x: 0, z: -160 },
+    { x: 10, z: -201 },
+  ],
+  'field-run-3': [
+    { x: 0, z: -102 },
+    { x: 0, z: -121 },
+    { x: 0, z: -132 },
+    { x: 0, z: -160 },
+    { x: 0, z: -192 },
   ],
 } as const satisfies Record<string, readonly GroundSpot[]>;
 
@@ -390,6 +446,11 @@ const CUES = [
     actions: [
       { kind: 'payoff', id: 'breach2' },
       { kind: 'flag', name: LINE2_FLAG },
+      // the three cover mechs follow through the hole as soon as it is open, to the posts before the pillbox line, so they
+      // are there when the mech has gone by, not after the pillboxes fall (SB-2044)
+      { kind: 'allyMove', id: 'cover-b1', path: C1_WAYS },
+      { kind: 'allyMove', id: 'cover-b2', path: C2_WAYS },
+      { kind: 'allyMove', id: 'cover-b3', path: C3_WAYS },
       { kind: 'radio', line: 'm1.line2-cheer', delay: PAYOFF_TUNE.cheerDelay },
       // the counterattack comes through the hole: fight it at the cover before it, then push on (SB-2025)
       { kind: 'radio', line: 'm1.line2-hold', delay: PAYOFF_TUNE.holdDelay, callout: 'm1.callout.line2-hold' },
@@ -439,9 +500,9 @@ const CUES = [
       { kind: 'flag', name: PILLBOXES_DOWN_FLAG },
       { kind: 'payoff', id: 'bunker' },
       { kind: 'checkpoint', id: 'cp1' },
-      { kind: 'allyMove', id: 'cover-b1', path: C1_WAYS },
-      { kind: 'allyMove', id: 'cover-b2', path: C2_WAYS },
-      { kind: 'allyMove', id: 'cover-b3', path: C3_WAYS },
+      { kind: 'allyMove', id: 'cover-b1', path: 'c-front-1' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'c-front-2' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'c-front-3' },
     ],
   },
   {
@@ -466,9 +527,9 @@ const CUES = [
       { kind: 'spawn', wave: 'fortress-drop' },
       // the three cover mechs go on to the yard through the sea gate; the checkpoint above is copied after all actions,
       // so their next way is in the copy too
-      { kind: 'allyMove', id: 'cover-b1', path: 'boss1-run' },
-      { kind: 'allyMove', id: 'cover-b2', path: 'boss2-run' },
-      { kind: 'allyMove', id: 'cover-b3', path: 'boss3-run' },
+      { kind: 'allyMove', id: 'cover-b1', path: 'yard-run-1' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'yard-run-2' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'yard-run-3' },
     ],
   },
   {
@@ -520,6 +581,9 @@ const CUES = [
       { kind: 'radio', line: 'm1.yard-clear' },
       { kind: 'radio', line: 'm1.warden' },
       { kind: 'spawn', wave: 'warden' },
+      { kind: 'allyMove', id: 'cover-b1', path: 'yard-front-1' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'yard-front-2' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'yard-front-3' },
     ],
   },
   {
@@ -542,6 +606,10 @@ const CUES = [
       { kind: 'checkpoint', id: 'cp3' },
       { kind: 'objective', id: 'silence-battery' },
       { kind: 'spawn', wave: 'battery' },
+      // the three go out through the broken land gate after the mech and take their posts in the field (SB-2044)
+      { kind: 'allyMove', id: 'cover-b1', path: 'field-run-1' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'field-run-2' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'field-run-3' },
     ],
   },
   {

@@ -40,6 +40,7 @@ export interface Crowd {
   holdZ: number | null; // the z a held soldier waits at (m); null waits nowhere
   nests: readonly SpawnPoint[]; // where the machine guns stand (m); a squad walks on one and falls there
   waveT: number; // seconds until the next wave (s)
+  leaderZ: number | null; // where the player's mech was at the last step (m), so a new wave can come in behind it; null while unknown (SB-2044)
   holdT: number; // seconds the line has been held, for the growing loss; Battle.advance sets it back to 0 at each new line (s; SB-2020)
   fallen: number; // how many have fallen so far
   through: number; // how many have reached the line so far
@@ -53,16 +54,32 @@ export interface CrowdCounts {
 }
 
 export function newCrowd(): Crowd {
-  return { soldiers: [], bounds: null, lineZ: 0, holdZ: null, nests: [], waveT: 0, holdT: 0, fallen: 0, through: 0 };
+  return {
+    soldiers: [],
+    bounds: null,
+    lineZ: 0,
+    holdZ: null,
+    nests: [],
+    waveT: 0,
+    leaderZ: null,
+    holdT: 0,
+    fallen: 0,
+    through: 0,
+  };
 }
 
-// Puts `count` soldiers near the sea edge. Squads of tune.squad come in on the nests, one squad to a nest and each
+// Puts `count` soldiers near the sea edge (or behind the mech, see allySpawnBehind). Squads of tune.squad come in on the nests, one squad to a nest and each
 // soldier a step of the wedge from the one before; the rest of the wave is scattered across the map as before. Gives
 // back how many joined; the cap may take fewer.
 export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: number, tune: FxTune): number {
   crowd.bounds = bounds;
   crowd.lineZ = bounds.minZ + (bounds.maxZ - bounds.minZ) * LAND_FRACTION;
   let added = 0;
+  // a wave comes in at the sea edge, or, once the mech has gone on, just behind it (SB-2044)
+  const edgeZ =
+    crowd.leaderZ !== null && tune.allySpawnBehind > 0
+      ? Math.min(bounds.maxZ, crowd.leaderZ + tune.allySpawnBehind)
+      : bounds.maxZ;
   const want = Math.max(0, Math.floor(count));
   const squadSize = Math.max(0, Math.floor(tune.squad));
   const squads = Math.max(0, Math.floor(tune.squads));
@@ -74,7 +91,7 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
       bounds.minX + SPAWN_MARGIN,
       bounds.maxX - SPAWN_MARGIN,
     );
-    const z = bounds.maxZ - rng.rand(0, SPAWN_DEPTH);
+    const z = edgeZ - rng.rand(0, SPAWN_DEPTH);
     const falls = tune.squadFallRadius > 0 ? Math.floor(squadSize * clamp(tune.squadFallShare, 0, 1)) : 0;
     for (let i = 0; i < squadSize && added < inSquads && crowd.soldiers.length < MAX_SOLDIERS; i++) {
       const across = (i % SQUAD_ACROSS) - (SQUAD_ACROSS - 1) / 2;
@@ -97,7 +114,7 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
   for (let i = 0; i < scattered && crowd.soldiers.length < MAX_SOLDIERS; i++) {
     crowd.soldiers.push({
       x: rng.rand(bounds.minX + SPAWN_MARGIN, bounds.maxX - SPAWN_MARGIN),
-      z: bounds.maxZ - rng.rand(0, SPAWN_DEPTH),
+      z: edgeZ - rng.rand(0, SPAWN_DEPTH),
       yaw: 0,
       alive: true,
       deadT: 0,
@@ -111,6 +128,17 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
   return added;
 }
 
+// How many times allySpeed a soldier at `z` walks while the leader (the player's mech) is at `leaderZ` (SB-2044): once it
+// is more than allyCatchGap behind (+z is the sea, so behind is a larger z), it speeds up evenly to allyCatchMul at twice
+// that gap. No leader, or a allyCatchMul of 1 or less, keeps the pace.
+export function catchUp(z: number, leaderZ: number | undefined, tune: FxTune): number {
+  if (leaderZ === undefined || tune.allyCatchMul <= 1) return 1;
+  const gap = Math.max(1, tune.allyCatchGap);
+  const over = z - leaderZ - gap;
+  if (over <= 0) return 1;
+  return 1 + (tune.allyCatchMul - 1) * Math.min(1, over / gap);
+}
+
 // Moves the crowd by one frame: brings the next wave when its time comes, walks the living, makes some fall, takes the
 // fallen away after DEAD_LINGER and counts the ones that reach the line. While `held` and the crowd has a holdZ, the
 // living stop at that line and no new wave comes in, so the field does not fill up while they wait. The pinned line
@@ -118,9 +146,10 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
 // is 0 unless a tune sets it, as #view-fx keeps). One that waited does not fall to the steady loss after the line is let
 // go (a shell or a squad's machine gun still takes it). Gives back the soldiers that fell this frame, so the view can put
 // a little dust where each one went down.
-export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held = false): Soldier[] {
+export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held = false, leaderZ?: number): Soldier[] {
   const span = Math.max(0, dt);
   const fell: Soldier[] = [];
+  crowd.leaderZ = leaderZ ?? null;
   const holdZ = held ? crowd.holdZ : null;
 
   if (holdZ === null) crowd.holdT = 0;
@@ -159,8 +188,9 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
       soldier.phase += SWAY_RATE * span;
       const sideways = Math.cos(soldier.phase) * SWAY_SPEED;
       soldier.x += sideways * span;
-      soldier.z -= Math.max(0, tune.allySpeed) * span;
-      soldier.yaw = Math.atan2(-sideways, Math.max(0.001, tune.allySpeed));
+      const speed = Math.max(0, tune.allySpeed) * catchUp(soldier.z, leaderZ, tune);
+      soldier.z -= speed * span;
+      soldier.yaw = Math.atan2(-sideways, Math.max(0.001, speed));
       if (bounds !== null) {
         soldier.x = clamp(soldier.x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
       }

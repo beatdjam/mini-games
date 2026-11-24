@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { ALLY_FATES, ALLY_TUNE } from '../../src/data/allies.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { enemyTracerTarget, moveAlly, nearestIndex, newAlly, stepAlly } from '../../src/logic/allies.ts';
+import { catchUp, enemyTracerTarget, moveAlly, nearestIndex, newAlly, stepAlly } from '../../src/logic/allies.ts';
 
 const DT = 1 / 60;
 const WAY = M1.paths['beach-run'];
@@ -152,4 +152,36 @@ test('enemyTracerTarget leaves out a sleeping or dead enemy, and shows nothing d
   expect(enemyTracerTarget({ ...enemy, awake: false }, allies, 70, false)).toBeNull();
   expect(enemyTracerTarget({ ...enemy, hp: 0 }, allies, 70, false)).toBeNull();
   expect(enemyTracerTarget(enemy, allies, 70, true)).toBeNull();
+});
+
+// SB-2044: an ally that has fallen behind the mech runs faster, up to catchMul times, and never the ones with a fate.
+const LONG_WAY = [
+  { x: 0, z: 200 },
+  { x: 0, z: -200 },
+];
+
+test('an ally keeps its pace within catchGap of the mech, ahead of it, or with no mech to follow', () => {
+  const ally = newAlly('cover-b1', LONG_WAY, null);
+  expect(catchUp(ally)).toBe(1);
+  expect(catchUp(ally, { x: 0, z: ally.z - ALLY_TUNE.catchGap })).toBe(1); // exactly at the gap
+  expect(catchUp(ally, { x: 0, z: ally.z + 100 })).toBe(1); // the mech is on the sea side, so the ally is ahead
+});
+
+test('an ally behind the mech speeds up evenly from catchGap to catchMul over catchRamp', () => {
+  const ally = newAlly('cover-b1', LONG_WAY, null);
+  const half = catchUp(ally, { x: 0, z: ally.z - ALLY_TUNE.catchGap - ALLY_TUNE.catchRamp / 2 });
+  expect(half).toBeCloseTo(1 + (ALLY_TUNE.catchMul - 1) / 2, 6);
+  expect(catchUp(ally, { x: 0, z: ally.z - ALLY_TUNE.catchGap - ALLY_TUNE.catchRamp })).toBeCloseTo(
+    ALLY_TUNE.catchMul,
+    6,
+  );
+  expect(catchUp(ally, { x: 0, z: ally.z - 1000 })).toBeCloseTo(ALLY_TUNE.catchMul, 6);
+  const far = { x: 0, z: ally.z - 1000 };
+  for (let i = 0; i < 60; i++) stepAlly(ally, DT, far);
+  expect(200 - ally.z).toBeCloseTo(ALLY_TUNE.speed * ALLY_TUNE.catchMul, 6);
+});
+
+test('an ally with a fate keeps its pace however far behind the mech it is', () => {
+  const ally = newAlly('buddy', LONG_WAY, FATE);
+  expect(catchUp(ally, { x: 0, z: ally.z - 1000 })).toBe(1);
 });

@@ -3,6 +3,7 @@ import { createRng } from '@engine/core/index.ts';
 import { FX_TUNE, type FxTune } from '../../src/data/tune.ts';
 import {
   DEAD_LINGER,
+  catchUp,
   crowdCounts,
   fallNear,
   newCrowd,
@@ -220,4 +221,48 @@ test('a held line loses soldiers, more the longer it has been held, and never fa
   expect(heldLoss(2, capped, 10)).toBe(heldLoss(2, capped, 100));
   // a lower cap loses fewer
   expect(heldLoss(2, { ...capped, holdLossMax: 0.05 }, 100)).toBeLessThan(heldLoss(2, capped, 100));
+});
+
+// SB-2044: a soldier far behind the mech hurries after it, and a new wave comes in behind the mech once it has gone on.
+test('a soldier behind the mech walks faster the farther it falls back, and at the pace within the gap', () => {
+  const tune = tuneWith({ allySpeed: 3, allyCatchGap: 40, allyCatchMul: 3 });
+  expect(catchUp(50, undefined, tune)).toBe(1);
+  expect(catchUp(50, 20, tune)).toBe(1); // 30 m behind, inside the gap
+  expect(catchUp(50, 10, tune)).toBe(1); // exactly at the gap
+  expect(catchUp(70, 10, tune)).toBeCloseTo(2, 6); // 20 m past the gap, half the ramp
+  expect(catchUp(90, 10, tune)).toBeCloseTo(3, 6);
+  expect(catchUp(500, 10, tune)).toBeCloseTo(3, 6);
+  expect(catchUp(-50, 10, tune)).toBe(1); // ahead of the mech
+  expect(catchUp(500, 10, tuneWith({ allyCatchMul: 1 }))).toBe(1);
+});
+
+test('stepCrowd walks a soldier far behind the leader at the faster pace', () => {
+  const tune = tuneWith({ allyDeathRate: 0, allyWaves: 0, allySpeed: 3, allyCatchGap: 40, allyCatchMul: 3 });
+  const crowd = newCrowd();
+  const rng = createRng(2);
+  spawnWave(crowd, rng, BOUNDS, 1, tune);
+  const start = crowd.soldiers[0].z;
+  for (let i = 0; i < 60; i++) stepCrowd(crowd, rng, DT, tune, false, -500);
+  expect(start - crowd.soldiers[0].z).toBeCloseTo(9, 6);
+});
+
+test('a wave comes in just behind the mech once it is past the sea edge, and at the sea edge before', () => {
+  const tune = tuneWith({ allySpawnBehind: 60, allyWaves: 0, allyDeathRate: 0 });
+  const crowd = newCrowd();
+  const rng = createRng(4);
+  stepCrowd(crowd, rng, DT, tune, false, 20);
+  spawnWave(crowd, rng, BOUNDS, 6, tune);
+  for (const soldier of crowd.soldiers) {
+    expect(soldier.z).toBeLessThanOrEqual(80);
+    expect(soldier.z).toBeGreaterThan(60); // within the spawn depth of the mech's z + 60 (the squads' rear ranks stand behind)
+  }
+  const early = newCrowd();
+  stepCrowd(early, rng, DT, tune, false, 150);
+  spawnWave(early, rng, BOUNDS, 6, tune);
+  for (const soldier of early.soldiers) expect(soldier.z).toBeGreaterThan(BOUNDS.maxZ - 12);
+  // the default tune keeps the sea edge
+  const plain = newCrowd();
+  stepCrowd(plain, rng, DT, FX_TUNE, false, 20);
+  spawnWave(plain, rng, BOUNDS, 6, FX_TUNE);
+  for (const soldier of plain.soldiers) expect(soldier.z).toBeGreaterThan(BOUNDS.maxZ - 12);
 });
