@@ -51,16 +51,6 @@ test('a run that breaks the depot, takes damage and retries once is paid by the 
   expect(pay.net).toBe(10000 + 2000 + 1000 - AMMO - M1_MECH_REPAIR_FULL / 2 - (AMMO + M1_MECH_REPAIR_FULL));
 });
 
-test('the losses do not touch the money', () => {
-  const game = newPlayGame(M1B_HAND);
-  game.cleared = true;
-  game.time = 600;
-  game.losses = { allies: 1, squads: 1 };
-  const pay = payoutOf(game, false);
-  expect(pay.bonuses.depot.earned).toBe(false);
-  expect(pay.net).toBe(10000 + 1000 + 1000 - AMMO);
-});
-
 test('retrying again and again does not earn the no-retry bonus, and a restart counts as a retry', () => {
   let game = newPlayGame(M1B_HAND);
   game.downed = true;

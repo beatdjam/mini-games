@@ -122,16 +122,10 @@ const AIMED_LABELS: Record<string, string> = {
 
 // The depot detour's values the panel turns.
 const DEPOT_RANGES: Record<string, TuneRange> = {
-  askSec: { min: 0, max: 30, step: 0.5 },
-  allyFallSec: { min: 0, max: 10, step: 0.1 },
-  lossAllies: { min: 0, max: 5, step: 1 },
-  lossSquads: { min: 0, max: 5, step: 1 },
+  shellingSec: { min: 0, max: 30, step: 0.5 },
 };
 const DEPOT_LABELS: Record<string, string> = {
-  askSec: 'cp1 から問いまで（s）',
-  allyFallSec: '答えから倒れるまで（s）',
-  lossAllies: '失う味方機',
-  lossSquads: '失う分隊',
+  shellingSec: 'cp1 から砲撃の始まりまで（s）',
 };
 
 // The yard's trap and the survivors' assist the panel turns (SB-1840). The gate's x and z go in the table, so the point
@@ -261,7 +255,6 @@ interface BreachReport {
   aimed: { still: number; warns: number } | null;
   assist: { waves: string[]; left: number } | null;
   yard: number;
-  losses: { allies: number; squads: number };
   optional: { key: string; distance: number } | null;
   calls: number;
   brokenProps: number;
@@ -475,7 +468,6 @@ export function showBreach(_hash: string) {
       aimed: game.aimed === null ? null : { still: game.aimed.still, warns: game.shells.length },
       assist: game.assist === null ? null : { waves: game.assist.waves, left: game.assist.left },
       yard: game.enemies.filter(enemy => enemy.hp > 0 && enemy.wave.startsWith('yard-')).length,
-      losses: game.losses,
       optional: hudModel(game).optional,
       brokenProps: game.brokenProps.length,
       fortressDown: game.script.fortressDown,

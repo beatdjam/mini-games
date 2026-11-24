@@ -37,7 +37,6 @@ export type ScriptOut =
   | { kind: 'suppress'; id: string; wave: string; sec: number; time: number } // an ally's support fire on a wave (SB-2020)
   | { kind: 'allyFall'; id: string; by: AllyFateBy; time: number }
   | { kind: 'assist'; waves: readonly string[]; time: number }
-  | { kind: 'loss'; allies: number; squads: number; time: number }
   | { kind: 'cutscene'; id: CutsceneId; time: number }
   | { kind: 'cutsceneEnd'; id: CutsceneId; time: number }
   | { kind: 'checkpoint'; id: string; time: number }
@@ -175,12 +174,6 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
     case 'assist':
       // the waves the allies shoot at are the mission's own, as a `spawn` names one
       for (const wave of action.waves) requireIn(def.waves, wave, 'wave');
-      return;
-    case 'loss':
-      // the counts are what the result adds up; a negative number would make losses a reward
-      if ((action.allies ?? 0) < 0 || (action.squads ?? 0) < 0) {
-        throw new Error(`cue "${cueId}": a loss cannot be negative`);
-      }
       return;
     case 'cutscene':
       if (!(action.id in CUTSCENE_SEC)) throw new Error(`cue "${cueId}": no cutscene "${action.id}"`);
@@ -382,9 +375,6 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
     case 'assist':
       // the script only reports it: the game holds how often the allies shoot and which enemy each shot takes
       out.push({ kind: 'assist', waves: action.waves, time });
-      return;
-    case 'loss':
-      out.push({ kind: 'loss', allies: action.allies ?? 0, squads: action.squads ?? 0, time });
       return;
     case 'cutscene':
       s.cutscene = { id: action.id, left: CUTSCENE_SEC[action.id] };

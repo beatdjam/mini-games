@@ -175,7 +175,6 @@ export type GameEvent =
   | { kind: 'allyDown'; id: string; x: number; z: number; by: AllyFateBy } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'allyCall'; id: string; line: string } // an ally called on the radio before its fate
   | { kind: 'assistFire'; fromX: number; fromZ: number; toX: number; toZ: number } // the scripted allies shot an enemy from (fromX, fromZ) at (toX, toZ); a look only
-  | { kind: 'loss'; allies: number; squads: number } // the friends the script lost on the way
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   // an ally's support fire flies at a silenced nest (SB-2024): from (x, y, z) to (tx, ty, tz); the view draws the tracer and the spark
   | { kind: 'coverFire'; enemy: string; x: number; y: number; z: number; tx: number; ty: number; tz: number }
@@ -307,7 +306,6 @@ export interface GameModel {
   // the allies' support fire under way (SB-2024): the wave it holds quiet, the seconds left, the wait to the next tracer, the nest to fire at next, and whether the radio line about the rounds running short has gone out; null when none
   cover: { wave: string; left: number; wait: number; next: number; warned: boolean } | null;
   assist: AssistState | null; // the script's assist once a cue has started it (SB-1840); null before one
-  losses: { allies: number; squads: number }; // the friends lost on the way (SB-1820); the result shows the count
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
   checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
@@ -972,7 +970,6 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     calm: null,
     cover: null,
     assist: null,
-    losses: { allies: 0, squads: 0 },
     events: [],
     cleared: false,
     checkpoint: null,
@@ -1279,11 +1276,6 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
         ally.down = true;
         game.events.push({ kind: 'allyDown', id: ally.id, x: ally.x, z: ally.z, by: event.by });
       }
-    }
-    if (event.kind === 'loss') {
-      game.losses.allies += event.allies;
-      game.losses.squads += event.squads;
-      game.events.push({ kind: 'loss', allies: event.allies, squads: event.squads });
     }
     if (event.kind === 'end' && !game.cleared) {
       game.cleared = true;

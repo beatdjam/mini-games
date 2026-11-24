@@ -228,18 +228,6 @@ describe('suspend', () => {
     expect(back?.radioQueue).toEqual([{ line: 'm1.pillboxes-down' }, { line: 'm1.wave2-lost' }]);
   });
 
-  test('the losses come back, in the game and in a checkpoint', () => {
-    const game = newGame(M1B_HAND);
-    game.losses = { allies: 1, squads: 2 };
-    const back = restoreSuspend(stored(suspendOf(game)));
-    expect(back?.losses).toEqual({ allies: 1, squads: 2 });
-
-    // a checkpoint keeps its own losses too
-    game.checkpoint = { ...structuredClone({ ...game, id: 'cp1' }), map: M1B_HAND, mission: M1 };
-    const withCheckpoint = restoreSuspend(stored(suspendOf(game)));
-    expect(withCheckpoint?.checkpoint?.losses).toEqual({ allies: 1, squads: 2 });
-  });
-
   test('the fortress blast’s lowered walls come back', () => {
     const game = newGame(M1B_HAND);
     game.brokenProps = [12, 13, 30];

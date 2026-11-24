@@ -245,14 +245,6 @@ const PATHS = {
     { x: 0, z: -68 },
     { x: 0, z: -95 },
   ],
-  // the cover mech the skipped depot costs (SB-1820): from wherever it stands, to the cover before the sea gate, within
-  // the player's sight. moveAlly starts from its current place, so the first point is only a stand-in for the source.
-  'fortress-cover-run': [
-    { x: 35, z: -46 },
-    { x: 20, z: -54 },
-    { x: 0, z: -58 },
-    { x: -20, z: -58 },
-  ],
   // the survivors' post in the yard's trap (SB-1840): just inside the sea gate, clear of the walls and the cover, where
   // they shoot into the yard. moveAlly starts from where the ally stands, so the first point is only a stand-in.
   'yard-cover': [
@@ -298,7 +290,6 @@ const C3_WAYS = {
 const PLACES = {
   'beach-mid': { x: 44, z: 151 },
   'b-mid': { x: 45, z: 112 }, // where the gunner falls, at the cover behind line 1
-  'fortress-cover': { x: -20, z: -58 }, // the cover before the sea gate, where the skipped depot costs a cover mech
 } as const satisfies Record<string, GroundSpot>;
 
 const AREAS = {
@@ -405,60 +396,20 @@ const CUES = [
     ],
   },
   {
-    id: 'depot-ask',
-    // cp1's 10 s give the leader time to ask; shelling starts on both ways, so the flag alone decides how hard it falls
-    trigger: { kind: 'after', cue: 'cp1', sec: DEPOT_CHOICE_TUNE.askSec },
-    actions: [
-      { kind: 'flag', name: 'depot-asked' },
-      // the answer is walked after the question: an area passed during the 10 s before it does not count
-      { kind: 'rearm', areas: ['depot-approach', 'fortress-approach'] },
-      { kind: 'spawn', wave: 'shelling' },
-    ],
+    id: 'shelling-start',
+    // cp1's 10 s give the player time to look around; then the shelling starts. The depot is not a question: it stands on
+    // the way, and the shelling falls harder while it stands (SB-2046)
+    trigger: { kind: 'after', cue: 'cp1', sec: DEPOT_CHOICE_TUNE.shellingSec },
+    actions: [{ kind: 'spawn', wave: 'shelling' }],
   },
   {
-    id: 'depot-ask-radio',
-    // the leader does not ask about a depot that is already down; the flag and the shelling above still run
-    trigger: { kind: 'after', cue: 'depot-ask', sec: 0 },
+    id: 'depot-guard',
+    // walking into the hollow under the cliff brings the guard out and marks the depot on the map
+    trigger: { kind: 'enter', area: 'depot-approach' },
     unless: ['depot-down'],
     actions: [
-      { kind: 'radio', line: 'm1.depot-ask-1' },
-      { kind: 'radio', line: 'm1.depot-ask-2' },
-    ],
-  },
-  {
-    id: 'depot-go',
-    // walking into the hollow is the answer: the guard comes out and the map marks the depot
-    trigger: { kind: 'enter', area: 'depot-approach' },
-    when: ['depot-asked'],
-    unless: ['depot-down', 'fortress-skip'],
-    actions: [
-      { kind: 'radio', line: 'm1.depot-go' },
       { kind: 'spawn', wave: 'depot-guard' },
       { kind: 'map', mark: 'depot', on: true },
-      { kind: 'flag', name: 'depot-taken' },
-    ],
-  },
-  {
-    id: 'fortress-go',
-    // walking on to the fortress is the other answer: the skipped depot costs one ally and one squad
-    trigger: { kind: 'enter', area: 'fortress-approach' },
-    when: ['depot-asked'],
-    unless: ['depot-down', 'depot-taken'],
-    actions: [
-      { kind: 'radio', line: 'm1.depot-skip' },
-      { kind: 'allyMove', id: 'cover-b3', path: 'fortress-cover-run' },
-      { kind: 'loss', allies: DEPOT_CHOICE_TUNE.lossAllies, squads: DEPOT_CHOICE_TUNE.lossSquads },
-      { kind: 'flag', name: 'fortress-skip' },
-    ],
-  },
-  {
-    id: 'fortress-ally-lost',
-    // the ally falls at the cover a moment after the answer; a separate cue, so it has already run when it falls
-    trigger: { kind: 'after', cue: 'fortress-go', sec: DEPOT_CHOICE_TUNE.allyFallSec },
-    when: ['fortress-skip'],
-    actions: [
-      { kind: 'allyFall', id: 'cover-b3', by: 'shell' },
-      { kind: 'radio', line: 'm1.ally-lost' },
     ],
   },
   {
@@ -496,14 +447,13 @@ const CUES = [
   {
     id: 'fortress-gun-wake',
     // the wall's nest holds its fire while the mech fights the pillboxes: it starts to sweep once the mech is on the
-    // open ground before the sea gate (SB-2045). No `when`: walking there before the leader asks counts too
+    // open ground before the sea gate (SB-2045)
     trigger: { kind: 'enter', area: 'fortress-approach' },
     actions: [{ kind: 'flag', name: FORTRESS_GUN_FLAG }],
   },
   {
     id: 'fortress-gate',
     trigger: { kind: 'enter', area: 'fortress-gate' },
-    when: ['depot-asked'],
     actions: [
       { kind: 'checkpoint', id: 'cp2' },
       { kind: 'objective', id: 'stop-fortress-gun' },
@@ -651,9 +601,6 @@ export const M1: MissionDef = {
   marks: ['depot'],
   flags: [
     'depot-down',
-    'depot-asked',
-    'depot-taken',
-    'fortress-skip',
     FORTRESS_GUN_FLAG,
     LINE1_FLAG,
     LINE2_FLAG,

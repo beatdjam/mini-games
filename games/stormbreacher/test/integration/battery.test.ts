@@ -121,7 +121,7 @@ test('from the field past the fallen land gate the mech walks round the cover to
 
 test('M1 clears: through the gates, both guns down, then the magazine', () => {
   const game = newBatteryGame();
-  // cp1 and the leader's 10 s question: the fortress gate waits for it (SB-1820)
+  // cp1 and the 10 s after it, as the sortie goes (the fortress gate does not wait for anything)
   sendToScript(game, { kind: 'enter', area: 'b-line' });
   for (const id of ['pillbox-1', 'pillbox-2']) {
     const target = game.targets.find(item => item.id === id);

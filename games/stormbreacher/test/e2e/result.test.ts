@@ -31,11 +31,10 @@ const NET = 10000 + 1000 + 1000 - AMMO;
 const num = (n: number): string => n.toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US');
 
 // Starts a sortie and ends it as the script's end would: no damage, no retry, 600 s on the clock.
-async function clearSortie(losses = { allies: 0, squads: 0 }): Promise<void> {
+async function clearSortie(): Promise<void> {
   startSortie();
   const current = game();
   current.time = 600;
-  current.losses = { ...losses };
   current.cleared = true;
   await untilSteps(() => state === 'result');
 }
@@ -67,17 +66,6 @@ test('the second clear shows the breakdown and a note, and the funds do not grow
   expect(text).toContain(t('result.noCredit'));
   expect(save.funds).toBe(NET);
   expect(JSON.parse(localStorage.getItem(SAVE_KEY) ?? '{}').funds).toBe(NET);
-});
-
-test('the cleared result shows the losses line, or none when the detour was taken', async () => {
-  await clearSortie({ allies: 1, squads: 1 });
-  const text = el('#sbResultPay').textContent ?? '';
-  expect(text).toContain(t('result.losses', { allies: 1, squads: 1 }));
-  expect(text).not.toContain(t('result.losses', { allies: 0, squads: 0 }));
-
-  await clearSortie();
-  const none = el('#sbResultPay').textContent ?? '';
-  expect(none).toContain(t('result.losses', { allies: 0, squads: 0 }));
 });
 
 test('the downed result has no breakdown and writes nothing', async () => {
