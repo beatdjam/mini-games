@@ -8,6 +8,7 @@ import { DEFENSE_DETAIL } from '../data/defenses.ts';
 import { PROP_SIZE, TARGET_SIZE, TILE_SIZE, type PropSize, type TargetSize } from '../data/props.ts';
 import { SAND_SURFACE } from '../data/surfaces.ts';
 import type { Prop, PropKind, TargetKind, TargetPlace } from '../data/types.ts';
+import { pillboxGeometry } from './pillboxModel.ts';
 import { groundMaterial, surfaceMaterial, targetMaterial, type SurfaceName } from './surfaces.ts';
 
 export interface OutdoorBuildOpts {
@@ -639,8 +640,9 @@ export function breakPropSlot(slot: PropSlot): void {
 
 // The mission's targets, each a shape with its own colour so the four kinds are told apart from above: a low wide
 // pillbox, a pile of crates for the depot, a base and barrel for the gun, and a square magazine.
+// A pillbox is built in view/pillboxModel.ts (SB-2050): one shape, so it is still one draw.
 function pillboxTargetGeometry(): THREE.BufferGeometry {
-  return merge([box(10, 2.2, 6, 0, 1.1, 0), box(10.6, 0.6, 6.6, 0, 2.5, 0), box(3, 1, 1, 0, 1.8, 3.2)]);
+  return pillboxGeometry();
 }
 
 function depotTargetGeometry(): THREE.BufferGeometry {
@@ -678,7 +680,7 @@ const TARGET_SHAPES: Record<TargetKind, () => THREE.BufferGeometry> = {
 };
 
 const TARGET_COLORS: Record<TargetKind, number> = {
-  pillbox: 0xb03a2e,
+  pillbox: 0xc4c0b8, // the concrete's own grey; the red of the target mark is a vertex colour (view/pillboxModel.ts)
   depot: 0xd4a017,
   gun: 0x3f6f8f,
   magazine: 0x7a4fa0,
