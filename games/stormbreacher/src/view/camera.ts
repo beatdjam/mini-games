@@ -1,5 +1,5 @@
 // The screen rectangle a box makes and the wall boxes a ground rect makes, as pure functions: a box and a camera go in,
-// a rectangle comes out; a ground rect goes in, the boxes the camera keeps out of come out.
+// a rectangle comes out; a ground rect goes in, the boxes the fade's line-of-sight test uses come out.
 import * as THREE from 'three';
 import { rectBoxes, type GroundRect } from '../logic/collide.ts';
 import type { Aabb } from '../logic/fire.ts';

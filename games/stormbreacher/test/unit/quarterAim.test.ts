@@ -54,3 +54,15 @@ test('a point nearer than 0.9 m keeps the yaw', () => {
   const input = quarterAimInput(pose, QUARTER_TUNE.fov, ASPECT, null, near, QUARTER_TUNE.azimuth);
   expect(input).toEqual({ frame: QUARTER_TUNE.azimuth, face: -0.7 });
 });
+
+test('a mech away from the origin faces the point the cursor finds, measured from the mech', () => {
+  const mech = { x: 5, y: 1.2, z: -3, yaw: 0.3 };
+  const pose = quarterPose(mech, QUARTER_TUNE);
+  const cursor = { x: 0.3, y: -0.2 };
+  const at = groundPoint(pose, QUARTER_TUNE.fov, ASPECT, cursor, mech.y)!;
+  const { face } = quarterAimInput(pose, QUARTER_TUNE.fov, ASPECT, cursor, mech, QUARTER_TUNE.azimuth);
+  // yaw 0 faces -z and grows turning left: the mech's front is (-sin, -cos), and it points at the point
+  const dist = Math.hypot(at.x - mech.x, at.z - mech.z);
+  expect(mech.x - Math.sin(face!) * dist).toBeCloseTo(at.x, 6);
+  expect(mech.z - Math.cos(face!) * dist).toBeCloseTo(at.z, 6);
+});

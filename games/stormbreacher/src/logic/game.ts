@@ -605,7 +605,7 @@ function damageTarget(game: GameModel, target: TargetState, damage: number): voi
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp > 0) return;
   // The view draws the wreck at WRECK_SCALE_Y of the target's height, so the wall left on the ground stands at the same
-  // height: a jump can carry the mech over it, the camera looks over it, and the shots still pass through the fallen target.
+  // height: the shots still pass through the fallen target.
   lowerWreckRect(game, target);
   // The enemy's cells are made from the rects and their count does not change with a target, so stepNav would keep the
   // grid made before the fall. Dropping it rebuilds the grid on the next frame that has a walking enemy.
@@ -1959,7 +1959,7 @@ function stepFrame(game: GameModel, given: GameInput, dt: number): void {
     groundY: 0,
   };
   // A top-down input (the main body and the arena, on a PC or a touch screen) passes a movement frame or an aim point and
-  // gets the wider, level values. An input with neither (bots, tests, the dev views) keeps the third-person soft values.
+  // gets the wider, level values. An input with neither (bots, tests) keeps the soft values.
   const fcsTune = input.frame === undefined && input.aimAt === undefined ? FCS_TUNE.soft : FCS_QUARTER;
   const fcs = stepFcs(game.fcs, 'soft', fcsTune, aim, muzzleOf(game.mech), fcsTargets(game, chest), span, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);

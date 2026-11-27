@@ -31,7 +31,7 @@ const BUTTON =
 const MECH_MARGIN = 4;
 
 // The fixed camera behind the mech: its place and its look point, as offsets from the mech's feet (m). The values are the
-// third-person camera's place for a 4 m mech that stands still: 8.6 m behind, 2.15 m to its right, the look point 2.9 m
+// place of the old third-person camera for a 4 m mech that stands still: 8.6 m behind, 2.15 m to its right, the look point 2.9 m
 // above the feet and the camera 1.5 m above the look point.
 const HUD_CAMERA = {
   pos: { x: 2.15, y: 4.4, z: 8.6 },

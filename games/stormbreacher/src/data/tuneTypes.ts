@@ -48,7 +48,7 @@ export interface FovTune {
 
 // The low props that fade instead of staying solid (SB-2048).
 export interface FadeTune {
-  wallHeight: number; // a blocking prop at least this tall does not fade (the third-person camera treats it as a wall); a lower one fades when it is between the camera and the mech (m); 0 fades nothing
+  wallHeight: number; // a blocking prop at least this tall does not fade; a lower one fades when it is between the camera and the mech (m); 0 fades nothing
   fadeOpacity: number; // how much of a faded prop is left (0-1)
   fadeIn: number; // the time a prop takes to fade out once it is between the camera and the mech (s)
   fadeOut: number; // the time it takes to come back once it is clear (s)

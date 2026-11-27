@@ -10,7 +10,7 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CUTSCENES, type CutsceneEvent } from '../data/cutscenes.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
-import { FOV_TUNE, FEEL_TUNE } from '../data/tune.ts';
+import { FEEL_TUNE, FOV_TUNE } from '../data/tune.ts';
 import type { CutsceneId, MapBounds } from '../data/types.ts';
 import {
   cutsceneElapsed,

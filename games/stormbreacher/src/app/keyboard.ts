@@ -1,6 +1,6 @@
 // Keyboard and mouse input for the mech (SB-030 keyboard): the engine's key actions and mouse look become the same
 // MechInput that the touch screen fills. The right mouse button on the canvas is the sub shot.
-import { el } from '@engine/core/index.ts';
+import { el, isTouch } from '@engine/core/index.ts';
 import { actionDown, actionOf, defineActions } from '@engine/ui/index.ts';
 import { KEY_DEFAULTS, KEY_TUNE, type KeyAction } from '../data/keys.ts';
 import type { MechInput } from '../logic/mech.ts';
@@ -36,14 +36,17 @@ export function handleKey(e: KeyboardEvent) {
 }
 
 function initMouse() {
-  const canvas = el('#gl');
-  // the left button is the main shot and the right the sub, both with the cursor on the screen
-  canvas.addEventListener('mousedown', e => {
-    if (e.button === 0) mainMouse = true;
-    else if (e.button === 2) subMouse = true;
-  });
-  // the right button's menu would cover the game
-  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  // a touch screen has its own buttons: the mouse events a tap on the canvas leaves behind must not shoot
+  if (!isTouch) {
+    const canvas = el('#gl');
+    // the left button is the main shot and the right the sub, both with the cursor on the screen
+    canvas.addEventListener('mousedown', e => {
+      if (e.button === 0) mainMouse = true;
+      else if (e.button === 2) subMouse = true;
+    });
+    // the right button's menu would cover the game
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+  }
   // let go at the document, so a button released off the canvas stops too
   document.addEventListener('mouseup', e => {
     if (e.button === 0) mainMouse = false;

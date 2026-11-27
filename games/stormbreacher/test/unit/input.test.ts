@@ -43,6 +43,14 @@ test('the fire is on when either side fires', () => {
   expect(mergeInput(idle, idle).fire).toBe(false);
 });
 
+test('a jump on either side never comes out of the merge (D-50)', () => {
+  const jumping = input({ jump: true, jumpHeld: true });
+  for (const merged of [mergeInput(jumping, idle), mergeInput(idle, jumping)]) {
+    expect(merged.jump).toBe(false);
+    expect(merged.jumpHeld).toBe(false);
+  }
+});
+
 test('the cursor aims at its point and holds the yaw without one', () => {
   const at = { x: 3, z: -4 };
   expect(cursorAimInput(at, 1.2)).toEqual({ aimAt: at });

@@ -116,8 +116,8 @@ export function buildWorld(map: MapDef, air = true): World {
   }
 
   // cameraBoxesOfRect runs over cameraBlockers' rects, which put the blocking props first in map.props' order, so the
-  // boxes of rect i belong to blockingPropIndexes(map)[i]. A breakable prop is one flat rect, so its list holds one box.
-  // The targets come after the props and the three crafts' rects after them, so the props' places still line up.
+  // boxes of rect i belong to blockingPropIndexes(map)[i]: the fade below takes the low props' boxes. The targets and
+  // the three crafts' rects come after the props'.
   const rects = cameraBlockers(map);
   const boxesByRect = rects.map(cameraBoxesOfRect);
   // A low prop is no wall: it fades when it is between the camera and the mech, and the rects past the props' are never

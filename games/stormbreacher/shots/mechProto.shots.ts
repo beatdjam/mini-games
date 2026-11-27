@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { systems } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { boot } from '../src/app/boot.ts';
-import { MECH_TUNE, QUARTER_TUNE } from '../src/data/tune.ts';
+import { FOV_TUNE, MECH_TUNE, QUARTER_TUNE } from '../src/data/tune.ts';
 import { showMech } from '../src/dev/views/mech.ts';
 import { quarterPose } from '../src/view/quarterCamera.ts';
 import { disposeMech } from '../src/view/mechModel.ts';
@@ -118,6 +118,9 @@ test('mech-proto3', async () => {
     camera.fov = QUARTER_TUNE.fov;
     camera.updateProjectionMatrix();
     await picture('mech-proto3-game');
+    // the pictures after this one keep the field of view they had before the overview camera took it over
+    camera.fov = FOV_TUNE.feel;
+    camera.updateProjectionMatrix();
 
     // the motion: ten frames of walking catch the legs apart, then a hop's crouch bends the knees deep
     const walk = { speed: 6, grounded: true, boosting: false, landSpeed: null, fired: false };

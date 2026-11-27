@@ -23,8 +23,8 @@ const ARC_HALF = 50; // degrees, half the arc's opening: 50 above and below the 
 const ARC_TEXT_W = 44; // px, the text column outside the arc
 const ARC_TEXT_GAP = 6; // px, between the arc and the text column
 
-// The aim circle's radius (px) for a screen of this height: the soft-lock cone's half-angle at the camera's field of
-// view. 720 gives about 70.
+// The aim circle's radius (px) for a screen of this height: the soft-lock cone's half-angle at FOV_TUNE.ring (not the
+// overview camera's field of view). 720 gives about 87.
 export function ringRadius(height: number): number {
   const cone = (FCS_TUNE.soft.cone * Math.PI) / 180;
   const halfFov = (FOV_TUNE.ring * Math.PI) / 360;

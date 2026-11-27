@@ -1,5 +1,4 @@
-// The overview camera and the cursor's aim, as the dev entries (#view-touch, #view-map, #view-fx) can use them before
-// their own views move over (tickets 2198, 2199, 2250). The pure parts are quarterCamera.ts and quarterAim.ts; this file
+// The overview camera and the cursor's aim, as the dev entries (#view-touch, #view-map, #view-fx) use them. The pure parts are quarterCamera.ts and quarterAim.ts; this file
 // writes the engine's camera and reads the touch flag and the window.
 import * as THREE from 'three';
 import { isTouch } from '@engine/core/index.ts';

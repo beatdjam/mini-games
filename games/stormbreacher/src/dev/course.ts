@@ -1,6 +1,5 @@
 // The scale course: a corridor, a door wall, a hall, steps and reference walls, laid out far enough apart to look at
-// each on its own. It only builds boxes; SB-020 will use the wall boxes (THREE.Box3) as the third-person camera's
-// colliders.
+// each on its own. It only builds boxes.
 import * as THREE from 'three';
 
 export type CourseKind = 'wall' | 'ceiling' | 'cover' | 'step' | 'ref';
