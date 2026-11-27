@@ -51,7 +51,8 @@ describe('the sectors of M1', () => {
     expect(game.battle.crowd.holdZ).toBe(beach.holdZ);
     expect(game.battle.crowd.soldiers.length).toBe(before + SECTOR_TUNE.surge);
 
-    // the infantry walks in and enough of it reaches the line to secure the beach (armour set aside: this is about the walk)
+    // the infantry walks in and enough of it reaches the line to secure the beach (armour set aside: this is about
+    // the walk). Word that it is secured brings the counterattack, so the sector goes straight on to `counter`.
     game.armor = Number.MAX_SAFE_INTEGER;
     let secured = false;
     for (let frame = 0; frame < 60 * 60 && !secured; frame++) {
@@ -59,7 +60,46 @@ describe('the sectors of M1', () => {
       secured = game.events.some(event => event.kind === 'sectorSecured');
     }
     expect(secured).toBe(true);
-    expect(game.sectors?.phase[0]).toBe('secured');
+    expect(game.events.some(event => event.kind === 'sectorCounter')).toBe(true);
+    expect(game.sectors?.phase[0]).toBe('counter');
+  });
+
+  test('the secured beach is counterattacked, and becomes stable once its three are down', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const beach = M1_SECTORS[0];
+    enterSector(game, 'beach');
+    step(game, idle, DT);
+    game.armor = Number.MAX_SAFE_INTEGER;
+    let countered = false;
+    for (let frame = 0; frame < 60 * 60 && !countered; frame++) {
+      step(game, idle, DT);
+      countered = game.events.some(event => event.kind === 'sectorCounter');
+    }
+    expect(countered).toBe(true);
+    expect(game.sectors?.phase[0]).toBe('counter');
+
+    // one enemy every counterEvery, at the sector's land-side edge less counterBack
+    const spawns: { x: number; z: number }[] = [];
+    for (let frame = 0; frame < 60 * 10 && spawns.length < beach.counter; frame++) {
+      step(game, idle, DT);
+      for (const event of game.events) {
+        if (event.kind === 'sectorSpawn') spawns.push({ x: event.x, z: event.z });
+      }
+    }
+    expect(spawns).toHaveLength(beach.counter);
+    const z = beach.landZ - SECTOR_TUNE.counterBack;
+    for (const spawn of spawns) expect(spawn.z).toBeCloseTo(z);
+    const counterEnemies = game.enemies.filter(enemy => enemy.wave === 'counter-beach');
+    expect(counterEnemies).toHaveLength(beach.counter);
+    expect(game.sectors?.counterIds[0]).toHaveLength(beach.counter);
+
+    // with the counterattack still standing the sector is not stable; all down, it is
+    expect(game.sectors?.phase[0]).toBe('counter');
+    for (const enemy of counterEnemies) enemy.hp = 0;
+    step(game, idle, DT);
+    expect(game.events.some(event => event.kind === 'sectorStable' && event.sector === 'beach')).toBe(true);
+    expect(game.sectors?.phase[0]).toBe('stable');
   });
 
   test('a suspend brings the sectors and the waiting line back', () => {

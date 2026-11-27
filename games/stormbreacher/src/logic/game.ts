@@ -188,6 +188,9 @@ export type GameEvent =
   | { kind: 'battleShell'; x: number; z: number; shake: number } // a shell of the battle layer landed; the view draws it and shakes the camera
   | { kind: 'sectorCleared'; sector: SectorId } // a sector's enemies are all down; the infantry moves up to it (SB-2210)
   | { kind: 'sectorSecured'; sector: SectorId } // enough infantry has reached the sector's hold line; it is secured (SB-2210)
+  | { kind: 'sectorCounter'; sector: SectorId } // the sector's securing brought a counterattack (SB-2220)
+  | { kind: 'sectorSpawn'; sector: SectorId; x: number; z: number } // one counterattack enemy comes out here (SB-2220)
+  | { kind: 'sectorStable'; sector: SectorId; weak: boolean } // the counterattack is beaten off; the sector is stable (SB-2220)
   | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
   | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
@@ -1722,7 +1725,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
   if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
   if (game.sectors !== null) {
     if (!game.downed) {
-      for (const event of stepSectors(game.sectors, game)) {
+      for (const event of stepSectors(game.sectors, game, dt)) {
         game.events.push(event);
         if (event.kind === 'sectorCleared') {
           const sector = M1_SECTORS.find(entry => entry.id === event.sector);
@@ -1734,8 +1737,14 @@ function stepBattleLayer(game: GameModel, dt: number): void {
             }
           }
           queueRadio(game, 'm1.sector-cleared');
-        } else {
+        } else if (event.kind === 'sectorSecured') {
           queueRadio(game, 'm1.sector-secured');
+        } else if (event.kind === 'sectorCounter') {
+          queueRadio(game, 'm1.sector-counter');
+        } else if (event.kind === 'sectorSpawn') {
+          spawnSectorCounter(game, event);
+        } else {
+          queueRadio(game, event.weak ? 'm1.sector-weak' : 'm1.sector-stable');
         }
       }
     }
@@ -1762,6 +1771,21 @@ function stepBattleLayer(game: GameModel, dt: number): void {
   if (frame.shell !== null) {
     game.events.push({ kind: 'battleShell', x: frame.shell.x, z: frame.shell.z, shake: frame.shell.shake });
   }
+}
+
+// Puts out one enemy of a sector's counterattack (SB-2220): the sectors choose the point, the game makes the enemy as
+// a wave's own are made, awake from the start, and remembers its id so the sector knows when they are all down. The
+// wave's name is outside the mission's, so the script's `cleared` never waits on it.
+function spawnSectorCounter(game: GameModel, event: Extract<GameEvent, { kind: 'sectorSpawn' }>): void {
+  if (game.sectors === null) return;
+  const index = M1_SECTORS.findIndex(sector => sector.id === event.sector);
+  if (index < 0) return;
+  const wave = `counter-${event.sector}`;
+  const id = `${wave}-${game.sectors.counterIds[index].length + 1}`;
+  const enemy = newEnemy(id, wave, SECTOR_TUNE.counterKind, event.x, event.z);
+  enemy.awake = true;
+  game.enemies.push(enemy);
+  game.sectors.counterIds[index].push(id);
 }
 
 // The game's own frame, without the battle layer.
