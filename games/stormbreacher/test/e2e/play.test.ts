@@ -1,15 +1,15 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import * as THREE from 'three';
 import { el, t } from '@engine/core/index.ts';
 import { camera } from '@engine/render/index.ts';
 import { craftZ } from '../../src/data/craft.ts';
 import { LANDING_TUNE } from '../../src/data/landing.ts';
-import { currentGame, currentPlayView, startSortie } from '../../src/app/play.ts';
+import { currentGame, currentPlayView, cursorAim, startSortie } from '../../src/app/play.ts';
+import type { PlayRead } from '../../src/app/input.ts';
 import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
 import { sendToScript } from '../../src/logic/game.ts';
-import { aimRay } from '../../src/view/camera.ts';
+import { groundPoint, quarterPose } from '../../src/view/quarterCamera.ts';
 import { steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
@@ -87,18 +87,57 @@ test("the script's end shows the result", async () => {
   expect(el('#sbResultTime').textContent).toContain('0:');
 });
 
-test('the aim is the camera state with the feel shake taken out', async () => {
+test("the aim is the cursor's point on the ground, and the feel's shake does not move it", () => {
   startSortie();
   steps(1);
   sendToScript(game(), { kind: 'skip' });
   steps(1);
+  const current = game();
   const view = currentPlayView();
-  if (!view || view.cam === null) throw new Error('the sortie has no camera');
-  // a big shake moves the camera the screen draws, but the reticle and the shots keep the state's line
-  view.feel.shake = 1;
-  steps(1);
-  expect(view.aim).toEqual(aimRay(view.cam));
-  const origin = new THREE.Vector3(view.aim.ox, view.aim.oy, view.aim.oz);
-  expect(origin.distanceTo(view.cam.pos)).toBe(0);
-  expect(camera.position.distanceTo(origin)).toBeGreaterThan(1e-3);
+  if (!view) throw new Error('the sortie has no view');
+  // The quarter camera keeps no third-person state: the aim is the ground point under the cursor. The mech is left
+  // standing, and the lens is put at its place in one frame, so the ground point can be worked out from the tune alone.
+  expect(view.aim).toBeUndefined();
+  const tune = view.quarter.tune;
+  const lag = tune.lag;
+  tune.lag = 0;
+  try {
+    steps(1);
+    const aspect = window.innerWidth / window.innerHeight;
+    const aimAt = (cursor: { x: number; y: number }) => {
+      // cursorAim reads only the cursor from the frame's read
+      const aim = cursorAim(current, view, { cursor } as unknown as PlayRead);
+      if (aim.aimAt === undefined) throw new Error('the cursor gave no point on the ground');
+      return aim.aimAt;
+    };
+    const groundAt = (cursor: { x: number; y: number }) => {
+      const pose = quarterPose({ x: current.mech.x, y: current.mech.y, z: current.mech.z }, tune);
+      const point = groundPoint(pose, tune.fov, aspect, cursor, current.mech.y);
+      if (point === null) throw new Error('the cursor looked above the horizon');
+      return point;
+    };
+
+    // the point under the middle of the screen, from the camera's place and not the drawn (shaken) camera
+    const middle = aimAt({ x: 0, y: 0 });
+    const middleGround = groundAt({ x: 0, y: 0 });
+    expect(middle.x).toBeCloseTo(middleGround.x, 6);
+    expect(middle.z).toBeCloseTo(middleGround.z, 6);
+
+    // a shake moves the drawn camera, but not the point the shot is aimed at
+    view.feel.shake = 1;
+    steps(1);
+    expect(camera.position.distanceTo(view.quarter.pose!.pos)).toBeGreaterThan(0.1);
+    const shaken = aimAt({ x: 0, y: 0 });
+    expect(shaken.x).toBeCloseTo(middle.x, 9);
+    expect(shaken.z).toBeCloseTo(middle.z, 9);
+
+    // and moving the cursor moves the point: the aim is the cursor's, not the camera's line
+    const right = aimAt({ x: 0.5, y: 0 });
+    const rightGround = groundAt({ x: 0.5, y: 0 });
+    expect(right.x).toBeCloseTo(rightGround.x, 6);
+    expect(right.z).toBeCloseTo(rightGround.z, 6);
+    expect(Math.hypot(right.x - middle.x, right.z - middle.z)).toBeGreaterThan(1);
+  } finally {
+    tune.lag = lag;
+  }
 });

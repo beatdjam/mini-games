@@ -3,7 +3,6 @@ import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { renderer, scene } from '@engine/render/index.ts';
 
-import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { boot } from '../../src/app/boot.ts';
@@ -19,8 +18,6 @@ beforeAll(async () => {
   boot();
 });
 
-const SNAP_SPEED = 1e6; // m/s: the ease's cap while a test puts the camera in its place, high enough to count as no cap
-
 // The meshes the sortie's mech is drawn with: the skinned meshes of the 'mech-proto' group in the sortie's scene.
 function mechMeshes(): THREE.SkinnedMesh[] {
   const meshes: THREE.SkinnedMesh[] = [];
@@ -30,8 +27,6 @@ function mechMeshes(): THREE.SkinnedMesh[] {
   });
   return meshes;
 }
-
-const opacities = (): number[] => mechMeshes().map(mesh => (mesh.material as THREE.Material).opacity);
 
 test('a sortie draws the mech as one skinned mesh per material, with no stand-in boxes', async () => {
   startSortie();
@@ -59,39 +54,6 @@ test('a sortie draws the mech as one skinned mesh per material, with no stand-in
   const game = currentGame()!;
   expect(group.position.x).toBe(game.mech.x);
   expect(group.position.z).toBe(game.mech.z);
-});
-
-test('the mech turns see-through while the camera is near its chest, and solid again when it moves away', async () => {
-  startSortie();
-  steps(1);
-  // the landing cutscene holds its own camera and the mech is on the ramp, so the test starts past it
-  sendToScript(currentGame()!, { kind: 'skip' });
-  steps(1);
-  expect(opacities().every(opacity => opacity === 1)).toBe(true);
-  const { dist, lag, pullSpeed, returnSpeed, returnLag, returnDelay } = CAMERA_TUNE;
-  try {
-    CAMERA_TUNE.dist = 0.5;
-    CAMERA_TUNE.lag = 0; // the camera reaches its place in one frame
-    // SB-1910 caps how fast a wall brings the camera in, so the test takes the caps off as shots/wall-close.shots.ts does
-    CAMERA_TUNE.pullSpeed = SNAP_SPEED;
-    CAMERA_TUNE.returnSpeed = SNAP_SPEED;
-    CAMERA_TUNE.returnLag = 0;
-    CAMERA_TUNE.returnDelay = 0;
-    steps(2);
-    expect(opacities().every(opacity => opacity === MECH_TUNE.fadeOpacity)).toBe(true);
-    expect(mechMeshes().every(mesh => (mesh.material as THREE.Material).transparent)).toBe(true);
-    CAMERA_TUNE.dist = dist;
-    steps(2);
-    expect(opacities().every(opacity => opacity === 1)).toBe(true);
-    expect(mechMeshes().every(mesh => !(mesh.material as THREE.Material).transparent)).toBe(true);
-  } finally {
-    CAMERA_TUNE.dist = dist;
-    CAMERA_TUNE.lag = lag;
-    CAMERA_TUNE.pullSpeed = pullSpeed;
-    CAMERA_TUNE.returnSpeed = returnSpeed;
-    CAMERA_TUNE.returnLag = returnLag;
-    CAMERA_TUNE.returnDelay = returnDelay;
-  }
 });
 
 test('#view-mech pattern e keeps its parts and colours', () => {

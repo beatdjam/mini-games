@@ -60,6 +60,7 @@ const isFcsKind = (value: string): value is FcsKind => (FCS_KINDS as readonly st
 function tuneFrom(params: URLSearchParams, kind: FcsKind): FcsTune {
   const tune: FcsTune = { ...FCS_TUNE[kind] };
   for (const key of Object.keys(tune) as (keyof FcsTune)[]) {
+    if (key === 'flat') continue; // a flag, not a number
     const value = params.get(key);
     if (value === null || value.trim() === '') continue;
     const n = Number(value);

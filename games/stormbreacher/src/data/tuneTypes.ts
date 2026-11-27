@@ -18,8 +18,21 @@ export type MoveTune = {
   boostLift: number; // the upward acceleration while boosting in the air (m/s^2); 0 falls while moving forward
   landStop: number; // how long a landing stops the mech from walking (s)
   turn: number; // how fast the turn keys change the yaw (rad/s)
+  faceRate: number; // how fast the mech turns toward the point it is aimed at (rad/s)
   maxStep: number; // the longest step a frame is split into (s)
 };
+
+// The fixed-azimuth overview camera's values (D-50). `azimuth` is the direction the screen's up side points, with the
+// mech's yaw's convention (0 faces -z and grows turning left).
+export interface QuarterTune {
+  azimuth: number; // the direction the top of the screen points (rad)
+  height: number; // the camera's height above the look point (m)
+  back: number; // the camera's horizontal distance behind the look point, toward the bottom of the screen (m)
+  lead: number; // how far the look point moves from the mech toward the top of the screen (m)
+  lookHeight: number; // the look point's height above the mech's feet (m)
+  fov: number; // the vertical field of view (deg)
+  lag: number; // the time constant for the camera to reach its target pose (s); 0 means no lag
+}
 
 export interface CameraTune {
   dist: number; // the camera's horizontal distance from the look point (m)
@@ -57,12 +70,13 @@ export interface CameraTune {
 }
 
 // The three ways the aim assist (FCS) may work (SB-060). `manual` does nothing, `soft` pulls the shot toward the
-// nearest target in the aim circle, and `hard` locks a target after a short wait and follows it.
+// nearest target in the soft-lock cone, and `hard` locks a target after a short wait and follows it.
 export type FcsKind = 'manual' | 'soft' | 'hard';
 
 // One FCS's values. Angles are degrees, `range` is m, `pull` and `trackRate` are degrees a second, `lockTime` is s.
 export interface FcsTune {
-  cone: number; // the aim circle's half-angle (deg); soft and hard use it, manual does not
+  flat?: boolean; // true: measure the circle's angle and range on the level (x and z only), for the top-down camera; left out means 3D
+  cone: number; // the soft-lock cone's half-angle (deg); soft and hard use it, manual does not
   range: number; // the farthest a target may be from the mech's chest (m); every kind uses it
   spread: number; // how far a shot drifts inside its cone (deg); every kind uses it
   nearRange: number; // the distance inside which a target is aimed at directly and the spread shrinks (m)

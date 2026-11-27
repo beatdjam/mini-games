@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { mergeInput } from '../../src/logic/input.ts';
+import { cursorAimInput, jumpReading, mergeInput, playInputOptions, withoutJump } from '../../src/logic/input.ts';
 import type { MechInput } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -35,4 +35,28 @@ test('the fire is on when either side fires', () => {
   expect(mergeInput(input({ fire: true }), idle).fire).toBe(true);
   expect(mergeInput(idle, input({ fire: true })).fire).toBe(true);
   expect(mergeInput(idle, idle).fire).toBe(false);
+});
+
+test('withoutJump drops the jump and leaves the rest of the input alone', () => {
+  const merged = mergeInput(input({ jump: true, jumpHeld: true, moveZ: 1, boost: true }), idle);
+  const noJump = withoutJump(merged);
+  expect(noJump.jump).toBe(false);
+  expect(noJump.jumpHeld).toBe(false);
+  expect(noJump.moveZ).toBe(1);
+  expect(noJump.boost).toBe(true);
+});
+
+test('the main body and the arena start the play input with no jump', () => {
+  const options = playInputOptions();
+  expect(options).toEqual({ cursor: true, jump: false });
+  expect(jumpReading(options)).toBe(false);
+  // the dev views call initPlayInput with no options and keep the jump
+  expect(jumpReading({})).toBe(true);
+  expect(jumpReading({ jump: true })).toBe(true);
+});
+
+test('the cursor aims at its point and holds the yaw without one', () => {
+  const at = { x: 3, z: -4 };
+  expect(cursorAimInput(at, 1.2)).toEqual({ aimAt: at });
+  expect(cursorAimInput(null, 1.2)).toEqual({ face: 1.2 });
 });

@@ -2,9 +2,11 @@
 // the game and the view by hand, as #view-fx's test does, so the test needs no frame timing.
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { runSystems } from '@engine/core/index.ts';
+import * as THREE from 'three';
+import { el, runSystems } from '@engine/core/index.ts';
+import { camera } from '@engine/render/index.ts';
 import { boot } from '../../src/app/boot.ts';
-import { MECH_TUNE } from '../../src/data/tune.ts';
+import { MECH_TUNE, QUARTER_TUNE } from '../../src/data/tune.ts';
 import { currentArenaGame, showArena } from '../../src/dev/views/arena.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
@@ -27,18 +29,38 @@ test('#view-arena opens, fights a group and puts the next one out when it falls'
   const first = arena.enemies.filter(enemy => enemy.hp > 0);
   expect(first).toHaveLength(1);
   const enemy = first[0];
-  // Stand it straight ahead, clear of the cover, so the soft FCS has an easy line and the test is about the arena,
-  // not about aiming.
-  enemy.x = arena.mech.x - 40;
-  enemy.z = arena.mech.z;
+  // Put it on open ground the cursor can name: it stands toward the screen's top, a little to its right, clear of the
+  // blocks. The arena aims with the cursor's ground point (FCS_QUARTER), not with the mech's facing.
+  const upX = -Math.sin(QUARTER_TUNE.azimuth);
+  const upZ = -Math.cos(QUARTER_TUNE.azimuth);
+  const rightX = -upZ;
+  const rightZ = upX;
+  const spot = { x: arena.mech.x + upX * 15 + rightX * 3, z: arena.mech.z + upZ * 15 + rightZ * 3 };
+  enemy.x = spot.x;
+  enemy.z = spot.z;
   enemy.y = 0;
-  arena.mech.yaw = Math.PI / 2;
+  // The cursor is put on the enemy's own ground point: the screen draw's camera maps that point back to it.
+  camera.updateMatrixWorld();
+  const aimed = new THREE.Vector3(enemy.x, arena.mech.y, enemy.z).project(camera);
+  expect(Math.abs(aimed.x)).toBeLessThan(1);
+  expect(Math.abs(aimed.y)).toBeLessThan(1);
+  const rect = el('#gl').getBoundingClientRect();
+  window.dispatchEvent(
+    new MouseEvent('mousemove', {
+      clientX: rect.left + ((aimed.x + 1) / 2) * rect.width,
+      clientY: rect.top + ((1 - aimed.y) / 2) * rect.height,
+      bubbles: true,
+    }),
+  );
   const before = enemy.hp;
 
   window.dispatchEvent(key('keydown', 'KeyJ'));
   try {
     for (let i = 0; i < 60 * 8 && arena.enemies.some(other => other.hp > 0); i++) {
-      arena.mech.yaw = Math.PI / 2;
+      // the enemy is held where the cursor names, as the old test held the mech's facing on it
+      enemy.x = spot.x;
+      enemy.z = spot.z;
+      enemy.y = 0;
       runSystems(1 / 60);
     }
   } finally {
@@ -67,27 +89,25 @@ test('#view-arena opens, fights a group and puts the next one out when it falls'
   expect(arena.armor).toBe(MECH_TUNE.armor);
 
   // The sortie's craft lane is the one way past the map's front edge; the arena has no craft, so a mech boosting straight
-  // at any edge, the front (+z) one through the lane included, must stop where the sand ends.
+  // at any edge, the front (+z) one through the lane included, must stop where the sand ends. The quarter camera moves the
+  // mech with the screen's frame (W is the screen's top), so a world edge takes the two keys at either side of it.
   const { minX, maxX, minZ, maxZ } = arena.map.bounds;
   const radius = MECH_TUNE.radius;
   const edges = [
-    { name: '+z', x: 0, z: maxZ - 6, yaw: Math.PI },
-    { name: '-z', x: 0, z: minZ + 6, yaw: 0 },
-    { name: '+x', x: maxX - 6, z: 0, yaw: -Math.PI / 2 },
-    { name: '-x', x: minX + 6, z: 0, yaw: Math.PI / 2 },
+    { name: '+z', x: 0, z: maxZ - 6, keys: ['KeyS', 'KeyA'] },
+    { name: '-z', x: 0, z: minZ + 6, keys: ['KeyW', 'KeyD'] },
+    { name: '+x', x: maxX - 6, z: 0, keys: ['KeyS', 'KeyD'] },
+    { name: '-x', x: minX + 6, z: 0, keys: ['KeyW', 'KeyA'] },
   ];
   for (const edge of edges) {
     arena.mech.x = edge.x;
     arena.mech.z = edge.z;
-    window.dispatchEvent(key('keydown', 'KeyW'));
+    for (const code of edge.keys) window.dispatchEvent(key('keydown', code));
     window.dispatchEvent(key('keydown', 'ShiftLeft'));
     try {
-      for (let i = 0; i < 90; i++) {
-        arena.mech.yaw = edge.yaw;
-        runSystems(1 / 60);
-      }
+      for (let i = 0; i < 90; i++) runSystems(1 / 60);
     } finally {
-      window.dispatchEvent(key('keyup', 'KeyW'));
+      for (const code of edge.keys) window.dispatchEvent(key('keyup', code));
       window.dispatchEvent(key('keyup', 'ShiftLeft'));
     }
     const { x, z } = arena.mech;

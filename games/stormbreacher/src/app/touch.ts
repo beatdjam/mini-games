@@ -52,6 +52,7 @@ let lookId: number | null = null; // the finger the engine's view drag took
 let lastLookAt = -Infinity; // when the view last moved (ms, performance.now)
 let jumpPressed = false; // went down since the last readTouch
 let jumpHeld = false; // the jump button is held
+let jumpEnabled = true; // the main body and the arena take no jump (D-50); the dev views keep it
 let boostHeld = false;
 let useHeld = false; // the use button is held
 let meleeHeld = false; // the melee button is held
@@ -143,9 +144,11 @@ function bindHold(btn: HTMLElement, onHold: (down: boolean) => void, onDown?: ()
 }
 
 // `show` false keeps #touch hidden (a PC): the buttons are still laid out, but the keyboard and mouse do the work.
-export function initTouch(options: { show?: boolean } = {}) {
+// `jump` false leaves the jump button dead: the main body and the arena take no jump (D-50).
+export function initTouch(options: { show?: boolean; jump?: boolean } = {}) {
   if (touchReady) return;
   touchReady = true;
+  jumpEnabled = options.jump !== false;
   initInput({ touch: el('#touch'), fire: el('#btnFire'), fire2: el('#btnFire2') });
   edits = loadTouchEdits();
   TOUCH_LAYOUT.defs = touchDefs();
@@ -193,10 +196,10 @@ export function initTouch(options: { show?: boolean } = {}) {
   bindHold(
     el('#btnJump'),
     down => {
-      jumpHeld = down;
+      jumpHeld = jumpEnabled && down;
     },
     () => {
-      jumpPressed = true;
+      if (jumpEnabled) jumpPressed = true;
     },
   );
   tapBtn(el('#btnLock'), () => {
@@ -237,8 +240,8 @@ export function readTouch(): TouchRead {
     moveX: joy.x,
     moveZ: -joy.y, // the stick up is forward
     turn: yawDelta,
-    jump: jumpPressed,
-    jumpHeld,
+    jump: jumpEnabled && jumpPressed,
+    jumpHeld: jumpEnabled && jumpHeld,
     boost: boostHeld,
     fire: fireHeld,
   };

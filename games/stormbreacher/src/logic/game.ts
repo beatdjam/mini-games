@@ -2,7 +2,7 @@
 // the props that break, the enemies, the weapons, the mech's fist, the shots in flight, the mission script and the
 // frame's events.
 // Nothing here reads three or the DOM, so a test runs it in node without a page. The mech's shot is a bullet that flies
-// at its weapon's speed (data/weapons.ts) from the mech's chest toward the camera's aim, drawn toward a target or an
+// at its weapon's speed (data/weapons.ts) from the mech's chest toward the aim line, drawn toward a target or an
 // enemy in the aim circle by the soft FCS (fcs.ts) and spread a little by a random draw. It stops at the first prop it
 // meets, at the first target or living enemy along its path or at the ground, whichever is nearest, and vanishes at its
 // range; a breakable prop takes the damage and breaks at 0. An enemy's shot (logic/enemies.ts) flies at its kind's
@@ -36,7 +36,8 @@ import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
-import { BLAST_FACE_TUNE, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
+import type { FcsTune } from '../data/tuneTypes.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
@@ -446,11 +447,12 @@ function muzzleOf(mech: MechState): { x: number; y: number; z: number } {
   };
 }
 
-// One shot from the muzzle toward `dir`, spread by a random draw at `dist` m: a bullet with `weapon`'s range to fly.
-function shoot(game: GameModel, weapon: WeaponId, dir: Dir3, dist: number): void {
+// One shot from the muzzle toward `dir`, spread by a random draw at `dist` m with `tune`: a bullet with `weapon`'s range
+// to fly.
+function shoot(game: GameModel, weapon: WeaponId, dir: Dir3, dist: number, tune: FcsTune): void {
   const def = WEAPONS[weapon];
   const { x, y, z } = muzzleOf(game.mech);
-  const aimed = spreadDir(dir, spreadFor(dist, FCS_TUNE.soft), stream('shots'));
+  const aimed = spreadDir(dir, spreadFor(dist, tune), stream('shots'));
   game.bullets.push({ weapon, x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, left: def.range });
   game.events.push({ kind: 'shot', x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, weapon });
 }
@@ -1574,11 +1576,45 @@ function stepAssist(game: GameModel, dt: number): void {
   damageEnemy(game, enemy, enemy.hp);
 }
 
-// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the camera's aim,
-// the use key (planting a charge; left out where there is none, so the old test inputs need no change) and the fist.
+// How near the mech an aim point is too close to turn toward (m): a point under its feet would spin it every frame.
+const AIM_MIN_DIST = 0.9;
+
+// The yaw that faces from the mech toward `aim` (0 faces -z), or undefined with no point or one too near to turn toward.
+function faceTo(mech: { x: number; z: number }, aim: { x: number; z: number } | undefined): number | undefined {
+  if (aim === undefined || distXZ(mech, aim) < AIM_MIN_DIST) return undefined;
+  return Math.atan2(-(aim.x - mech.x), -(aim.z - mech.z));
+}
+
+// The chest's level aim toward the point, or along the mech's yaw when there is no point or it is too near to turn
+// toward.
+function levelAim(
+  mech: { x: number; z: number; yaw: number },
+  chest: { x: number; y: number; z: number },
+  aim: { x: number; z: number } | undefined,
+): Ray3 {
+  let dx = -Math.sin(mech.yaw);
+  let dz = -Math.cos(mech.yaw);
+  if (aim !== undefined && distXZ(mech, aim) >= AIM_MIN_DIST) {
+    const length = Math.hypot(aim.x - chest.x, aim.z - chest.z);
+    if (length > 1e-9) {
+      dx = (aim.x - chest.x) / length;
+      dz = (aim.z - chest.z) / length;
+    }
+  }
+  return { ox: chest.x, oy: chest.y, oz: chest.z, dx, dy: 0, dz };
+}
+
+// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the aim line,
+// the point on the ground the player points at, the use key (planting a charge; left out where there is none, so the old
+// test inputs need no change) and the fist.
 export interface GameInput extends MechInput {
   sub: boolean;
-  aim?: Ray3; // the camera's line through the middle of the screen; without it, level from the chest along the mech's yaw
+  // The aim line: the third-person camera's line through the middle of the screen for the dev views. The main body and
+  // the arena pass none and aim with `aimAt`; with neither, the line is level from the chest along the mech's yaw.
+  aim?: Ray3;
+  // The point the player points at, on the mech's feet plane (world, m): the mech turns toward it and the aim line is
+  // level from the chest to it.
+  aimAt?: { x: number; z: number };
   use?: boolean;
   melee?: boolean;
 }
@@ -1623,7 +1659,10 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   // Use plants a charge: while it is held the mech does not shoot, so a charge and a shot cannot be asked for together.
   const use = input.use === true && game.script.cutscene === null;
-  const held = use ? { ...input, fire: false, sub: false, melee: false } : input;
+  // A point the player aims at turns the mech toward it (a face already given wins), and the held input keeps it too.
+  const face = input.face ?? faceTo(game.mech, input.aimAt);
+  const faced = face === undefined ? input : { ...input, face };
+  const held = use ? { ...faced, fire: false, sub: false, melee: false } : faced;
   game.time += span;
   const moveTune = moveTuneOf(M1_MECH);
   const radius = MECH_TUNE.radius;
@@ -1672,15 +1711,10 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     if (game.mech.vz > 0) game.mech.vz = 0;
   }
   for (const event of events) game.events.push({ kind: 'mech', event });
+  // The face comes from the mech before the step and this line from the chest after it, so a fast move shifts the aim by
+  // one frame.
   const chest = { x: game.mech.x, y: game.mech.y + MECH_TUNE.chestHeight, z: game.mech.z };
-  const aim: Ray3 = input.aim ?? {
-    ox: chest.x,
-    oy: chest.y,
-    oz: chest.z,
-    dx: -Math.sin(game.mech.yaw),
-    dy: 0,
-    dz: -Math.cos(game.mech.yaw),
-  };
+  const aim: Ray3 = input.aim ?? levelAim(game.mech, chest, input.aimAt);
   // The aim line stops at the first prop, standing target, live enemy or the ground; a shot goes there from the muzzle.
   const world: FcsWorld = {
     boxes: [
@@ -1690,12 +1724,15 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     ],
     groundY: 0,
   };
-  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, muzzleOf(game.mech), fcsTargets(game, chest), span, world);
+  // The cursor's ground point on the top-down camera gets the wider, level values; the inputs without it (touch, bots,
+  // tests) keep the third-person soft values.
+  const fcsTune = input.aimAt === undefined ? FCS_TUNE.soft : FCS_QUARTER;
+  const fcs = stepFcs(game.fcs, 'soft', fcsTune, aim, muzzleOf(game.mech), fcsTargets(game, chest), span, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
   const mainShots = stepWeapon(game.main, held.fire, span);
   const subShots = stepWeapon(game.sub, held.sub, span);
-  for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir, fcs.shotDist);
-  for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir, fcs.shotDist);
+  for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir, fcs.shotDist, fcsTune);
+  for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir, fcs.shotDist, fcsTune);
   stepEnemies(game, span);
   stepPillboxes(game, span);
   stepBattery(game, span);

@@ -1,5 +1,5 @@
 // The aim assist (FCS) of the three kinds (SB-060): the aim line of the camera, the mech's chest and the targets go
-// in; the direction a shot flies, the lock and the targets in the aim circle come out. No three and no DOM, so a node
+// in; the direction a shot flies, the lock and the targets in the soft-lock cone come out. No three and no DOM, so a node
 // test can run it. Angles in the tables are degrees; everything here turns them into radians as it needs.
 // A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 import type { Rng } from '@engine/core/index.ts';
@@ -43,7 +43,7 @@ export interface FcsStep {
   shotDist: number; // how far the shot is aimed from the muzzle (m)
   lockId: number | null;
   candidateId: number | null;
-  inCone: number[]; // the indices of the targets in the aim circle
+  inCone: number[]; // the indices of the targets in the soft-lock cone
   lockProgress: number; // the seconds toward lockTime (for the reticle's arc)
 }
 
@@ -181,7 +181,7 @@ export function spreadFor(dist: number, tune: FcsTune): number {
   return tune.spread * (tune.nearSpread + (1 - tune.nearSpread) * t);
 }
 
-// The indices (and the nearest by angle) of the alive targets inside the aim circle and within range.
+// The indices (and the nearest by angle) of the alive targets inside the soft-lock cone and within range.
 function circleTargets(
   aim: Ray3,
   chest: { x: number; y: number; z: number },
@@ -194,8 +194,15 @@ function circleTargets(
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
     if (!target.alive || target.lockable === false) continue;
-    if (distance(target.cx, target.cy, target.cz, chest.x, chest.y, chest.z) > tune.range) continue;
-    const angle = angleDeg(aim.dx, aim.dy, aim.dz, target.cx - aim.ox, target.cy - aim.oy, target.cz - aim.oz);
+    // A flat tune measures the circle on the level (x and z only), so a target up steps is judged by its ground bearing;
+    // every other tune, and the near aim below, stays in 3D.
+    const reach = tune.flat
+      ? Math.hypot(target.cx - chest.x, target.cz - chest.z)
+      : distance(target.cx, target.cy, target.cz, chest.x, chest.y, chest.z);
+    if (reach > tune.range) continue;
+    const angle = tune.flat
+      ? angleDeg(aim.dx, 0, aim.dz, target.cx - aim.ox, 0, target.cz - aim.oz)
+      : angleDeg(aim.dx, aim.dy, aim.dz, target.cx - aim.ox, target.cy - aim.oy, target.cz - aim.oz);
     if (angle > tune.cone) continue;
     inCone.push(i);
     if (angle < nearestAngle) {

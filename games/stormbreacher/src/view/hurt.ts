@@ -133,15 +133,17 @@ export function buildHurtView(parent: HTMLElement): HurtView {
 }
 
 // Lights the edge the shot came from. (fromX, fromZ) is the way from the mech toward the shooter, as the `damaged`
-// event carries it; a second hit on the same direction starts its fade again.
+// event carries it; `yaw` is the mech's own, unless the caller passes `viewYaw` (the fixed screen's azimuth), so the
+// edge turns with the screen where the camera does. A second hit on the same direction starts its fade again.
 export function hurtDamage(
   view: HurtView,
   fromX: number,
   fromZ: number,
   yaw: number,
+  viewYaw?: number,
   tune: HurtTune = HURT_TUNE,
 ): void {
-  view.edgeLeft[hurtEdge(hurtAngle(fromX, fromZ, yaw))] = tune.edgeFade;
+  view.edgeLeft[hurtEdge(hurtAngle(fromX, fromZ, viewYaw ?? yaw))] = tune.edgeFade;
 }
 
 // Whitenesses the screen for a blast at (x, z): the closer it is, the stronger the white, and a blast past

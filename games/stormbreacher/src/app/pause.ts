@@ -4,6 +4,7 @@
 import { el } from '@engine/core/index.ts';
 import { exitLock, requestLock } from '@engine/ui/index.ts';
 import { PAUSE_KEYS } from '../data/keys.ts';
+import { cursorPlay } from './input.ts';
 import { clearPendingJump } from './keyboard.ts';
 import { setState, state } from './screen.ts';
 import { requestSkip, takeSkip } from './skip.ts';
@@ -78,7 +79,8 @@ export function initPause(given: PauseHooks): void {
   window.addEventListener('keydown', onKey);
   // Esc while the pointer is locked is taken by the browser to release it, and no keydown comes; the release is the pause
   // outside a cutscene. In one it is the skip first (SPEC: Esc in a cutscene skips before it pauses), so the release
-  // asks to skip and does not open the menu.
+  // asks to skip and does not open the menu. The main body and the arena keep the cursor free, so no lock is released
+  // there and this never runs; their Esc comes to onKey as a keydown.
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement || state !== 'play') return;
     if (hooks?.inCutscene()) requestSkip();
@@ -90,7 +92,8 @@ export function initPause(given: PauseHooks): void {
   });
   el('#sbPauseResume').addEventListener('click', () => {
     resume();
-    requestLock();
+    // the main body and the arena keep the cursor free, so there is no lock to take back
+    if (!cursorPlay()) requestLock();
   });
   el('#sbPauseSuspend').addEventListener('click', () => given.suspend());
   el('#sbPauseAbandon').addEventListener('click', () => {

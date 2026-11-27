@@ -213,12 +213,13 @@ export function fillArcGauge(node: HTMLElement, options: ArcGaugeOptions): { set
   };
 }
 
-// The dot at the screen's centre and the aim circle around it.
+// The dot at the screen's centre and the aim circle around it. The classes let the game move the dot and hide the ring.
 export function reticleSvg(): SVGSVGElement {
   const root = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
-  root.appendChild(svg('circle', { cx: '50%', cy: '50%', r: DOT_RADIUS, fill: HUD_COLOR.dot }));
+  root.appendChild(svg('circle', { class: 'sb-ret-dot', cx: '50%', cy: '50%', r: DOT_RADIUS, fill: HUD_COLOR.dot }));
   root.appendChild(
     svg('circle', {
+      class: 'sb-ret-ring',
       cx: '50%',
       cy: '50%',
       r: ringRadius(window.innerHeight),
@@ -228,6 +229,14 @@ export function reticleSvg(): SVGSVGElement {
     }),
   );
   return root;
+}
+
+// The reticle's dot as percentages of its box, from the cursor's normalized point (-1 to 1, + up): the box's centre is
+// 0. null puts the dot at the centre.
+export function reticleAt(cursor: { x: number; y: number } | null): { left: string; top: string } {
+  const x = cursor?.x ?? 0;
+  const y = cursor?.y ?? 0;
+  return { left: `${((x + 1) / 2) * 100}%`, top: `${((1 - y) / 2) * 100}%` };
 }
 
 const LOCK_ARM = 10; // px; the length of each corner's arm

@@ -1,7 +1,7 @@
 import type { GaitKind } from './mech.ts';
-import type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
+import type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
 
-export type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
+export type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
 
 // Named values for the empty field: the ground, the fog, the camera and the box that shows a mech's size.
 export const FIELD_TUNE = {
@@ -30,6 +30,18 @@ export const MECH_TUNE = {
 // stands the fire on it. The radius is the mech's own, so only a face the mech itself could stand on lifts a blast.
 export const BLAST_FACE_TUNE = {
   maxHeight: 6.5, // the highest face a blast is put on (m); the seawall and a ramp's high end are 6 m
+};
+
+// The overview camera's starting values (D-50): a fixed azimuth, looking down at the mech and the ground ahead. The
+// values come from the 3D view mock (a mech about 2.6 m tall), scaled by 1.5 for the sortie's 4 m mech.
+export const QUARTER_TUNE: QuarterTune = {
+  azimuth: Math.PI / 4, // rad; the screen's top runs toward -x and -z, so -z (the way the mech faces at yaw 0) is up-right
+  height: 25, // m; the camera's height above the look point (about 51 degrees down)
+  back: 20, // m; the camera's horizontal distance behind the look point
+  lead: 3.75, // m; how far the look point moves from the mech toward the screen's top
+  lookHeight: 1.2, // m; the look point's height above the mech's feet
+  fov: 58, // deg; the vertical field of view
+  lag: 0.23, // s; the time constant for following the mech; 0 means no lag
 };
 
 // The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.
@@ -86,6 +98,7 @@ export const MOVE_TUNE: MoveTune = {
   boostLift: 0, // the upward acceleration while boosting in the air (m/s^2); 0 falls while moving forward
   landStop: 0.12, // how long a landing stops the mech from walking (s)
   turn: 2.6, // how fast the turn keys change the yaw (rad/s)
+  faceRate: 30, // how fast the mech turns toward the point it is aimed at (rad/s); 0.5 rad a frame at 60 fps
   maxStep: 1 / 120, // the longest step a frame is split into (s)
 };
 
@@ -172,6 +185,22 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
     trackRate: 90,
     breakCone: 20,
   },
+};
+
+// The soft values the body and the arena use while the player aims with the cursor on the top-down camera (SB-2120): a
+// wider circle measured on the level that reaches about as far as the screen shows, pulled in almost at once. Kept out of
+// FCS_TUNE, which stays keyed by the three kinds.
+export const FCS_QUARTER: FcsTune = {
+  flat: true,
+  cone: 20,
+  range: 45,
+  spread: 0.8,
+  nearRange: 12,
+  nearSpread: 0.25,
+  pull: 720,
+  lockTime: 0,
+  trackRate: 0,
+  breakCone: 0,
 };
 
 // The HUD's values (SB-160). All provisional.

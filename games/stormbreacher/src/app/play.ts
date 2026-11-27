@@ -7,6 +7,7 @@ import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
+import { playInputOptions } from '../logic/input.ts';
 import {
   newGame,
   restartGame,
@@ -14,6 +15,7 @@ import {
   sendToScript,
   step,
   timeScale,
+  type GameInput,
   type GameModel,
 } from '../logic/game.ts';
 import { recordClear } from '../logic/save.ts';
@@ -27,18 +29,18 @@ import { removeEnemyView } from '../view/enemies.ts';
 import { removeGunfireView } from '../view/gunfire.ts';
 import { removeHazardView } from '../view/hazards.ts';
 import { removeHurtView } from '../view/hurt.ts';
-import { removeHud } from '../view/hud.ts';
+import { placeReticle, removeHud } from '../view/hud.ts';
 import { disposeProtoMech } from '../view/mechProtoModel.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { applyMarkerQuery } from '../data/marker.ts';
-import { buildPlayView, drawPlay, removeWardenChargeView, type PlayView } from '../view/play.ts';
+import { aimPointOf, buildPlayView, drawPlay, removeWardenChargeView, type PlayView } from '../view/play.ts';
 import { resetSound, soundFrame } from '../view/sound.ts';
 import { openBriefing } from './briefing.ts';
 import { clearSuspend, loadSuspend, save, writeSave, writeSuspend } from './storage.ts';
-import { initPlayInput, readInput } from './input.ts';
+import { cursorAimInput, holdMouseFireUntilRelease, initPlayInput, readInput, type PlayRead } from './input.ts';
 import { hidePause, initPause, showPauseButton } from './pause.ts';
 import { setState } from './screen.ts';
-import { armSkip, takeSkip } from './skip.ts';
+import { armSkip, skipFromPointer, takeSkip } from './skip.ts';
 import { releaseTouch } from './touch.ts';
 
 let game: GameModel | null = null; // the sortie in play; null before the first one
@@ -46,6 +48,20 @@ let view: PlayView | null = null;
 let settled: { game: GameModel; payout: Payout } | null = null; // the clear already written to the save, so a second showResult adds nothing
 let confirmingStart = false; // the title's start button asked whether to discard the suspended sortie, and waits for the second press
 let started = false; // the play system and the result's button are set up once
+
+// The movement frame and the ground point a PC adds to a step: WASD moves with the screen's top (the quarter camera's
+// azimuth) and the mech faces the ground under the cursor at its feet (the middle of the screen until the mouse moves).
+// With no point (the first frame, or the top edge above the horizon) the current yaw is held, so the turn keys do not take
+// the aim over. The touch screen keeps its own movement, so it adds nothing. The arena calls this too.
+export function cursorAim(
+  game: GameModel,
+  view: PlayView,
+  read: PlayRead,
+): Pick<GameInput, 'frame' | 'aimAt' | 'face'> {
+  if (isTouch) return {};
+  const at = aimPointOf(view, read.cursor ?? { x: 0, y: 0 }, game.mech.y);
+  return { frame: view.quarter.tune.azimuth, ...cursorAimInput(at, game.mech.yaw) };
+}
 
 // Hides the start-up field's ground and size box; the sortie's map takes their place.
 function hideField(): void {
@@ -104,9 +120,11 @@ function beginPlay(next: GameModel): void {
   // `?marker=dim|map|next` picks how the blast points' lights show (SB-2022)
   applyMarkerQuery(location.search);
   view = buildPlayView(game);
-  initPlayInput();
+  initPlayInput(playInputOptions());
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
   el('#touch').hidden = !isTouch;
+  // the main body takes no jump (D-50), so its touch layer has no jump button
+  el('#btnJump').hidden = true;
   touchCovered = false;
   hidePause();
   showPauseButton(true);
@@ -232,9 +250,11 @@ function hideTouchInCutscene(inCutscene: boolean): void {
 function update(dt: number): void {
   if (!game || !view) return;
   const read = readInput(dt);
-  // The aim is the middle of the screen the last frame drew; drawPlay adds this frame's pitch change and camera after.
+  // The quarter camera leaves the aim undefined, so step builds the level line from the chest to the cursor's point
+  // (the middle of the screen before the mouse moves). The touch screen adds no frame or point.
   const aim = view.aim;
-  step(game, { ...read.input, sub: read.sub, use: read.use, melee: read.melee, aim }, dt);
+  const cursor = cursorAim(game, view, read);
+  step(game, { ...read.input, ...cursor, sub: read.sub, use: read.use, melee: read.melee, aim }, dt);
   // A milestone's short slowdown (SB-2010) slows the picture as well as the game: the blast, the smoke and the battle
   // run at the same share of time, while the input still goes through (step already scaled its own frame).
   const drawDt = dt * timeScale(game);
@@ -245,12 +265,18 @@ function update(dt: number): void {
   const cutscene = game.script.cutscene;
   if (cutscene !== null) {
     const elapsed = cutsceneElapsed(cutscene);
-    if (!hasCutscene(cutscene.id) || (skip && elapsed >= CUTSCENE_SKIP_GUARD_SEC)) sendToScript(game, { kind: 'skip' });
+    if (!hasCutscene(cutscene.id) || (skip && elapsed >= CUTSCENE_SKIP_GUARD_SEC)) {
+      sendToScript(game, { kind: 'skip' });
+      // The mouse press that skipped must not turn into a shot once the controls come back (ticket 2137).
+      if (skip && skipFromPointer()) holdMouseFireUntilRelease();
+    }
   }
   hideTouchInCutscene(game.script.cutscene !== null);
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);
   drawPlay(view, game, drawDt, read.pitchDelta);
+  // the PC's reticle marks the cursor; a touch screen keeps the dot and circle at the centre (read.cursor is null there)
+  placeReticle(view.hud, read.cursor);
   // the touch use button lights while the mech stands in reach of a blast point (SB-2017)
   el('#btnUse').classList.toggle('on', view.useNear);
   // a cleared sortie shows its result once the closing cutscene is over

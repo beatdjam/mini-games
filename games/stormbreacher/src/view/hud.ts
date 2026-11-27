@@ -12,6 +12,7 @@ import type { ScreenRect } from './camera.ts';
 import {
   fillArcGauge,
   lockFrame,
+  reticleAt,
   reticleSvg,
   ringRadius,
   roundRadar,
@@ -91,6 +92,13 @@ interface RadarGauge {
   set(marks: readonly RadarKey[], front?: RadarFront | null): void;
 }
 
+// The reticle's dot and ring, and the place the dot was last put (so a rebuilt HUD can put it back).
+interface Reticle {
+  dot: SVGCircleElement;
+  ring: SVGCircleElement;
+  at: ReturnType<typeof reticleAt>;
+}
+
 // The values written last, so a frame writes only what changed. null means "not written yet".
 interface HudLast {
   armor: number | null;
@@ -143,6 +151,7 @@ export interface PlayHud {
   chargeFill: HTMLElement;
   melee: HTMLElement;
   radar: RadarGauge;
+  reticle: Reticle;
   last: HudLast;
 }
 
@@ -184,6 +193,31 @@ function useBar(color: string): { box: HTMLElement; fill: HTMLElement } {
   return { box, fill };
 }
 
+// The reticle with its parts pulled out, and its dot put at `at`. On a touch screen the aim circle shows; on a PC the
+// dot alone marks the cursor, so the cone's ring is hidden.
+export function makeReticle(at: ReturnType<typeof reticleAt>): { root: SVGSVGElement; reticle: Reticle } {
+  const root = reticleSvg();
+  const reticle: Reticle = {
+    dot: root.querySelector('.sb-ret-dot') as SVGCircleElement,
+    ring: root.querySelector('.sb-ret-ring') as SVGCircleElement,
+    at,
+  };
+  placeReticleDot(reticle);
+  return { root, reticle };
+}
+
+function placeReticleDot(reticle: Reticle): void {
+  reticle.dot.setAttribute('cx', reticle.at.left);
+  reticle.dot.setAttribute('cy', reticle.at.top);
+  reticle.ring.style.display = isTouch ? '' : 'none';
+}
+
+// Puts the reticle's dot at the cursor's normalized point (null at the centre) and remembers it for the next lay-out.
+export function placeReticle(hud: PlayHud, cursor: { x: number; y: number } | null): void {
+  hud.reticle.at = reticleAt(cursor);
+  placeReticleDot(hud.reticle);
+}
+
 function freshLast(): HudLast {
   return {
     armor: null,
@@ -206,8 +240,8 @@ function freshLast(): HudLast {
 }
 
 // Lays the HUD's parts out for the window's size and returns what drawHud writes into. Called again when the window's
-// height changes; the root stays.
-function layOut(root: HTMLElement): PlayHud {
+// height changes; the root stays. `reticleAt` is the dot's last place, put back after the rebuild.
+function layOut(root: HTMLElement, reticlePosition = reticleAt(null)): PlayHud {
   root.replaceChildren();
   root.style.setProperty('--ring', `${ringRadius(window.innerHeight)}px`);
 
@@ -305,7 +339,8 @@ function layOut(root: HTMLElement): PlayHud {
   const radar = roundRadar(RADAR_SIZE, RADAR_SIZE);
   radarNode.appendChild(radar.root);
 
-  place(root, PLAY_HUD_LAYOUT.reticle.css, 'reticle').appendChild(reticleSvg());
+  const aim = makeReticle(reticlePosition);
+  place(root, PLAY_HUD_LAYOUT.reticle.css, 'reticle').appendChild(aim.root);
 
   const lock = lockFrame();
   root.appendChild(lock.root);
@@ -342,6 +377,7 @@ function layOut(root: HTMLElement): PlayHud {
     chargeFill: chargeMeter.fill,
     melee,
     radar,
+    reticle: aim.reticle,
     last: freshLast(),
   };
 }
@@ -372,7 +408,10 @@ function countText(count: { done: number; total: number } | null): string {
 // down every frame. `lock` is the lock target's rectangle on the screen (view/camera.ts screenRect), null for none.
 export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null): void {
   // the arcs and the aims sit on the window's size, so a new height lays the parts out again
-  if (window.innerHeight !== hud.height) Object.assign(hud, layOut(hud.root));
+  if (window.innerHeight !== hud.height) {
+    const at = hud.reticle.at;
+    Object.assign(hud, layOut(hud.root, at));
+  }
   const last = hud.last;
 
   if (last.armor !== model.armor) {

@@ -259,6 +259,17 @@ test('the radar turns with the mech', () => {
   expect(hudModel(side).radar[0].angle).toBeCloseTo(90, 6);
 });
 
+test('the radar turns with the screen when the view gives its azimuth', () => {
+  const game = newGame({ ...M1B_HAND, targets: [{ id: 'inland', kind: 'pillbox', x: 0, z: -30, yaw: 0 }] });
+  atOrigin(game);
+  game.mech.yaw = Math.PI / 2; // the mech faces -x, so inland (-z) is its right
+
+  // without the view's yaw the radar is from the mech's front, as before
+  expect(hudModel(game).radar[0].angle).toBeCloseTo(90, 6);
+  // with the fixed screen's azimuth (pi/4), inland is up-right on the screen
+  expect(hudModel(game, Math.PI / 4).radar[0].angle).toBeCloseTo(45, 6);
+});
+
 test('the radar leaves out dead and far targets', () => {
   const targets: TargetPlace[] = [
     { id: 'near', kind: 'pillbox', x: 0, z: -50, yaw: 0 },
