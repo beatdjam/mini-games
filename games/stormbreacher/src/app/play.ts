@@ -232,7 +232,8 @@ function hideTouchInCutscene(inCutscene: boolean): void {
 function update(dt: number): void {
   if (!game || !view) return;
   const read = readInput(dt);
-  // The aim is the middle of the screen the last frame drew; drawPlay adds this frame's pitch change and camera after.
+  // The quarter camera leaves the aim undefined until the cursor's aim comes (ticket 2115), so step falls back to a
+  // level line from the chest along the mech's yaw.
   const aim = view.aim;
   step(game, { ...read.input, sub: read.sub, use: read.use, melee: read.melee, aim }, dt);
   // A milestone's short slowdown (SB-2010) slows the picture as well as the game: the blast, the smoke and the battle

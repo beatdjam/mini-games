@@ -21,6 +21,18 @@ export type MoveTune = {
   maxStep: number; // the longest step a frame is split into (s)
 };
 
+// The fixed-azimuth overview camera's values (D-50). `azimuth` is the direction the screen's up side points, with the
+// mech's yaw's convention (0 faces -z and grows turning left).
+export interface QuarterTune {
+  azimuth: number; // the direction the top of the screen points (rad)
+  height: number; // the camera's height above the look point (m)
+  back: number; // the camera's horizontal distance behind the look point, toward the bottom of the screen (m)
+  lead: number; // how far the look point moves from the mech toward the top of the screen (m)
+  lookHeight: number; // the look point's height above the mech's feet (m)
+  fov: number; // the vertical field of view (deg)
+  lag: number; // the time constant for the camera to reach its target pose (s); 0 means no lag
+}
+
 export interface CameraTune {
   dist: number; // the camera's horizontal distance from the look point (m)
   height: number; // how far the camera sits above the look point (m)

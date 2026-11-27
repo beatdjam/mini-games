@@ -1,6 +1,6 @@
 # STORMBREACHER 仕様
 
-劣勢の戦線を、組み替えた機体で押し返す三人称のロボットアクション。M1（強襲上陸）を遊べる。
+劣勢の戦線を、組み替えた機体で押し返す見下ろし（クォータービュー）のロボットアクション。M1（強襲上陸）を遊べる。
 
 ## 1. 位置づけ
 
@@ -23,7 +23,7 @@
 
 `logic/`・`data/` は three・DOM・`view/`・`app/`・`dev/`・`i18n/` を読まない。`data/` は `logic/` も読まない。`view/` は `app/` と `dev/` を読まない。`app/` は `dev/` を読まない（本体のページに開発用の入口が入らないため）。この向きは dependency-cruiser の規則（`sb-logic-data-no-render`・`sb-logic-data-inward`・`sb-data-is-data`・`sb-view-reads-only`・`sb-app-no-dev`・`sb-portable-no-game`）で止めてある。
 
-- `src/view/camera.ts`: 三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。`aimRay` は画面に使ったカメラの位置から画面の向き（`CameraState.sight`）への線（画面の真ん中）を返し、本体の射撃の狙いになる。`followCamera` は前のフレームの姿勢（`CameraState`）を受けて今のフレームの姿勢を返す。
+- `src/view/camera.ts`: 三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。`aimRay` は画面に使ったカメラの位置から画面の向き（`CameraState.sight`）への線（画面の真ん中）を返し、三人称カメラを使う開発用の入口の射撃の狙いになる。`followCamera` は前のフレームの姿勢（`CameraState`）を受けて今のフレームの姿勢を返す。
 - `src/view/world.ts`: マップの描き方を本体と開発用の入口で共有する。`syncWorld`（毎フレーム `dt` を受ける）が、壊れたトーチカを `PILLBOX_BREAK.sec` かけて砂へ沈ませ陸側へ傾け、ほかの壊れた目標をその場で低く暗い姿にし、壊れた物（`breakable` の物）・爆破で開いた物（`game.blasts` の `blasted` の点のハリネズミ）を低く暗い姿にする。シャッターの板も描く（6章「ボス（沿岸砲台）」）
 - `src/view/outdoor.ts`: 地面と物を描く
 - `src/view/shore.ts`: 海と揚陸艇を描く（9章。艇の寸法は `src/data/craft.ts`、歩ける面の四角は `src/logic/craft.ts`。プレイヤーの艇の両隣に、味方機を乗せた艇が並ぶ）
@@ -319,7 +319,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 本体の射撃は、速さのある弾を飛ばす（`shoot`・`flyBullet` in `src/logic/game.ts`）。
 - 撃つ: 1発ごとに、弾の出る所（`muzzleOf` in `src/logic/game.ts`。機体の中心から右へ `muzzleSide`・前へ `muzzleForward`、高さは足元から `chestHeight`）から `spreadDir(fcs.shotDir, spreadFor(fcs.shotDist, FCS_TUNE.soft), stream('shots'))` の向きへ弾 `Bullet`（`weapon`・位置・向き `dx dy dz`（長さ1）・射程の残り `left`）を出す。散らしは照準の点までの距離で小さくなる（`spreadFor`）。出来事 `shot`（位置・向き・`weapon`）を残す
-- 狙い: `step` は、入力の `aim`（カメラの狙いの線。無いときは胸から機体の向きへ水平な線）と、生きている目標（`fcsTargets`。id は `game.targets` の番号、中心は箱の真ん中）で `stepFcs(game.fcs, 'soft', FCS_TUNE.soft, …)` を回す。照準の円（`FCS_TUNE.soft.cone`）の中の目標へ狙いが寄り、その目標の id が `game.aimTarget` になる（無ければ null）。爆薬でしか壊せない目標（`TARGET_CHARGE_ONLY` in `src/data/props.ts` が true の `pillbox`）は `fcsTargets` が `lockable: false` で渡し、`circleTargets` が候補にも円の中の目標（`inCone`）にも入れない（SB-2043）。そのため、トーチカだけが円の中にいても `aimTarget` は null で、ロック枠も体力のバーも出ない。旗で開くシャッターの奥にいる目標（起動の前の要塞の機関砲。`armoured`）も同じく `lockable: false` で、シャッターが開くと候補に戻る（SB-2051）。弾はそのまま当たる（手で照準を合わせて撃てば制圧は効く）。照準の点（`manualDir`）と、陰になる相手を隠す壁には、これまでどおりトーチカも数える。本体は、画面に使ったカメラの状態（`CameraState` in `src/view/camera.ts`）から `aimRay` で線を作り、`src/app/play.ts` の `update` が前のフレームに画面へ使った線を `step` に渡す。画面の中の線と照準が同じカメラから出るので、壁で肩が縮んだり `closeLook`・`closePitch` が効いたりしても、弾は画面の真ん中へ向かう
+- 狙い: `step` は、入力の `aim`（カメラの狙いの線。無いときは胸から機体の向きへ水平な線）と、生きている目標（`fcsTargets`。id は `game.targets` の番号、中心は箱の真ん中）で `stepFcs(game.fcs, 'soft', FCS_TUNE.soft, …)` を回す。照準の円（`FCS_TUNE.soft.cone`）の中の目標へ狙いが寄り、その目標の id が `game.aimTarget` になる（無ければ null）。爆薬でしか壊せない目標（`TARGET_CHARGE_ONLY` in `src/data/props.ts` が true の `pillbox`）は `fcsTargets` が `lockable: false` で渡し、`circleTargets` が候補にも円の中の目標（`inCone`）にも入れない（SB-2043）。そのため、トーチカだけが円の中にいても `aimTarget` は null で、ロック枠も体力のバーも出ない。旗で開くシャッターの奥にいる目標（起動の前の要塞の機関砲。`armoured`）も同じく `lockable: false` で、シャッターが開くと候補に戻る（SB-2051）。弾はそのまま当たる（手で照準を合わせて撃てば制圧は効く）。照準の点（`manualDir`）と、陰になる相手を隠す壁には、これまでどおりトーチカも数える。本体は今は線を渡さず（`PlayView.aim` は未定義）、票 2115 でカーソルの地面の点から線を作るまで、`step` の逃げ道（胸から機体の yaw の正面へ水平な線）を使う。三人称カメラを使う開発用の入口は、画面に使ったカメラの状態（`CameraState` in `src/view/camera.ts`）から `aimRay` で線を作り、`step` に渡す。画面の中の線と照準が同じカメラから出るので、壁で肩が縮んだり `closeLook`・`closePitch` が効いたりしても、弾は画面の真ん中へ向かう
 - 近距離の狙い: `soft` が寄せている相手が `FCS_TUNE.soft.nearRange`（20m）以内なら、25度/秒のゆっくりした寄せを待たず、弾の出る所から相手の箱へ入る点（弾の出る所から見た箱の一番近い点から、中心へ 1/4 進んだ所。`insideAim` in `src/logic/fcs.ts`）へ直接向ける。近くで機体を回しながら撃っても、銃口が的を置いていかない。散らしも距離で小さくなり、`spreadFor` が 0m で `nearSpread` 倍、`nearRange` で `spread` そのものにする
 - 照準の点: ソフトロックが寄せている相手がいないとき、弾は照準の点へ向かう。照準の点は、カメラの狙いの線が、物の箱（`game.propBoxes`）・壊れていない目標の箱・生きている敵の箱・地面（y = 0）のうち最初に当たる点で、`FCS_TUNE.soft.range` の内に当たらなければ、線を `range` 延ばした点。カメラの線の上で、弾の出る所より手前の当たりは数えない。弾はカメラより右の腕の先から出るので、照準の点へ向けないと近くの壁で照準から横にそれる。`manualDir` in `src/logic/fcs.ts`（`fcs.ts` はゲームの表を読まないため、物と敵と地面は `stepFcs` の引数 `world`（`FcsWorld`）で受ける。`world` が無い `#view-fcs` は的の箱だけを見る）。寄せている間は、寄せた向きのまま
 - 進む: 1フレームに min(`speed` × dt, `left`) m 進む。その区間で、生きている目標の箱・物の箱（坂は面に沿った段の箱。`rectBoxes`）・地面（y = 0。下向きの弾だけ）のうち一番手前で止まる。止まった所で出来事 `hit`（位置・`weapon`・`target`（目標の id か null）・`prop`（`map.props` の添字か null）・`enemy`・`mech`・`deflected`（トーチカの正面に弾かれたか。ほかは false）。地面は `target` `prop` `enemy` が null で `mech` は false）を残して弾を外す。止まらなければ `left` を減らし、0 以下で黙って消える
@@ -458,7 +458,19 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 ### カメラ・手応え・FCS
 
-三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）と、上陸の3隻の艇（プレイヤーの艇と両隣）の四角（`cameraBlockers` in `src/logic/mapShapes.ts`）をカメラの壁として渡す。坂は斜面に沿った段の箱に分けて渡す（`rectBoxes` in `src/logic/collide.ts`）ので、低い端の上の空間でカメラが引っかからない。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
+本体（`src/view/play.ts`）と広場（`#view-arena`）のカメラは、固定方位の見下ろし（クォータービュー）で、`QUARTER_TUNE`（D-50）を使う。三人称カメラ（`CAMERA_TUNE`）は、ほかの開発用の入口だけが使う。本体の値は `?q.<項目>=<値>`（例 `?q.height=30`）で URL から上書きできる（数値でない値と知らない項目は無視する）。高さ 6m 以上の物（防波堤・要塞の壁・バンカー）は透かさないので、画面の下側にある高い壁の裏で機体が隠れることがある（既知の制限。屋内のカットアウェイと一緒にあとで直す）。
+
+| 名前 | 値 | 単位・意味 |
+|------|----|------------|
+| `azimuth` | π/4 | rad。画面の上が指す向き（機体の yaw と同じ約束。前進方向の -z が画面の右上に来る） |
+| `height` | 25 | m。注視点からカメラまでの高さ（俯角は約 51 度） |
+| `back` | 20 | m。注視点からカメラまでの水平距離（画面の下の方向へ） |
+| `lead` | 3.75 | m。注視点を機体から画面の上の方向へずらす距離 |
+| `lookHeight` | 1.2 | m。注視点の、機体の足元からの高さ |
+| `fov` | 58 | 度。縦の画角 |
+| `lag` | 0.23 | s。追従の時定数（フレーム数ではなく秒で書くので、fps で速さが変わらない） |
+
+三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）と、上陸の3隻の艇（プレイヤーの艇と両隣）の四角（`cameraBlockers` in `src/logic/mapShapes.ts`）をカメラの壁として渡す。坂は斜面に沿った段の箱に分けて渡す（`rectBoxes` in `src/logic/collide.ts`）ので、低い端の上の空間でカメラが引っかからない。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
 高さが `wallHeight`（6m）未満の物は壁にしない（SB-2048。下の「詰める物と透かす物」）。
 三人称カメラは、`cameraPose` が壁を考えた望みの姿勢（位置と注視点）を作り、`followCamera` が画面に使った姿勢（`CameraState` in `src/view/camera.ts`）をフレームをまたいで持って、毎フレーム望みの姿勢へ寄せる（SB-1935）。
 
@@ -470,7 +482,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 低い物の透かし（SB-2048）: `fadeStep`（`src/view/fade.ts`）が毎フレーム、画面のカメラの位置から機体の胸（足元から `MECH_TUNE.height / 2`）への線を見て、その線が低い物の箱を（x・z に `fadePad` 広げて）通る物、またはカメラがその箱の中に入った物を、`fadeIn` 秒で不透明度 `fadeOpacity` まで下げる。線から外れたら `fadeOut` 秒で戻る。カメラの距離・位置は低い物では変わらない。描き方は、透かす間だけその物のコピーを、同じ種類の透明な双子の InstancedMesh（種類ごとに 1 つ、12 コピー分。コピーごとの不透明度を頂点属性 `instanceFade` で持つ）へ移し、元のコピーは大きさ 0 にする。透かしている種類だけ 1 draw 増え、透かす物の数では増えない。透かしの前に壊れた物は元のコピーへ戻してから壊す。機体自身の半透明（`MECH_TUNE.fadeDist`、`setProtoOpacity`）とは別の仕組みで、材質も別
 - 壁なしは `lag` だけ: 壁がなければ画面の位置は `lag` の追い方だけで、ブーストも旋回も上限を掛けない。機体の動きは常にそのまま足すので、後ろへ下がってもカメラが機体へ入らない
 - 画面の向き（SB-2040）: 画面の左右の向きは、機体の狙いの向き（`yaw`）そのもので、カメラの位置から注視点への向きではない。画面が向く点（`CameraState.sight`）は、`sightOf` が「カメラの位置から `yaw` の向きへ、注視点と同じ距離・同じ見下ろしの角度」で作る。壁がカメラを注視点の近くで止めたり横へ遅らせたりしても、動くのはカメラの位置だけで、向きは回らない（注視点の近くで水平の差が小さいと、横のずれが大きな角度になっていた）。`applyPose` には `look` に `sight` を渡す
-- 照準: 画面の照準と弾は、前のフレームに画面へ使ったカメラの状態（`CameraState`）から `aimRay` で作った線を使う。揺れ（`frame.offset`）は含めない。照準の線は前のフレームの機体の向きから作るので、向きは1フレーム遅れる
+- 照準: 三人称カメラを使う開発用の入口では、画面の照準と弾は、前のフレームに画面へ使ったカメラの状態（`CameraState`）から `aimRay` で作った線を使う。揺れ（`frame.offset`）は含めない。照準の線は前のフレームの機体の向きから作るので、向きは1フレーム遅れる。本体は 2115 まで線を渡さず、`step` の逃げ道（胸から機体の yaw の正面へ水平な線）を使う（3章「狙い」）
 - 見下ろしで `held` にならない: `near` は `openDist`（見下ろし・見上げを含む、壁のないときの水平距離）で測るので、見下ろし・見上げで近くならない。壁のない急旋回では `near` になりうるが、前のフレームに壁が寄せていなければ `held` にしない。壁が寄せた後でも、`openDist` から `releaseGap` 以内での `fastTurn` 以上の旋回では持ち越しを終える
 - 壁の当たり: 後ろ向きの線の左右 `probeDeg` 度にも線を飛ばして一番近い所を採るので、角を回るときも片側の当たりだけで動かない
 - 最短まで寄ったとき: `rise` だけ上へ逃がし（`riseRange` で 0 に戻す）つつ、注視点を `closeLook` だけ機体の前へ出して `closePitch` を超えて見下ろさないので、壁のそばでも前が見える。機体の胸との距離が `MECH_TUNE.fadeDist` より近い間は機体を半透明にする

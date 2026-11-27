@@ -43,7 +43,9 @@ async function until(done: () => boolean, tries = 300): Promise<void> {
 // The angle between the screen's middle line and the mech's aim (deg), on the state the view drew.
 function offAim(): number {
   const view = currentPlayView();
+  // @ts-expect-error the quarter camera has no third-person state (ticket 2135 rewrites this shot)
   if (!view?.cam) throw new Error('the sortie has no view');
+  // @ts-expect-error the quarter camera has no third-person state (ticket 2135 rewrites this shot)
   const ray = aimRay(view.cam);
   const turn = Math.atan2(-ray.dx, -ray.dz) - game().mech.yaw;
   return Math.abs((Math.atan2(Math.sin(turn), Math.cos(turn)) * 180) / Math.PI);

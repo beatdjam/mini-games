@@ -1,0 +1,69 @@
+import { expect, test } from 'vitest';
+import * as THREE from 'three';
+import { QUARTER_TUNE } from '../../src/data/tune.ts';
+import { followQuarter, quarterPose, quarterTuneFrom, type QuarterPose } from '../../src/view/quarterCamera.ts';
+
+const MECH = { x: 0, y: 0, z: 0 };
+
+// The camera the view would draw from a pose.
+function cameraOf(pose: QuarterPose): THREE.PerspectiveCamera {
+  const cam = new THREE.PerspectiveCamera(QUARTER_TUNE.fov, 16 / 9, 0.1, 1000);
+  cam.position.copy(pose.pos);
+  cam.lookAt(pose.look);
+  cam.updateMatrixWorld();
+  cam.updateProjectionMatrix();
+  return cam;
+}
+
+const screenOf = (cam: THREE.PerspectiveCamera, x: number, y: number, z: number): THREE.Vector3 =>
+  new THREE.Vector3(x, y, z).project(cam);
+
+test('the screen shows inland up-right and +x right-down', () => {
+  const cam = cameraOf(quarterPose(MECH, QUARTER_TUNE));
+  const mech = screenOf(cam, MECH.x, MECH.y, MECH.z);
+  // the way the mech faces at yaw 0 (-z, inland) is up and to the right of the mech
+  const inland = screenOf(cam, MECH.x, MECH.y, MECH.z - 10);
+  expect(inland.x).toBeGreaterThan(mech.x);
+  expect(inland.y).toBeGreaterThan(mech.y);
+  // the mech's right (+x) is right and below it, which fixes the 45 degree azimuth
+  const right = screenOf(cam, MECH.x + 10, MECH.y, MECH.z);
+  expect(right.x).toBeGreaterThan(mech.x);
+  expect(right.y).toBeLessThan(mech.y);
+});
+
+test('followQuarter takes the pose whole with no previous frame', () => {
+  const pose = quarterPose(MECH, QUARTER_TUNE);
+  const next = followQuarter(null, pose, 1 / 60, QUARTER_TUNE);
+  expect(next.pos.equals(pose.pos)).toBe(true);
+  expect(next.look.equals(pose.look)).toBe(true);
+  expect(next.pos).not.toBe(pose.pos);
+  expect(next.look).not.toBe(pose.look);
+});
+
+test('followQuarter leaves exp(-1) of the step after one lag', () => {
+  const prev: QuarterPose = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  const pose: QuarterPose = { pos: new THREE.Vector3(10, 20, 30), look: new THREE.Vector3(20, 30, 40) };
+  const result = followQuarter(prev, pose, QUARTER_TUNE.lag, QUARTER_TUNE);
+  const remaining = 1 - (result.pos.x - prev.pos.x) / (pose.pos.x - prev.pos.x);
+  expect(remaining).toBeCloseTo(Math.exp(-1), 9);
+  expect(pose.pos.x - result.pos.x).toBeCloseTo(10 * Math.exp(-1), 9);
+  expect(pose.look.x - result.look.x).toBeCloseTo(20 * Math.exp(-1), 9);
+});
+
+test('followQuarter with lag 0 takes the pose whole', () => {
+  const prev: QuarterPose = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  const pose = quarterPose(MECH, QUARTER_TUNE);
+  const result = followQuarter(prev, pose, 1 / 60, { ...QUARTER_TUNE, lag: 0 });
+  expect(result.pos.equals(pose.pos)).toBe(true);
+  expect(result.look.equals(pose.look)).toBe(true);
+  expect(result.pos).not.toBe(pose.pos);
+});
+
+test('quarterTuneFrom overrides a value and ignores a bad one or an unknown name', () => {
+  const tuned = quarterTuneFrom(new URLSearchParams('q.height=30'), QUARTER_TUNE);
+  expect(tuned.height).toBe(30);
+  expect(tuned.back).toBe(QUARTER_TUNE.back);
+  expect(QUARTER_TUNE.height).toBe(25); // the table itself is not changed
+  const ignored = quarterTuneFrom(new URLSearchParams('q.height=abc&q.unknown=1'), QUARTER_TUNE);
+  expect(ignored).toEqual(QUARTER_TUNE);
+});

@@ -21,7 +21,8 @@ import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, QUARTER_TUNE, type FxTune } from '../data/tune.ts';
+import type { QuarterTune } from '../data/tuneTypes.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import type { WeaponId } from '../data/weapons.ts';
 import { blastTarget } from '../logic/blasts.ts';
@@ -37,7 +38,7 @@ import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
 import { burnAtmosphere } from './atmosphere.ts';
 import { buildBattle, type Battle } from './battle/index.ts';
 import { buildBlastView, drawBlasts, type BlastView } from './blasts.ts';
-import { aimRay, applyPose, cameraPose, followCamera, screenRect, stateOfPose, type CameraState } from './camera.ts';
+import { screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { fadeStep } from './fade.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
@@ -53,6 +54,7 @@ import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
 import { mechSeeThrough } from './mechFade.ts';
 import { buildProtoMech, protoMuzzle, setProtoOpacity } from './mechProtoModel.ts';
 import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
+import { followQuarter, quarterPose, quarterTuneFrom, type QuarterPose } from './quarterCamera.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const fadeChest = new THREE.Vector3(); // the mech's chest, the far end of the line a low prop fades on
@@ -99,9 +101,9 @@ export interface PlayView {
   stage: ProtoStage | null; // the prototype's sun, shadow and surroundings' light; only with ?shadow=1 or ?env=1
   mechFaded: boolean; // whether the mech is drawn see-through, for the camera is near
   feel: FeelState;
-  pitch: number; // the camera's pitch (rad)
-  cam: CameraState | null; // the camera's place and look in the last frame
-  aim: Ray3; // the line through the middle of the screen the last frame drew
+  pitch: number; // the camera's pitch (rad); the quarter camera keeps it but does not use it yet (tickets 2110, 2115)
+  quarter: { tune: QuarterTune; pose: QuarterPose | null }; // the overview camera's values and its place and look last frame, before the feel's shake
+  aim: Ray3 | undefined; // the line through the middle of the screen; undefined until the cursor's aim comes (ticket 2115)
   gunfire: GunfireView; // the muzzle flashes, the tracers in flight and the impacts' sparks and smoke
   enemies: EnemyView; // the enemies' instanced boxes
   wardenCharge: WardenChargeView; // the red band ahead of a warden about to charge
@@ -153,15 +155,6 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
   // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
   // events before it (already played) are not all played again in the first frame.
   const startSecond = cutsceneElapsed(game.script.cutscene);
-  // The sortie starts with the camera already in its place: a checkpoint or a suspend resumes without it flying in.
-  const cam = stateOfPose(
-    cameraPose(
-      { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw },
-      0,
-      CAMERA_TUNE,
-      world.cameraBoxes,
-    ),
-  );
   return {
     world,
     model,
@@ -169,8 +162,10 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     mechFaded: false,
     feel: newFeel(CAMERA_TUNE.fov),
     pitch: 0,
-    cam,
-    aim: aimRay(cam),
+    // The first frame's pose is null, so the camera sits at its place at once: a checkpoint or a suspend resumes
+    // without it flying in. `?q.height=30` tries a value without a build (quarterTuneFrom).
+    quarter: { tune: quarterTuneFrom(new URLSearchParams(location.search), QUARTER_TUNE), pose: null },
+    aim: undefined,
     gunfire: buildGunfireView(),
     enemies: buildEnemyView(),
     wardenCharge: buildWardenChargeView(),
@@ -625,23 +620,21 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     spawnMuzzleFlash(view.gunfire, shot.weapon, at.x, at.y, at.z);
   }
 
-  // The camera's pitch is held while a cutscene plays, so the game's camera is where the cutscene's last key puts its
-  // own (the key is written for pitch 0) in the first frame the player controls.
+  // The quarter camera has no pitch of its own yet; the value is still held while a cutscene plays, so the cursor's aim
+  // (ticket 2115) starts from where the player left it.
   if (cutscene === null) view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
-  const pose = cameraPose(
-    { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw },
-    view.pitch,
-    CAMERA_TUNE,
-    view.world.cameraBoxes,
-  );
+  const pose = quarterPose({ x: game.mech.x, y: game.mech.y, z: game.mech.z }, view.quarter.tune);
   // The cutscene draws its own camera over this one (drawCutscene). The game's camera sits at its place meanwhile, so it
   // starts the first controlled frame, or the one after a skip, where it stands and does not fly in from elsewhere.
-  view.cam = cutscene === null ? followCamera(view.cam, pose, dt, CAMERA_TUNE) : stateOfPose(pose);
-  const pos = view.cam.pos.clone().add(frame.offset);
-  applyPose(camera, { ...pose, pos, look: view.cam.sight }, frame.fov);
-  // The aim is the middle of the screen without the feel's shake: the reticle stays still and next frame's shot goes
-  // where the player aimed, along the same line the state holds.
-  view.aim = aimRay(view.cam);
+  view.quarter.pose = cutscene === null ? followQuarter(view.quarter.pose, pose, dt, view.quarter.tune) : pose;
+  const pos = view.quarter.pose.pos.clone().add(frame.offset);
+  camera.position.copy(pos);
+  camera.lookAt(view.quarter.pose.look);
+  camera.fov = view.quarter.tune.fov + (frame.fov - CAMERA_TUNE.fov);
+  camera.updateProjectionMatrix();
+  // The aim is the cursor's ground point (ticket 2115); until then step's own line, level from the chest along the mech's
+  // yaw, is what the shots use.
+  view.aim = undefined;
   drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset, view.battle);
   drawBooms(dt);
 
