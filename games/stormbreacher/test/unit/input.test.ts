@@ -61,7 +61,7 @@ test('withoutJump drops the jump and leaves the rest of the input alone', () => 
 
 test('the main body and the arena start the play input with no jump', () => {
   const options = playInputOptions();
-  expect(options).toEqual({ cursor: true, jump: false });
+  expect(options).toEqual({ jump: false });
   expect(jumpReading(options)).toBe(false);
   // the dev views call initPlayInput with no options and keep the jump
   expect(jumpReading({})).toBe(true);

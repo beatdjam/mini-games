@@ -2,7 +2,6 @@
 // logic/game.ts and the drawing in view/play.ts; this file decides which of them runs and what the page shows.
 import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
 import { disposeTree, scene } from '@engine/render/index.ts';
-import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { TOUCH_TUNE } from '../data/touch.ts';
@@ -190,7 +189,6 @@ function returnToTitle(): void {
   const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
   if (sizeBox) sizeBox.visible = true;
   placeCamera();
-  exitLock();
   setState('title');
   syncTitle();
 }
@@ -353,7 +351,6 @@ export function showResult(): void {
   }
   el('#sbResultCheckpoint').hidden = !(game.downed && game.checkpoint);
   el('#sbResultRestart').hidden = !game.downed;
-  exitLock();
 }
 
 // The game in play, for the tests; null before the first sortie.

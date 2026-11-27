@@ -90,7 +90,7 @@
   - 壊れる物: `breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる
   - 入力: `GameInput` は `MechInput` に、サブ射撃 `sub`・画面の狙いの線 `aim`・指した地面の点 `aimAt`・爆薬 `use`・殴り `melee` を足したもの。`aimAt`（世界の座標、m）があると、`step` は機体からその点への yaw を `MechInput.face` に入れ（機体から `AIM_MIN_DIST` 0.9m より近いときは入れない）、`stepMech` は `face` があれば `turn` を使わず、近い回りで `MOVE_TUNE.faceRate × dt` まで向き直る。`MechInput.frame`（yaw）があると、`moveX`・`moveZ` は機体の向きではなくその yaw を基準に回す（画面の上を基準に動く）。照準の線 `aim` が無く `aimAt` があるときは、胸から `aimAt` へ水平（`dy: 0`）の線を照準に使う。`aimPointOf` が点を返さないときは、`cursorAim` が `face` に直前の `mech.yaw` を入れて向きを保つ（矢印キーの `turn` には戻さない）
 - `src/app/touch.ts`: engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る
-- `src/app/keyboard.ts`: engine のキーの動作とマウスを読み、ジャンプとロックの押した瞬間、右クリックのサブ射撃を `MechInput` の形にする。本体と広場では、ジャンプは読まない（D-50）。本体と広場（`cursor: true`）の PC ではポインタロック無しでキャンバスの左ボタンをメイン・右ボタンをサブとして読み（離すのは `document` の `mouseup` と `window` の `blur` で受け、キャンバスの `contextmenu` は止める）、それ以外の入口ではポインタロック中の右クリックをサブにする
+- `src/app/keyboard.ts`: engine のキーの動作とマウスを読み、ジャンプとロックの押した瞬間、右クリックのサブ射撃を `MechInput` の形にする。本体と広場では、ジャンプは読まない（D-50）。PC ではポインタロック無しでキャンバスの左ボタンをメイン・右ボタンをサブとして読む（離すのは `document` の `mouseup` と `window` の `blur` で受け、キャンバスの `contextmenu` は止める）
 - `src/app/input.ts`: タッチとキーボードを1つの `MechInput` にまとめる口。本番のゲームもここから読む
 - `src/app/play.ts`: 出撃の開始（`startSortie`）・出撃中のシステム・結果の画面（`showResult`）と、タイトルから出撃へ進む入り口（`pressStart`・`continueSortie`・`syncTitle`）。中断と放棄でタイトルへ戻る `returnToTitle` もここ
 - `src/app/pause.ts`: 一時停止のメニュー（`initPause`）。P・Esc・一時停止のボタンで `paused` にし、「再開」「中断」「放棄」を出す（3章「一時停止と中断」）
@@ -201,9 +201,9 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 出撃を止めて、あとで続けられる（中断）か、やめる（放棄）ための仕組み。画面は `src/app/pause.ts`、中断と放棄の中身は `suspendSortie`・`abandonSortie`・`returnToTitle` in `src/app/play.ts`、保存は 5章。
 
-- 止める: 出撃中（`play`）に P か Esc（`PAUSE_KEYS` in `src/data/keys.ts`）、または左上の「一時停止」（`#sbPauseBtn`。HUD の目標の上、右上の全画面のボタンと重ならない）で `paused` になる。本体と広場はポインターロックを使わないので、Esc はそのまま `keydown` で届いて止まる。三人称カメラを使う開発用の入口はポインターロックを外し、Esc でロックが外れたときも一時停止する（カットシーンの間は次の箇条のとおり飛ばし）。`paused` の間は `sb-play` のシステムが走らず、`step` も時計も進まない
-- カットシーンの間の Esc は飛ばしが先で、止めない（P は止める）。本体と広場では Esc の `keydown` がそのまま飛ばしの要求になる。ポインターロックを使う開発用の入口では、ロック中の Esc はブラウザがロックを外して keydown を渡さないので、ロックが外れたことを飛ばしの要求にする（`requestSkip` in `src/app/skip.ts`、`initPause` in `src/app/pause.ts`）。止めている間に来た押し込みとメニューのクリック（`data-noskip` の要素）は飛ばしの要求に数えず、再開のときに溜まった要求も、止めている間に押したジャンプも捨てる（`clearPendingJump` in `src/app/keyboard.ts`）。本体と広場ではジャンプを読まない（D-50）ので、この捨てる先は開発用の入口のためのもの
-- メニュー（`#sbPause`。タッチの層より手前）: 「再開」「中断」「放棄」。再開は `play` に戻り（ポインターロックを使う入口では、ボタンのとき PC でロックを取り直す。本体と広場は取り直さない）、P か Esc でも戻る
+- 止める: 出撃中（`play`）に P か Esc（`PAUSE_KEYS` in `src/data/keys.ts`）、または左上の「一時停止」（`#sbPauseBtn`。HUD の目標の上、右上の全画面のボタンと重ならない）で `paused` になる。ポインターロックを使わないので、Esc はそのまま `keydown` で届いて止まる。`paused` の間は `sb-play` のシステムが走らず、`step` も時計も進まない
+- カットシーンの間の Esc は飛ばしが先で、止めない（P は止める）。本体と広場では Esc の `keydown` がそのまま飛ばしの要求になる。止めている間に来た押し込みとメニューのクリック（`data-noskip` の要素）は飛ばしの要求に数えず、再開のときに溜まった要求も、止めている間に押したジャンプも捨てる（`clearPendingJump` in `src/app/keyboard.ts`）。本体と広場ではジャンプを読まない（D-50）ので、この捨てる先は開発用の入口のためのもの
+- メニュー（`#sbPause`。タッチの層より手前）: 「再開」「中断」「放棄」。再開は `play` に戻り、P か Esc でも戻る
 - 中断: 今の `GameModel` を `SUSPEND_KEY` に書き（5章）、タイトルへ戻って「続きから」（`#sbContinue`）を出す
 - 放棄: 押すと確認に変わる（「放棄する（報酬なし）」`#sbAbandonYes` と「やめる」`#sbAbandonNo`。確認の間の Esc は確認を閉じる）。確定すると中断（あれば）も消してタイトルへ戻る。報酬もセーブも書かない
 - タイトルの「続きから」: 中断があるときだけ出す。押すと中断から `GameModel` を組み直し（`beginPlay`）、中断を消す。同じ中断から2回再開できない
@@ -1296,7 +1296,7 @@ SB-1860。中ボスの `wardenDown` のあと、要塞の陸側の壁の中の�
 
 ### カットシーンの演出
 
-台本の `cutscene` の間、カメラの通り道・文・見た目の出来事・戦場の時計を止めるか（`holdsBattle`。`landing` だけが持つ）を表で持ち、上下に黒い帯を出して流す。定義場所は `CUTSCENES` in src/data/cutscenes.ts（表）、`cutscenePose`・`keyPose`・`cutsceneLine`・`cutsceneEvents`・`cutsceneMech`・`cutsceneSail`・`cutsceneElapsed`・`sinkBlastZ`・`riderFall`・`hasCutscene` in src/logic/cutscene.ts（時刻から引く純粋な関数）、`buildCutsceneView`・`drawCutscene` in src/view/cutscene.ts（帯・カメラ・艇・着弾・砲台の崩れ・同乗者）、`buildRiders`・`drawRiders` in src/view/riders.ts（甲板の同乗者ドロイド。形は浜の歩兵と同じ）、`LANDING_RIDERS` in src/data/landing.ts、`SOLDIER_POSE` in src/data/soldiers.ts（浜の歩兵ドロイドと共通の姿。体の高さと頭の高さ、仰向けに倒れたときの体の高さ。頭は首の上に載ったまま一緒に倒れる）、`armSkip`・`takeSkip`・`requestSkip` in src/app/skip.ts（飛ばす）。
+台本の `cutscene` の間、カメラの通り道・文・見た目の出来事・戦場の時計を止めるか（`holdsBattle`。`landing` だけが持つ）を表で持ち、上下に黒い帯を出して流す。定義場所は `CUTSCENES` in src/data/cutscenes.ts（表）、`cutscenePose`・`keyPose`・`cutsceneLine`・`cutsceneEvents`・`cutsceneMech`・`cutsceneSail`・`cutsceneElapsed`・`sinkBlastZ`・`riderFall`・`hasCutscene` in src/logic/cutscene.ts（時刻から引く純粋な関数）、`buildCutsceneView`・`drawCutscene` in src/view/cutscene.ts（帯・カメラ・艇・着弾・砲台の崩れ・同乗者）、`buildRiders`・`drawRiders` in src/view/riders.ts（甲板の同乗者ドロイド。形は浜の歩兵と同じ）、`LANDING_RIDERS` in src/data/landing.ts、`SOLDIER_POSE` in src/data/soldiers.ts（浜の歩兵ドロイドと共通の姿。体の高さと頭の高さ、仰向けに倒れたときの体の高さ。頭は首の上に載ったまま一緒に倒れる）、`armSkip`・`takeSkip` in src/app/skip.ts（飛ばす）。
 
 - 表（`CutsceneDef`）: カットシーンの id ごとに、時刻は流し始めからの秒で持つ
   - `camera`: キーフレームの列 `{ at, pos, look, rel? }`（時刻・カメラの位置・見る点。マップの座標）。最初のキーより前は最初の姿勢、最後のキーより後は最後の姿勢
@@ -1328,7 +1328,7 @@ SB-1860。中ボスの `wardenDown` のあと、要塞の陸側の壁の中の�
   - 味方機: `stepAllies` は止まり、その場に立つ
   - 弾: `stepBullets` は止まらず進む。機体で止まった弾は装甲を減らさず（`damageMech` in `src/logic/game.ts`。機体が動けない間に倒されないため）、被弾の音（`mechHit`）も鳴らさない
 - 機体: 表に `mech`（機体の道）があるカットシーン（`landing`）の間は、模型を道に沿って描く。`landing` の道は甲板の1点（x 0・y 1.8・z 177、`newGame` の機体と同じ所）だけで、`sail` の間は `cutsceneMech` が `cutsceneSail` のぶんだけ z を海側へずらす。機体は甲板に立ったまま艇と一緒に浜へ進み、ランプが下りるのを見る。歩かないので脚も振らない（`cutsceneMech` in `src/logic/cutscene.ts` が位置と地面の上の速さを返し、`drawMechWalk` in `src/view/mechDrive.ts` が `mechMotion` の歩きにその速さを渡す）。見た目だけの動きで、ゲームの機体（`game.mech`）は始まりの位置のまま動かさない。飛ばし・チェックポイント・中断で整合を取る必要がなく、飛ばすと次のコマから模型はゲームの機体（始まりの位置）に戻る。機体の道が無いカットシーン（`wave2-sinks`・`beach-held`・`fortress-blast`）の間は、模型を描かない（`drawPlay` in `src/view/play.ts`）
-- 飛ばし方: クリック・タップ（`pointerdown`）・Enter・Space・Esc のどれでも飛ばせる。出撃の開始より前の押し込み（出撃を始めたクリックや Enter）と、押しっぱなしの繰り返し（`repeat`）は数えない。始まって `CUTSCENE_SKIP_GUARD_SEC`（0.4 秒）の間は飛ばさず、その間の押し込みは捨てる（同じフレームのジャンプ・射撃・Enter が始めたカットシーンを1コマで飛ばさないため。`CUTSCENE_SKIP_GUARD_SEC` in `src/data/script.ts`、`update` in `src/app/play.ts`）。ポインターロックを使う開発用の入口では、ロック中の Esc は `requestSkip` が同じ要求にする（`src/app/pause.ts`）。本体と広場はロックしないので、Esc の `keydown` がそのまま飛ばしの要求になる。`update` が `step` の後に要求を取り、`game.script.cutscene` があれば台本に `skip` を渡す（`cutsceneEnd` が出て、次のコマから本体のカメラと HUD）。飛ばしても台本の状態は、最後まで見たときと同じ（台本の時計だけ、見た秒の分だけ小さい）。飛ばしたマウスの押し下げは、離すまで撃つ入力にしない（`holdMouseFireUntilRelease` in `src/app/keyboard.ts`）
+- 飛ばし方: クリック・タップ（`pointerdown`）・Enter・Space・Esc のどれでも飛ばせる。出撃の開始より前の押し込み（出撃を始めたクリックや Enter）と、押しっぱなしの繰り返し（`repeat`）は数えない。始まって `CUTSCENE_SKIP_GUARD_SEC`（0.4 秒）の間は飛ばさず、その間の押し込みは捨てる（同じフレームのジャンプ・射撃・Enter が始めたカットシーンを1コマで飛ばさないため。`CUTSCENE_SKIP_GUARD_SEC` in `src/data/script.ts`、`update` in `src/app/play.ts`）。ポインターロックは使わないので、Esc の `keydown` がそのまま飛ばしの要求になる。`update` が `step` の後に要求を取り、`game.script.cutscene` があれば台本に `skip` を渡す（`cutsceneEnd` が出て、次のコマから本体のカメラと HUD）。飛ばしても台本の状態は、最後まで見たときと同じ（台本の時計だけ、見た秒の分だけ小さい）。飛ばしたマウスの押し下げは、離すまで撃つ入力にしない（`holdMouseFireUntilRelease` in `src/app/keyboard.ts`）
 - 中断から戻ったとき: カットシーンの途中なら、`CutsceneView` をその秒から始めるので、過ぎた見た目の出来事は出し直さない（`buildPlayView` in `src/view/play.ts`、`elapsed` in `buildCutsceneView` in `src/view/cutscene.ts`）。始まったばかりのカットシーンは -1 から始め、0 秒の出来事を1回出す（`cutsceneElapsed` in `src/logic/cutscene.ts`）
 - 表に無いカットシーン: 表の無い id は流さず、`update` が `step` の直後に台本へ `skip` を渡すので、描かれる前に終わる。台本の出来事（`cutscene` と `cutsceneEnd`）は出る
 - やり直し: 最初からのやり直し（`restartGame`）は台本が最初に戻るので、また流れる。チェックポイントからのやり直しは、`intro` が済んだ状態に戻るので流れない

@@ -28,10 +28,10 @@ export function withoutJump(input: MechInput): MechInput {
   return { ...input, jump: false, jumpHeld: false };
 }
 
-// The options the main body and the arena give initPlayInput: a free cursor and no jump (D-50). The dev views keep
-// both, so they call initPlayInput with no options.
-export function playInputOptions(): { cursor: true; jump: false } {
-  return { cursor: true, jump: false };
+// The options the main body and the arena give initPlayInput: no jump (D-50). The dev views keep it, so they call
+// initPlayInput with no options.
+export function playInputOptions(): { jump: false } {
+  return { jump: false };
 }
 
 // Whether the play input reads a jump: only a caller that passes `jump: false` (the main body and the arena) turns it

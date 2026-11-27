@@ -2,12 +2,10 @@
 // Abandon asks once more, because it cannot be taken back. This file owns the menu and the `paused` state; what suspend
 // and abandon do to the sortie is play.ts's, passed in by initPause.
 import { el } from '@engine/core/index.ts';
-import { exitLock, requestLock } from '@engine/ui/index.ts';
 import { PAUSE_KEYS } from '../data/keys.ts';
-import { cursorPlay } from './input.ts';
 import { clearPendingJump } from './keyboard.ts';
 import { setState, state } from './screen.ts';
-import { requestSkip, takeSkip } from './skip.ts';
+import { takeSkip } from './skip.ts';
 import { clearPendingTouch } from './touch.ts';
 
 export interface PauseHooks {
@@ -42,7 +40,6 @@ function pause(): void {
   askingAbandon = false;
   showButtons();
   el('#sbPause').hidden = false;
-  exitLock();
 }
 
 function resume(): void {
@@ -77,23 +74,12 @@ export function initPause(given: PauseHooks): void {
   if (hooks) return;
   hooks = given;
   window.addEventListener('keydown', onKey);
-  // Esc while the pointer is locked is taken by the browser to release it, and no keydown comes; the release is the pause
-  // outside a cutscene. In one it is the skip first (SPEC: Esc in a cutscene skips before it pauses), so the release
-  // asks to skip and does not open the menu. The main body and the arena keep the cursor free, so no lock is released
-  // there and this never runs; their Esc comes to onKey as a keydown.
-  document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement || state !== 'play') return;
-    if (hooks?.inCutscene()) requestSkip();
-    else pause();
-  });
   el('#sbPauseBtn').addEventListener('click', () => {
     pause();
     el('#sbPauseBtn').blur();
   });
   el('#sbPauseResume').addEventListener('click', () => {
     resume();
-    // the main body and the arena keep the cursor free, so there is no lock to take back
-    if (!cursorPlay()) requestLock();
   });
   el('#sbPauseSuspend').addEventListener('click', () => given.suspend());
   el('#sbPauseAbandon').addEventListener('click', () => {
