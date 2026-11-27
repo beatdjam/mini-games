@@ -62,12 +62,6 @@ export const DEV_VIEWS: DevView[] = [
     run: showTouch,
   },
   {
-    hash: '#view-play',
-    match: 'is',
-    name: 'play on flat ground with touch, or keyboard and mouse',
-    run: showTouch,
-  },
-  {
     hash: '#view-fcs',
     match: 'is',
     name: 'the three FCS types against moving dummies',
