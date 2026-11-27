@@ -1,8 +1,6 @@
 import type { DevView } from './view.ts';
 import { placeCamera } from '../../view/field.ts';
 import { showScale } from './scale.ts';
-import { showCamera } from './camera.ts';
-import { showMove } from './move.ts';
 import { showTouch } from './touch.ts';
 import { showArena } from './arena.ts';
 import { showOutdoor } from './outdoor.ts';
@@ -41,18 +39,6 @@ export const DEV_VIEWS: DevView[] = [
     match: 'starts',
     name: 'the scale course with 7/8/10 m mechs',
     run: showScale,
-  },
-  {
-    hash: '#view-camera',
-    match: 'is',
-    name: 'the third-person camera on the course',
-    run: showCamera,
-  },
-  {
-    hash: '#view-move',
-    match: 'is',
-    name: 'walk, jump, boost and fire on flat ground',
-    run: showMove,
   },
   {
     hash: '#view-touch',

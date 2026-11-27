@@ -1,5 +1,5 @@
 // Touch input for the mech (SB-030): the engine's floating stick and view drag become the MechInput that keyboard
-// input fills in #view-move, and the jump / boost / lock buttons sit on top. Also measures how hard the layout is to
+// input fills, and the jump / boost / lock buttons sit on top. Also measures how hard the layout is to
 // use: presses per button, the most fingers down at once, and how long the stick, the view drag and fire (or boost)
 // were all in use together.
 import { audioInit } from '@engine/audio/index.ts';

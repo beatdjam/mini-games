@@ -443,14 +443,6 @@ export function applyPose(cam: THREE.PerspectiveCamera, pose: CameraPose, fov: n
   cam.lookAt(pose.look);
 }
 
-// How much of the screen's height the mech takes: its feet and its head projected, as a raw fraction (not clamped
-// to 0..1).
-export function screenFraction(cam: THREE.PerspectiveCamera, foot: THREE.Vector3, height: number): number {
-  const bottom = new THREE.Vector3(foot.x, foot.y, foot.z).project(cam);
-  const top = new THREE.Vector3(foot.x, foot.y + height, foot.z).project(cam);
-  return Math.abs(top.y - bottom.y) / 2;
-}
-
 export interface ScreenRect {
   left: number; // px from the screen's left edge
   top: number; // px from the screen's top edge

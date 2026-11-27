@@ -64,8 +64,6 @@ test('an 8 m mech scales every camera distance and speed, and keeps the angles a
   ] as const) {
     expect(scale.cameraTune[key], key).toBe(CAMERA_TUNE[key]);
   }
-  // the course's walking speed is not a camera distance, so the look keeps the same lap time
-  expect(scale.cameraTune.walk).toBe(CAMERA_TUNE.walk);
 });
 
 test('turning the camera proportion off keeps CAMERA_TUNE', () => {

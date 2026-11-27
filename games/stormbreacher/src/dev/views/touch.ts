@@ -1,4 +1,4 @@
-// The touch view (#view-touch): the same flat field, mech and targets as #view-move, moved by the
+// The touch view (#view-touch): the flat field, mech and targets of flatRange.ts, moved by the
 // touch screen (app/touch.ts) or the keyboard and mouse (app/keyboard.ts) through app/input.ts. The button layout can
 // be edited on the phone, and the screen reports how hard the layout is to use: the presses, the most fingers down at
 // once and how long the three actions overlapped.

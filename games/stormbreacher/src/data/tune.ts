@@ -87,7 +87,6 @@ export const CAMERA_TUNE: CameraTune = {
   fov: 72, // the vertical field of view (deg)
   aimDist: 5.1, // the camera's horizontal distance while aiming (m)
   aimFov: 52, // the vertical field of view while aiming (deg)
-  walk: 7.4, // the model's walking speed in #view-camera (m/s)
   wallHeight: 6, // a blocking prop at least this tall (seawall, bunker, stairs, ramp, cliff, fortWall) is a wall; a lower one fades (m) (SB-2048)
   fadeOpacity: 0.35, // how much of a faded prop is left (0-1)
   fadeIn: 0.12, // the time a prop takes to fade out once it is between the camera and the mech (s)

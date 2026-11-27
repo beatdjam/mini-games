@@ -64,7 +64,6 @@ export interface CameraTune {
   fov: number; // the vertical field of view (deg)
   aimDist: number; // the camera's horizontal distance while aiming (m)
   aimFov: number; // the vertical field of view while aiming (deg)
-  walk: number; // the model's walking speed in #view-camera (m/s)
   wallHeight: number; // a blocking prop at least this tall is a wall the camera stays in front of; a lower one never pulls the camera and fades when it is between the camera and the mech (m); 0 makes every prop a wall (SB-2048)
   fadeOpacity: number; // how much of a faded prop is left (0-1)
   fadeIn: number; // the time a prop takes to fade out once it is between the camera and the mech (s)
