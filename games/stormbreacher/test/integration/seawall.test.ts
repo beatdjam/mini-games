@@ -1,5 +1,5 @@
 // The low walls on the beach and the seawall either side of the fortress (SB-120), walked with inputs: a low wall stops a
-// walk and lets a jump over, and the seawall's sea face is a wall the mech cannot climb now that M1 has no ramp.
+// walk and a jump carries the mech over it, and the seawall's sea face is a wall the mech cannot climb now that M1 has no ramp.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';

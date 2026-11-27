@@ -110,7 +110,7 @@ export type PropKind =
   | 'cliff'
   | 'crater'
   | 'wreck'
-  | 'lowWall' // a low obstacle: too high to walk onto, low enough to jump over
+  | 'lowWall' // a low obstacle: too high to walk onto (above the 0.75 m step), so the mech goes around
   | 'stairs' // one flight of steps up the seawall; its rects are one per step (STAIRS_TUNE)
   | 'ramp' // one ramp up the seawall; one rect whose top slopes down to its seaward end (RAMP_TUNE)
   | 'fortWall'; // a wall of the fortress: high, thick, not shot down

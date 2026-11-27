@@ -1361,7 +1361,7 @@ M1 の浜・B トーチカ線・C・防波堤・要塞と砲台の場所（z −
   - `揚陸艇`（`src/view/shore.ts`）: 船体の側面に板の継ぎ目、ランプに桟・蝶番・鎖、操舵室に窓、船首に波よけ。船体・甲板・ランプの3つの `Mesh`（船体の group は2つ）は変えず、色は頂点色で分ける
   - どの作り込みも頂点色（`color`）で部品の色を分け、物は種類ごとの `InstancedMesh` 1つ、艇は共有の材質1つにまとめる。描く回数は種類ごとに1回のまま（前後の数は `test/e2e/battle.test.ts` で見る）、三角形だけが増える
 - 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。物の大きさは高さ 8m・当たり半径 2m の機体を基準にする。機体は 4m・当たり半径 1m（`MECH_TUNE`）で、ジャンプの最高点は約 2.5m なので、対戦車障害物（3m）は跳んでも越えられない。描く形（`src/view/outdoor.ts`）も検査も当たりもこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
-- 低い障害物 `lowWall` は 6×0.85×1m（`PROP_SIZE`）。段差 `MOVE_TUNE.stepHeight`（0.75m）より高いので歩いては越えられず、ジャンプの最高点（約 2.5m）より低いので跳ぶと越えられる。本体ではジャンプが無いので、回り込む障害物になった
+- 低い障害物 `lowWall` は 6×0.85×1m（`PROP_SIZE`）。段差 `MOVE_TUNE.stepHeight`（0.75m）より高く歩いては乗れないので、回り込む障害物になる。ジャンプのロジック（`MOVE_TUNE.jump`）の最高点は約 2.5m だが、本体の入力からはジャンプを出せないので越えられない
 - 階段 `stairs`（`STAIRS_TUNE`・`STAIR_RISE` in `src/data/props.ts`）は幅 8m で、1つの物が段ごとの四角になる（`mapBlockers` が `STAIRS_TUNE.steps`＝9 の四角を出す。`propRects` in `src/logic/mapShapes.ts`）
   - 段は奥行き `STAIRS_TUNE.run`（1.5m）、1段の高さ `STAIR_RISE` は防波堤の高さ（`PROP_SIZE.seawall.h` 6m）を段の数で割った 0.667m で、段差 0.75m 以下。n 段目の `top` は `STAIR_RISE × n`、最上段は防波堤と同じ高さ。`scale` は幅・段の奥行き・高さに掛かる
   - `yaw` 0 で -z の向きへ上り、最も低い段が +z 側。`yaw` で段の並びごと回る（`yaw` π/2 で -x の向きへ上る）。壊れず（`PROP_HP` 0）、斜めの面の当たりは無い（四角は段ごと）。`blockingPropIndexes` は四角ごとに元の物の番号を返すので、階段は段の数だけ同じ番号が並ぶ

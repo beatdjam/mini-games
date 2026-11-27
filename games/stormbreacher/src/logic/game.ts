@@ -605,7 +605,7 @@ function damageTarget(game: GameModel, target: TargetState, damage: number): voi
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp > 0) return;
   // The view draws the wreck at WRECK_SCALE_Y of the target's height, so the wall left on the ground stands at the same
-  // height: the mech may jump over it, the camera looks over it, and the shots still pass through the fallen target.
+  // height: a jump can carry the mech over it, the camera looks over it, and the shots still pass through the fallen target.
   lowerWreckRect(game, target);
   // The enemy's cells are made from the rects and their count does not change with a target, so stepNav would keep the
   // grid made before the fall. Dropping it rebuilds the grid on the next frame that has a walking enemy.
