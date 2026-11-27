@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest';
-import { cursorAimInput, jumpReading, mergeInput, playInputOptions, withoutJump } from '../../src/logic/input.ts';
+import {
+  cursorAimInput,
+  jumpReading,
+  mergeInput,
+  playInputOptions,
+  STICK_MOVE_MIN,
+  withoutJump,
+} from '../../src/logic/input.ts';
 import type { MechInput } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -24,6 +31,12 @@ test('a stick at rest leaves the move keys to move the mech', () => {
   const merged = mergeInput(input({ moveX: 0.01, moveZ: 0.01 }), input({ moveX: -1, moveZ: 1 }));
   expect(merged.moveX).toBe(-1);
   expect(merged.moveZ).toBe(1);
+});
+
+test('the touch aim shares the stick threshold that hands movement to the keys', () => {
+  // exactly at the threshold the stick does not steer, so the touch aim holds the yaw instead of facing the stick
+  expect(mergeInput(input({ moveX: STICK_MOVE_MIN }), input({ moveX: -1 })).moveX).toBe(-1);
+  expect(mergeInput(input({ moveX: STICK_MOVE_MIN + 0.001 }), input({ moveX: -1 })).moveX).toBe(STICK_MOVE_MIN + 0.001);
 });
 
 test('the turn of both sides adds', () => {

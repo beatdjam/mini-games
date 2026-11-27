@@ -4,7 +4,8 @@ import type { GameInput } from './game.ts';
 import type { MechInput } from './mech.ts';
 
 // A stick pushed farther than this from its centre steers; below it the keyboard's move keys decide (unitless, 0-1).
-const STICK_MOVE_MIN = 0.05;
+// The touch aim uses the same threshold, so a stick too still to move the mech also holds the facing.
+export const STICK_MOVE_MIN = 0.05;
 
 // The touch stick wins while it is pushed; otherwise the keyboard moves the mech. The turn adds, and any held action
 // from either side is on.

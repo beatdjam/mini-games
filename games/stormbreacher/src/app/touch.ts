@@ -24,6 +24,7 @@ import { clearTouchEdits, loadTouchEdits, saveTouchEdits, type TouchEdits } from
 export interface TouchRead {
   input: MechInput;
   pitchDelta: number; // the pitch this frame's drag adds (rad)
+  drag: { x: number; y: number } | null; // the right finger's move from where it went down (px, down is +); null when not dragging
   lock: boolean; // the lock display the #btnLock button toggles
   sub: boolean; // #btnFire2 held (MechInput has no sub yet)
   use: boolean; // #btnUse held (MechInput has no use yet)
@@ -49,6 +50,10 @@ const pointers = new Set<number>(); // every finger down on #touch (buttons incl
 let maxPointers = 0;
 let stickId: number | null = null; // the finger the engine's stick took
 let lookId: number | null = null; // the finger the engine's view drag took
+// Where the view drag's finger went down and where it is now: the main body and the arena aim with their difference
+// (drag), while the dev views keep using the view's own look delta (SB-2180).
+let lookStart: { x: number; y: number } | null = null;
+let lookNow = { x: 0, y: 0 };
 let lastLookAt = -Infinity; // when the view last moved (ms, performance.now)
 let jumpPressed = false; // went down since the last readTouch
 let jumpHeld = false; // the jump button is held
@@ -181,14 +186,28 @@ export function initTouch(options: { show?: boolean; jump?: boolean } = {}) {
       if (target !== touch) return;
       // the same split as the engine: the left 45% is the stick while no other finger has it, the rest is the view
       if (e.clientX < window.innerWidth * STICK_ZONE && stickId === null) stickId = e.pointerId;
-      else lookId = e.pointerId;
+      else if (lookId === null) {
+        lookId = e.pointerId;
+        lookStart = { x: e.clientX, y: e.clientY };
+        lookNow = { x: e.clientX, y: e.clientY };
+      }
+    },
+    true,
+  );
+  touch.addEventListener(
+    'pointermove',
+    e => {
+      if (e.pointerId === lookId) lookNow = { x: e.clientX, y: e.clientY };
     },
     true,
   );
   const end = (e: PointerEvent) => {
     pointers.delete(e.pointerId);
     if (stickId === e.pointerId) stickId = null;
-    if (lookId === e.pointerId) lookId = null;
+    if (lookId === e.pointerId) {
+      lookId = null;
+      lookStart = null;
+    }
   };
   touch.addEventListener('pointerup', end, true);
   touch.addEventListener('pointercancel', end, true);
@@ -230,6 +249,7 @@ export function clearPendingTouch(): void {
   jumpPressed = false;
   useHeld = false;
   meleeHeld = false;
+  lookStart = null; // the drag that was under the finger before the pause menu must not aim on return
   el('#btnMelee').classList.remove('down');
 }
 
@@ -249,7 +269,8 @@ export function readTouch(): TouchRead {
   yawDelta = 0;
   pitchDelta = 0;
   jumpPressed = false;
-  return { input, pitchDelta: pitch, lock: lockState(), sub: fire2Held, use: useHeld, melee: meleeHeld };
+  const drag = lookStart === null ? null : { x: lookNow.x - lookStart.x, y: lookNow.y - lookStart.y };
+  return { input, pitchDelta: pitch, drag, lock: lockState(), sub: fire2Held, use: useHeld, melee: meleeHeld };
 }
 
 // Lets go of everything the fingers hold: the stick, the view drag, fire, jump, boost and use. A layer hidden under a
@@ -260,6 +281,7 @@ export function releaseTouch(): void {
   pointers.clear();
   stickId = null;
   lookId = null;
+  lookStart = null;
   jumpPressed = false;
   jumpHeld = false;
   boostHeld = false;

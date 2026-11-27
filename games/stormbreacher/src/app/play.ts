@@ -5,9 +5,11 @@ import { disposeTree, scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
+import { TOUCH_TUNE } from '../data/touch.ts';
 import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
-import { playInputOptions } from '../logic/input.ts';
+import { playInputOptions, STICK_MOVE_MIN } from '../logic/input.ts';
+import { touchAimInput } from '../logic/touchAim.ts';
 import {
   newGame,
   restartGame,
@@ -49,18 +51,30 @@ let settled: { game: GameModel; payout: Payout } | null = null; // the clear alr
 let confirmingStart = false; // the title's start button asked whether to discard the suspended sortie, and waits for the second press
 let started = false; // the play system and the result's button are set up once
 
-// The movement frame and the ground point a PC adds to a step: WASD moves with the screen's top (the quarter camera's
-// azimuth) and the mech faces the ground under the cursor at its feet (the middle of the screen until the mouse moves).
-// With no point (the first frame, or the top edge above the horizon) the current yaw is held, so the turn keys do not take
-// the aim over. The touch screen keeps its own movement, so it adds nothing. The arena calls this too.
+// The movement frame and the ground point a step adds: WASD moves with the screen's top (the quarter camera's azimuth)
+// and the mech faces the ground under the cursor at its feet (the middle of the screen until the mouse moves). With no
+// point (the first frame, or the top edge above the horizon) the current yaw is held, so the turn keys do not take the
+// aim over. A touch screen moves with the same frame: its right drag aims at a point on the ground and, without a right
+// touch, the stick's direction is the facing. The arena calls this too.
 export function cursorAim(
   game: GameModel,
   view: PlayView,
   read: PlayRead,
 ): Pick<GameInput, 'frame' | 'aimAt' | 'face'> {
-  if (isTouch) return {};
+  const azimuth = view.quarter.tune.azimuth;
+  if (isTouch) {
+    return touchAimInput({
+      mech: { x: game.mech.x, z: game.mech.z },
+      yaw: game.mech.yaw,
+      azimuth,
+      drag: read.drag,
+      move: read.stick ?? { moveX: 0, moveZ: 0 },
+      stickMin: STICK_MOVE_MIN,
+      tune: TOUCH_TUNE,
+    });
+  }
   const at = aimPointOf(view, read.cursor ?? { x: 0, y: 0 }, game.mech.y);
-  return { frame: view.quarter.tune.azimuth, ...cursorAimInput(at, game.mech.yaw) };
+  return { frame: azimuth, ...cursorAimInput(at, game.mech.yaw) };
 }
 
 // Hides the start-up field's ground and size box; the sortie's map takes their place.
@@ -251,7 +265,8 @@ function update(dt: number): void {
   if (!game || !view) return;
   const read = readInput(dt);
   // The quarter camera leaves the aim undefined, so step builds the level line from the chest to the cursor's point
-  // (the middle of the screen before the mouse moves). The touch screen adds no frame or point.
+  // (the middle of the screen before the mouse moves). A touch screen adds the same movement frame, its right drag's
+  // point or, without one, the stick's facing.
   const aim = view.aim;
   const cursor = cursorAim(game, view, read);
   step(game, { ...read.input, ...cursor, sub: read.sub, use: read.use, melee: read.melee, aim }, dt);
