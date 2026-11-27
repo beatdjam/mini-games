@@ -287,7 +287,7 @@ function update(dt: number): void {
   hideTouchInCutscene(game.script.cutscene !== null);
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);
-  drawPlay(view, game, drawDt, read.pitchDelta);
+  drawPlay(view, game, drawDt);
   // the PC's reticle marks the cursor; a touch screen keeps the dot and circle at the centre (read.cursor is null there)
   placeReticle(view.hud, read.cursor);
   // the touch use button lights while the mech stands in reach of a blast point (SB-2017)

@@ -344,7 +344,7 @@ export function showArena(_hash: string) {
       }
 
       soundFrame(arena, dt);
-      drawPlay(view, arena, dt, read.pitchDelta);
+      drawPlay(view, arena, dt);
       placeReticle(view.hud, read.cursor);
 
       const time = arena.time.toFixed(1);

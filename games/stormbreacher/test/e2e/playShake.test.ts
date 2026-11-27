@@ -28,7 +28,7 @@ test('a battlefield shell’s shake stops at the blast’s cap', () => {
     z: game.mech.z - 5,
     shake: FEEL_TUNE.shakeMax * 2,
   });
-  drawPlay(view, game, 1 / 60, 0);
+  drawPlay(view, game, 1 / 60);
   // the frame's own decay is the only thing that takes the capped shake down
   const decay = Math.exp(-FEEL_TUNE.shakeDecay / 60);
   expect(view.feel.shake).toBeCloseTo(FEEL_TUNE.shakeMax * decay, 6);

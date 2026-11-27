@@ -21,7 +21,7 @@ import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { CAMERA_TUNE, FADE_TUNE, FEEL_TUNE, FOV_TUNE, HUD_RING_TUNE, MECH_TUNE, QUARTER_TUNE } from '../data/tune.ts';
+import { FADE_TUNE, FEEL_TUNE, FOV_TUNE, HUD_RING_TUNE, MECH_TUNE, QUARTER_TUNE } from '../data/tune.ts';
 import type { QuarterTune } from '../data/tuneTypes.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import type { WeaponId } from '../data/weapons.ts';
@@ -111,7 +111,6 @@ export interface PlayView {
   stage: ProtoStage | null; // the prototype's sun, shadow and surroundings' light; only with ?shadow=1 or ?env=1
   mechFaded: boolean; // whether the mech is drawn see-through, for the camera is near
   feel: FeelState;
-  pitch: number; // the camera's pitch (rad); the quarter camera keeps it but does not use it yet (tickets 2110, 2115)
   // the overview camera's values, its place and look last frame (before the feel's shake), and the vertical field of
   // view the last frame was drawn with (the feel's boost included), which the cursor's point uses
   quarter: { tune: QuarterTune; pose: QuarterPose | null; fov: number; zoom: number };
@@ -179,7 +178,6 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     stage,
     mechFaded: false,
     feel: newFeel(FOV_TUNE.feel),
-    pitch: 0,
     // The first frame's pose is null, so the camera sits at its place at once: a checkpoint or a suspend resumes
     // without it flying in. `?q.height=30` tries a value without a build (quarterTuneFrom).
     quarter: { tune: quarterTune, pose: null, fov: quarterTune.fov, zoom: 1 },
@@ -431,7 +429,7 @@ function drawCoverFire(view: PlayView, game: GameModel, dt: number): void {
 // tracer bands with the enemies' muzzles lit, the enemies, the rings of warned shells and the mines are drawn, the mech
 // and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
 // used: the logic cannot be frozen.
-export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
+export function drawPlay(view: PlayView, game: GameModel, dt: number): void {
   const mechEvents: MechEvent[] = [];
   // The frame's shots, lit once the model has taken this frame's pose: the flash leaves the cannon's own muzzle.
   const shots: { weapon: WeaponId; x: number; y: number; z: number }[] = [];
@@ -650,9 +648,6 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     spawnMuzzleFlash(view.gunfire, shot.weapon, at.x, at.y, at.z);
   }
 
-  // The quarter camera has no pitch of its own yet; the value is still held while a cutscene plays, so the cursor's aim
-  // (ticket 2115) starts from where the player left it.
-  if (cutscene === null) view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
   // A large enemy near the mech pulls the camera back; a cutscene keeps the plain pose and the pull starts again from 1.
   view.quarter.zoom =
     cutscene === null ? stepZoom(view.quarter.zoom, wantsWide(game, view.quarter.tune), dt, view.quarter.tune) : 1;

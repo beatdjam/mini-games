@@ -23,7 +23,6 @@ import { clearTouchEdits, loadTouchEdits, saveTouchEdits, type TouchEdits } from
 
 export interface TouchRead {
   input: MechInput;
-  pitchDelta: number; // the pitch this frame's drag adds (rad)
   drag: { x: number; y: number } | null; // the right finger's move from where it went down (px, down is +); null when not dragging
   lock: boolean; // the lock display the #btnLock button toggles
   sub: boolean; // #btnFire2 held (MechInput has no sub yet)
@@ -62,7 +61,6 @@ let boostHeld = false;
 let useHeld = false; // the use button is held
 let meleeHeld = false; // the melee button is held
 let yawDelta = 0; // the view drag since the last readTouch (rad)
-let pitchDelta = 0; // the same, for the pitch (rad)
 let touchActive = false; // the touch view is running (INPUT.active)
 let touchReady = false; // initTouch has run (a second call does nothing)
 let edits: TouchEdits = {};
@@ -237,10 +235,9 @@ export function initTouch(options: { show?: boolean; jump?: boolean } = {}) {
 
   INPUT.active = () => touchActive;
   INPUT.key = handleKey;
-  INPUT.look = (dx: number, dy: number) => {
+  INPUT.look = (dx: number) => {
     lastLookAt = performance.now();
     yawDelta -= dx * TOUCH_TUNE.lookX;
-    pitchDelta -= dy * TOUCH_TUNE.lookY;
   };
 }
 
@@ -265,12 +262,10 @@ export function readTouch(): TouchRead {
     boost: boostHeld,
     fire: fireHeld,
   };
-  const pitch = pitchDelta;
   yawDelta = 0;
-  pitchDelta = 0;
   jumpPressed = false;
   const drag = lookStart === null ? null : { x: lookNow.x - lookStart.x, y: lookNow.y - lookStart.y };
-  return { input, pitchDelta: pitch, drag, lock: lockState(), sub: fire2Held, use: useHeld, melee: meleeHeld };
+  return { input, drag, lock: lockState(), sub: fire2Held, use: useHeld, melee: meleeHeld };
 }
 
 // Lets go of everything the fingers hold: the stick, the view drag, fire, jump, boost and use. A layer hidden under a
@@ -288,7 +283,6 @@ export function releaseTouch(): void {
   useHeld = false;
   meleeHeld = false;
   yawDelta = 0;
-  pitchDelta = 0;
   for (const id of ['#btnJump', '#btnBoost', '#btnUse', '#btnMelee']) el(id).classList.remove('down');
 }
 

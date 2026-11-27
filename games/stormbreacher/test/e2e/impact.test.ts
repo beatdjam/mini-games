@@ -32,10 +32,10 @@ test('a deflected hit keeps its own spark and gets no metal sparks or puff', () 
   };
   // the same metal target, first turned away by its front and then hit: only the second leaves the metal impact
   game.events = [{ ...hit, deflected: true }];
-  drawPlay(view, game, 0, 0);
+  drawPlay(view, game, 0);
   expect(gunfireCounts(view.gunfire)).toMatchObject({ sparks: 0, smoke: 0 });
   game.events = [hit];
-  drawPlay(view, game, 0, 0);
+  drawPlay(view, game, 0);
   expect(gunfireCounts(view.gunfire).sparks).toBeGreaterThan(0);
   expect(gunfireCounts(view.gunfire).smoke).toBe(1);
 });

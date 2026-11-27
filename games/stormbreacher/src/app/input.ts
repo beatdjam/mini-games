@@ -11,7 +11,6 @@ export { cursorAimInput, holdMouseFireUntilRelease };
 
 export interface PlayRead {
   input: MechInput;
-  pitchDelta: number; // the touch drag and the arrow keys added this frame (rad)
   lock: boolean; // the lock display, shared by the touch lock button and the lock key
   sub: boolean; // the touch sub button, the sub key, or the right mouse button
   use: boolean; // the touch use button or the use key
@@ -68,7 +67,6 @@ export function readInput(dt: number): PlayRead {
   const merged = mergeInput(touch.input, keyboard.input);
   return {
     input: jumpMode ? merged : withoutJump(merged),
-    pitchDelta: touch.pitchDelta + keyboard.pitchDelta,
     lock: keyboard.lock,
     sub: touch.sub || keyboard.sub,
     use: touch.use || keyboard.use,

@@ -8,7 +8,6 @@ import type { MechInput } from '../logic/mech.ts';
 
 export interface KeyboardRead {
   input: MechInput;
-  pitchDelta: number; // the pitch the arrow keys add this frame (rad)
   lock: boolean; // the lock display, shared with the touch screen's lock button
   sub: boolean; // the sub shot: its key, or the right mouse button (while locked, or on the canvas with the free cursor)
   use: boolean; // the use key (planting a charge)
@@ -102,7 +101,7 @@ export function clearPendingJump(): void {
 const actionAxis = (plus: KeyAction, minus: KeyAction): number =>
   (actionDown(plus) ? 1 : 0) - (actionDown(minus) ? 1 : 0);
 
-// This frame's keyboard input. A jump is true for one read only; the turn and pitch already have the frame time in.
+// This frame's keyboard input. A jump is true for one read only; the turn already has the frame time in.
 export function readKeyboard(dt: number): KeyboardRead {
   const input: MechInput = {
     moveX: actionAxis('right', 'left'),
@@ -116,7 +115,6 @@ export function readKeyboard(dt: number): KeyboardRead {
   jumpPressed = false;
   return {
     input,
-    pitchDelta: actionAxis('lookUp', 'lookDown') * KEY_TUNE.pitchRate * dt,
     lock: lockState(),
     sub: actionDown('sub') || (cursorMode ? subMouse && !mouseHeldOff : locked && subMouse),
     use: actionDown('use'),

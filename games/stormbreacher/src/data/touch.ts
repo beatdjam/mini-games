@@ -28,10 +28,9 @@ export const TOUCH_DEFAULTS: Record<TouchButton, TouchDefault> = {
   use: { x: 0.68, y: 0.68, s: 1, b: 64 },
 };
 
-// The touch view's starting values (SB-030). Both are multipliers on the engine's look drag (unitless).
+// The touch view's starting values (SB-030). lookX is a multiplier on the engine's look drag (unitless).
 export const TOUCH_TUNE = {
   lookX: 1, // horizontal: how far one px of drag turns the view
-  lookY: 1, // vertical: how far one px of drag changes the pitch
   // The right drag aims on the top-down view (SB-2180): the point is `aimReach` m from the mech along the drag's screen
   // direction, and a drag no longer than `aimDeadzone` px is ignored. Provisional; only a phone can settle them. Keep
   // aimReach inside FCS_QUARTER.range (45) and outside FCS_QUARTER.nearRange (12).
