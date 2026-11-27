@@ -17,7 +17,10 @@ export type StreamName =
   | 'battery'
   | 'pillboxes'
   | 'battle'
-  | 'allyFx';
+  | 'crowd'
+  | 'allyFx'
+  | 'trickle'
+  | 'support';
 
 // The value mixed into the seed for a stream (a 32-bit constant). Each stream needs its own.
 const STREAM_SALT: Record<StreamName, number> = {
@@ -33,7 +36,10 @@ const STREAM_SALT: Record<StreamName, number> = {
   battery: 0x3c6ef372,
   pillboxes: 0x510e527f,
   battle: 0xa54ff53a,
+  crowd: 0x94d049bb,
   allyFx: 0x7f4a7c15,
+  trickle: 0xd6e8feb9,
+  support: 0x1f83d9ab,
 };
 
 // A generator on Math.random, for the runs that are not seeded (the published game and the dev views).

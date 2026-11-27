@@ -34,6 +34,8 @@ const use: GameInput = { ...idle, use: true };
 // magazine is open to a charge (`open` false leaves it shut).
 function atTheMagazine(open = true): GameModel {
   const game = newPlayGame(M1B_HAND);
+  // this test is about the blast: the front's trickle would shoot the mech (SB-2230)
+  game.trickle = null;
   if (open) sendToScript(game, { kind: 'wardenDown' });
   game.mech.x = 0;
   game.mech.z = -120;

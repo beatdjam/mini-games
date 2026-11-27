@@ -28,6 +28,13 @@ function game() {
   return current;
 }
 
+// These tests count the script's enemies only. The front's trickle (SB-2230) would add one of its own from the first
+// step, so it is stopped before any: null is the game's mouth for a sortie without it, as `sectors: false` is.
+function startSortieWithoutTrickle(): void {
+  startSortie();
+  game().trickle = null;
+}
+
 // Every mesh of a kind: a soldier has the full shape and the far one (SB-2083); the nest has its named sandbags only, and
 // so has the mid boss (SB-1850), whose lamps and vents are two more meshes of the same copy (SB-2049).
 const meshNamesOf = (kind: EnemyKind): string[] =>
@@ -82,7 +89,7 @@ test('the script’s end keeps the cleared heading', () => {
 const allMeshNames = (): string[] => ENEMY_KINDS.flatMap(kind => meshNamesOf(kind)).sort();
 
 test('the enemies of a wave are drawn, and starting again leaves one set', async () => {
-  startSortie();
+  startSortieWithoutTrickle();
   steps(1);
   // the landing cutscene leaves the camera out at sea; the play view is the one the fog is measured from
   sendToScript(game(), { kind: 'skip' });
@@ -97,7 +104,7 @@ test('the enemies of a wave are drawn, and starting again leaves one set', async
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length + SOLDIER_KINDS.length);
   expect(drawnEnemies()).toBe(22);
 
-  startSortie();
+  startSortieWithoutTrickle();
   steps(1);
   sendToScript(game(), { kind: 'skip' });
   steps(SETTLE_STEPS);
@@ -123,7 +130,7 @@ function nestParts(): THREE.InstancedMesh[] {
 }
 
 test('every kind keeps room for its instance colours, so the GPU can draw it', async () => {
-  startSortie();
+  startSortieWithoutTrickle();
   steps(1);
   // the landing cutscene's camera is out past the fog; the wave is measured from where the player stands
   sendToScript(game(), { kind: 'skip' });

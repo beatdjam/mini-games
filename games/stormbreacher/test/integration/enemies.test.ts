@@ -20,7 +20,7 @@ import {
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
 import { fireRayHit } from '../../src/logic/fire.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
-import { newPlayGame } from './playGame.ts';
+import { clearInfantry, newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
 const DT = 1 / 60;
@@ -48,6 +48,8 @@ function field(places: { x: number; z: number }[]): MapDef {
 // that wants another kind pushes it in itself.
 function withSquad(places: { x: number; z: number }[]): GameModel {
   const game = newPlayGame(field(places));
+  // this test reads its own wave alone: the front's trickle would add enemies and shots (SB-2230)
+  game.trickle = null;
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
@@ -96,6 +98,8 @@ test('walking into b-line puts one enemy at each of the six b-squad places, in t
 
 test('a wave the map has no place for puts out nothing', () => {
   const game = newPlayGame({ ...M1B_HAND, spawns: {} });
+  // the walk is about the wave: the front's trickle would put enemies out (SB-2230)
+  game.trickle = null;
   expect(walkIntoBLine(game)).toBeNull();
   expect(game.script.spawned).toContain('b-squad');
   expect(game.enemies).toEqual([]);
@@ -145,6 +149,8 @@ test('four autocannon shots bring a grunt down, and so does one heavy gun shot',
 test('a fallen enemy stays but does not move, shoot or take a hit', () => {
   seed(1);
   const game = withSquad([{ x: 0, z: -40 }]);
+  // the beach is empty here, so the sectors would send a counterattack into this test's field (SB-2220)
+  game.sectors = null;
   const fallen = game.enemies[0];
   fallen.hp = 0;
   fallen.awake = true;
@@ -185,6 +191,8 @@ test('an enemy’s bullets take the armour down, with the way they came from', (
   seed(5);
   // the enemy stands 25 m ahead of the mech and wakes at once
   const game = withSquad([{ x: 0, z: -GRUNT.stopDist }]);
+  // the beach is empty here, so the sectors would send a counterattack whose shots come from the sea (SB-2220)
+  game.sectors = null;
   const damaged: Extract<GameEvent, { kind: 'damaged' }>[] = [];
   let mechHits = 0;
   for (let i = 0; i < 1800; i++) {
@@ -415,6 +423,9 @@ test(
   () => {
     seed(1);
     const game = newPlayGame({ ...M1B_HAND, mines: [] });
+    // The beach stays `advancing` while line 1 is unopened, so its trickle would keep putting walkers inland of the mech.
+    // This test reads b-squad alone, so the trickle is stopped.
+    game.trickle = null;
     game.mech.x = 0;
     game.mech.z = 88;
     game.mech.yaw = 0;
@@ -456,6 +467,8 @@ test('the six nests stand at the map’s places from the first frame, asleep and
 
 test('stepping off the craft wakes the front nest alone, and it starts to shoot', () => {
   const game = newPlayGame(M1B_HAND);
+  // this test reads the front nest alone: the infantry's support fire would put it down first (SB-2240)
+  clearInfantry(game);
   const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
   const front = nests.find(enemy => enemy.id === 'b-emplacements-1');
   if (!front) throw new Error('the front nest is out');
@@ -634,6 +647,8 @@ test('once the six nests are down the script is told b-emplacements is cleared',
 // part, so the roles are told apart by their own values alone.
 function loneFoe(kind: EnemyKind, z: number): GameModel {
   const game = newPlayGame(field([]));
+  // this test reads its own enemy alone: the front's trickle would add enemies and shots (SB-2230)
+  game.trickle = null;
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;

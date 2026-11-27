@@ -358,10 +358,10 @@ interface Result {
   at: { x: number; z: number; next: number };
 }
 
-function playM1(depot = false, onFrame?: (game: GameModel) => void): Result {
+function playM1(depot = false, onFrame?: (game: GameModel) => void, sectors = true): Result {
   seed(SEED);
   const route = depot ? ROUTE_DEPOT : ROUTE;
-  const game = newGame(M1B_HAND, M1);
+  const game = newGame(M1B_HAND, M1, { sectors });
   const bot: Bot = { next: 0, side: null, steps: 0 };
   for (let i = 0; i < LIMIT_SECONDS / DT && !game.cleared && !game.downed; i++) {
     // the cutscene is skipped: the landing
@@ -440,7 +440,8 @@ const STORY_DEPOT = [
 test(
   'a bot clears M1 from the landing on with its inputs alone',
   () => {
-    const result = playM1();
+    // The bot knows the map, not the sectors: the waiting line, counterattacks and trickle are off for its run.
+    const result = playM1(false, undefined, false);
     expect(result.cleared).toBe(true);
     expect(result.downed).toBe(false);
     expect(result.retries).toBe(0);
@@ -466,7 +467,8 @@ test(
 test(
   'a bot clears M1 by going for the depot',
   () => {
-    const result = playM1(true);
+    // As above: the bot's road is the mission's, without the sectors' counterattacks and trickle.
+    const result = playM1(true, undefined, false);
     expect(result.cleared).toBe(true);
     expect(result.downed).toBe(false);
     expect(result.retries).toBe(0);
@@ -482,6 +484,8 @@ test(
   },
   TEST_TIMEOUT,
 );
+
+test.todo('a bot clears M1 through the sectors (secure, counter, trickle)');
 
 test(
   'the same seed gives the same sortie',
@@ -534,55 +538,61 @@ function measureAllies(depot: boolean): Record<string, { mechs: Gap; infantry: G
     if (ahead) gap.ahead++;
     if (ahead || dist <= NEAR) gap.keeping++;
   };
-  playM1(depot, game => {
-    if (battle === null) {
-      const front = frontOf(game.script.flags);
-      battle = newBattle(
-        stream('battle'),
-        game.map.bounds,
-        PLAY_BATTLE_TUNE,
-        front.holdZ,
-        game.map.spawns[M1_NEST_WAVE] ?? [],
-      );
-      frontId = front.id;
-    }
-    if (game.script.cutscene === null) {
-      const front = frontOf(game.script.flags);
-      if (front.id !== frontId) {
+  // The bot knows the map, not the sectors: this reads the allies' way, so the waiting line, counterattacks and trickle
+  // are off.
+  playM1(
+    depot,
+    game => {
+      if (battle === null) {
+        const front = frontOf(game.script.flags);
+        battle = newBattle(
+          stream('battle'),
+          game.map.bounds,
+          PLAY_BATTLE_TUNE,
+          front.holdZ,
+          game.map.spawns[M1_NEST_WAVE] ?? [],
+        );
         frontId = front.id;
-        battle.crowd.holdZ = front.holdZ;
-        battle.crowd.holdT = 0;
-        spawnWave(battle.crowd, stream('battle'), game.map.bounds, PAYOFF_TUNE.surgeAllies, PLAY_BATTLE_TUNE);
       }
-      stepBattle(battle, stream('battle'), DT, PLAY_BATTLE_TUNE, game.mech, front.id !== 'pillboxes');
-    }
-    frame++;
-    if (frame % SAMPLE_EVERY !== 0) return;
-    // the section is the one whose cue fired last (the bot is already inside B when it plants line 1's charge)
-    let section: string | null = null;
-    let latest = -1;
-    for (const entry of SECTIONS) {
-      const at = game.script.fired[entry.from];
-      if (at !== undefined && at >= latest) {
-        section = entry.name;
-        latest = at;
+      if (game.script.cutscene === null) {
+        const front = frontOf(game.script.flags);
+        if (front.id !== frontId) {
+          frontId = front.id;
+          battle.crowd.holdZ = front.holdZ;
+          battle.crowd.holdT = 0;
+          spawnWave(battle.crowd, stream('battle'), game.map.bounds, PAYOFF_TUNE.surgeAllies, PLAY_BATTLE_TUNE);
+        }
+        stepBattle(battle, stream('battle'), DT, PLAY_BATTLE_TUNE, game.mech, front.id !== 'pillboxes');
       }
-    }
-    if (section === null) return;
-    const row = table[section];
-    for (const ally of game.allies) {
-      if (ally.down || !ally.id.startsWith('cover-')) continue;
-      add(row.mechs, game.mech, ally, game.mech.x);
-    }
-    const alive = battle.crowd.soldiers.filter(soldier => soldier.alive);
-    for (const soldier of alive) add(row.infantry, game.mech, soldier, game.mech.x);
-    // the ten nearest the mech: the ones the player sees at his back
-    alive
-      .map(soldier => ({ soldier, dist: Math.hypot(soldier.x - game.mech.x, soldier.z - game.mech.z) }))
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 10)
-      .forEach(item => add(row.nearest, game.mech, item.soldier, game.mech.x));
-  });
+      frame++;
+      if (frame % SAMPLE_EVERY !== 0) return;
+      // the section is the one whose cue fired last (the bot is already inside B when it plants line 1's charge)
+      let section: string | null = null;
+      let latest = -1;
+      for (const entry of SECTIONS) {
+        const at = game.script.fired[entry.from];
+        if (at !== undefined && at >= latest) {
+          section = entry.name;
+          latest = at;
+        }
+      }
+      if (section === null) return;
+      const row = table[section];
+      for (const ally of game.allies) {
+        if (ally.down || !ally.id.startsWith('cover-')) continue;
+        add(row.mechs, game.mech, ally, game.mech.x);
+      }
+      const alive = battle.crowd.soldiers.filter(soldier => soldier.alive);
+      for (const soldier of alive) add(row.infantry, game.mech, soldier, game.mech.x);
+      // the ten nearest the mech: the ones the player sees at his back
+      alive
+        .map(soldier => ({ soldier, dist: Math.hypot(soldier.x - game.mech.x, soldier.z - game.mech.z) }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, 10)
+        .forEach(item => add(row.nearest, game.mech, item.soldier, game.mech.x));
+    },
+    false,
+  );
   return table;
 }
 

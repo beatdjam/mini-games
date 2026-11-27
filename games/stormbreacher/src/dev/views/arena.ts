@@ -272,7 +272,7 @@ export function showArena(_hash: string) {
   const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
   if (sizeBox) sizeBox.visible = false;
 
-  const arena = newGame(ARENA_MAP, ARENA_MISSION);
+  const arena = newGame(ARENA_MAP, ARENA_MISSION, { battleTune: ARENA_BATTLE_TUNE, sectors: false });
   // newGame puts the mech on the landing craft's deck at the map's front edge; the arena starts it in the middle.
   arena.mech.x = 0;
   arena.mech.y = 0;
@@ -283,7 +283,6 @@ export function showArena(_hash: string) {
 
   const view: PlayView = buildPlayView(arena, {
     world: buildArenaWorld(ARENA_MAP),
-    battleTune: ARENA_BATTLE_TUNE,
     hudLayout,
   });
   initPlayInput(playInputOptions());

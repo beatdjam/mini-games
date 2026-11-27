@@ -17,6 +17,7 @@ import {
 import { newPlayGame } from './playGame.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { restoreCheckpoint } from '../../src/logic/script.ts';
+import { sectorHold } from '../../src/logic/sectors.ts';
 
 const DT = 1 / 60;
 
@@ -323,7 +324,14 @@ describe('restart', () => {
     const fresh = newGame(M1B_HAND);
     expect(again.retries).toBe(1);
     expect(again.events).toEqual([{ kind: 'retried', from: null }]);
-    expect({ ...again, retries: 0, events: [] }).toEqual(fresh);
+    // The battle layer is made again from the sectors, not carried over (SB-2200), so it is left out of the comparison.
+    const { battle: _againBattle, ...againRest } = again;
+    const { battle: _freshBattle, ...freshRest } = fresh;
+    expect({ ...againRest, retries: 0, events: [] }).toEqual(freshRest);
+    // ... but it is a new one, waiting at the first sector's line like a new game's
+    expect(again.battle).not.toBe(game.battle);
+    expect(again.battle.crowd.holdZ).toBe(fresh.battle.crowd.holdZ);
+    expect(again.battle.crowd.holdZ).toBe(sectorHold(again.sectors, again.script.blasts, M1B_HAND.blasts ?? []).holdZ);
     expect(again.checkpoint).toBeNull();
   });
 

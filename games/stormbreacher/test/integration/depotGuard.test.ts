@@ -52,6 +52,8 @@ function newWalkGame(map: MapDef = openBreach({ ...M1B_HAND, mines: [] }, ['l1-b
   const spawns = { ...map.spawns };
   delete spawns['b-emplacements'];
   const game = newPlayGame({ ...map, spawns });
+  // the walk is about the depot's guard: the front's trickle would shoot the mech on the way (SB-2230)
+  game.trickle = null;
   game.mech.yaw = 0;
   return game;
 }

@@ -18,9 +18,16 @@ beforeAll(async () => {
 test('a battlefield shell’s shake stops at the blast’s cap', () => {
   const game = newGame(M1B_HAND);
   const view = buildPlayView(game);
-  // the battle is the only shake this frame; it asks for more than the cap on its own
+  // The battle is the only shake this frame. The game's step turns the shell `stepBattle` gives into a `battleShell`
+  // event; the view's battle draw returns its shake, and `drawPlay` adds it within the blast's cap. The shell asks for
+  // more than the cap on its own.
   view.feel.shake = FEEL_TUNE.shakeMax / 2;
-  view.battle.step = () => FEEL_TUNE.shakeMax * 2;
+  game.events.push({
+    kind: 'battleShell',
+    x: game.mech.x,
+    z: game.mech.z - 5,
+    shake: FEEL_TUNE.shakeMax * 2,
+  });
   drawPlay(view, game, 1 / 60, 0);
   // the frame's own decay is the only thing that takes the capped shake down
   const decay = Math.exp(-FEEL_TUNE.shakeDecay / 60);

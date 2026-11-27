@@ -1,0 +1,62 @@
+// The sectors of M1's front (SB-2210): the beach, the two hedgehog lines and the pillbox line. The infantry moves up a
+// sector when the mech has gone in and every enemy of it is down, and digs in at the sector's hold line once enough of
+// them have arrived. +z is the sea, so a sector runs from its seaZ (the larger z) to its landZ.
+import type { EnemyKind } from './enemies.ts';
+import { PAYOFF_TUNE } from './payoff.ts';
+import { BATTLE_TUNE } from './tune.ts';
+
+export type SectorId = 'beach' | 'line1' | 'line2' | 'pillboxes';
+
+export interface Sector {
+  id: SectorId;
+  seaZ: number; // the sector's sea-side edge (m)
+  landZ: number; // the sector's land-side edge (m)
+  holdZ: number; // where the infantry waits once the sector is cleared (m)
+  counter: number; // the enemies of the counterattack that follows the sector's securing (count)
+  budget: number; // the enemies the trickle may put out while this sector is the front (count, SB-2230)
+}
+
+// The values the sectors run on. Provisional, to be settled by eye in the sortie.
+export const SECTOR_TUNE = {
+  startHoldZ: 160, // where the infantry waits before the first sector (m), at the water's edge
+  lineMargin: 6, // how far seaward of a still-closed defence line the infantry waits (m)
+  enterDepth: 6, // how far past a sector's sea-side edge the mech has to go to count as in it (m)
+  seaMargin: 10, // how far seaward of a sector's seaZ its enemies still count (m)
+  arriveBand: 8, // a soldier this near its hold line has arrived (m)
+  arriveShare: 0.6, // the share of the living infantry that has to arrive to secure a sector
+  arriveMax: 11, // the most that share is ever taken as (soldiers)
+  surge: PAYOFF_TUNE.surgeAllies, // the infantry a cleared sector adds (soldiers)
+  refill: PAYOFF_TUNE.surgeAllies, // the wave put out when every soldier is down while the line is held (soldiers)
+  counterEvery: 0.55, // the seconds between one counterattack enemy and the next (s)
+  counterBack: 12, // how far inland of a sector's landZ the counterattack comes out (m)
+  counterSpread: 60, // half the x spread of the counterattack's points (m)
+  weakArrived: 8, // fewer soldiers than this at the hold line make a weak hold (soldiers)
+  counterKind: 'grunt' as EnemyKind, // the kind of enemy the counterattack puts out
+};
+
+// The infantry's support fire (SB-2240): the soldiers at a sector's hold line shoot the nearest enemy in range. The
+// factor grows with the number of soldiers who have arrived, and the shooters are capped so a crowd of hundreds does not
+// outgun the mech. A hit takes a share of the target's health and suppresses its fire and walk for a moment. Provisional.
+export const SUPPORT_TUNE = {
+  shooters: 12, // the most soldiers that fire, however many have arrived (soldiers)
+  minFactor: 0.35, // the weakest the factor is (share)
+  maxFactor: 1.15, // the strongest the factor is (share)
+  factorPer: 12, // the arrived soldiers one whole factor is worth (soldiers)
+  intervalMin: 1.1, // the shortest wait between one soldier's shots (s)
+  intervalMax: 1.7, // the longest wait between one soldier's shots (s)
+  range: 57, // how far a soldier's shot reaches (m); the spike's 240 px in the sortie's scale
+  damageBase: 0.07, // the share of the target's health a shot takes with no factor
+  damagePer: 0.17, // the share the factor adds
+  suppressSec: 2.6, // how long a hit enemy is suppressed (s)
+  suppressFire: 2.5, // how many times longer the enemy's wait between shots is while suppressed
+  suppressMove: 0.55, // how much of its walk speed the enemy keeps while suppressed
+};
+
+// The four sectors, front to back. The beach's hold sits just seaward of line 1's hedgehogs (z 129..145); the pillbox
+// line's is the hold the battle layer waited at before the sectors came (BATTLE_TUNE.holdZ).
+export const M1_SECTORS: readonly Sector[] = [
+  { id: 'beach', seaZ: 170, landZ: 129, holdZ: 132, counter: 3, budget: 8 },
+  { id: 'line1', seaZ: 129, landZ: 62, holdZ: 80, counter: 4, budget: 12 },
+  { id: 'line2', seaZ: 62, landZ: -11, holdZ: BATTLE_TUNE.holdLine2Z, counter: 6, budget: 16 },
+  { id: 'pillboxes', seaZ: -11, landZ: -40, holdZ: BATTLE_TUNE.holdZ, counter: 8, budget: 20 },
+];

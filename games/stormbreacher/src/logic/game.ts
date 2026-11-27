@@ -20,9 +20,18 @@
 // logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
 import { distXZ } from '@engine/core/index.ts';
 import { ALLY_TUNE, COVER_TUNE } from '../data/allies.ts';
+import { CUTSCENES } from '../data/cutscenes.ts';
 import { LINE2_FLAG } from '../data/front.ts';
 import { DEFENDER_POSTS, defenderPostOf } from '../data/defenders.ts';
-import { ENEMIES, ENEMY_CHEST, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
+import {
+  ENEMIES,
+  ENEMY_CHEST,
+  ENEMY_KINDS,
+  M1_NEST_WAVE,
+  M1_WAVE_DROP,
+  M1_WAVE_ENEMY,
+  type EnemyKind,
+} from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE, M1_SHUTTERS } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
@@ -33,16 +42,20 @@ import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { FORTRESS_GUN_FLAG, M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
+import { M1_SECTORS, SECTOR_TUNE, SUPPORT_TUNE, type SectorId } from '../data/sectors.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
-import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../data/tune.ts';
+import { TRICKLE_TUNE, TRICKLE_WAVE } from '../data/trickle.ts';
 import type { FcsTune } from '../data/tuneTypes.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
+import { newBattle, stepBattle, type BattleState } from './battle.ts';
 import { pushOutCircle, rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
 import { allyCraftRects, craftBack, craftRects, inCraftLane } from './craft.ts';
+import { fallNear, spawnWave as spawnCrowd } from './crowd.ts';
 import {
   armoured,
   newBattery,
@@ -81,6 +94,9 @@ import {
   type Ray3,
 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
+import { newSectors, sectorHold, stepSectors, type SectorsState } from './sectors.ts';
+import { stepSupport as stepSupportState, supportDamage, type SupportWorld } from './support.ts';
+import { newTrickle, stepTrickle, type TrickleState } from './trickle.ts';
 import {
   inCircle,
   mineStepped,
@@ -171,12 +187,22 @@ export type GameEvent =
   | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
   | { kind: 'shellLand'; x: number; y: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
   | { kind: 'mineBlast'; x: number; y: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
+  | { kind: 'battleFell'; x: number; z: number } // one of the battle layer's soldiers fell this frame; the view puts its dust there
+  | { kind: 'battleShell'; x: number; z: number; shake: number } // a shell of the battle layer landed; the view draws it and shakes the camera
+  | { kind: 'sectorCleared'; sector: SectorId } // a sector's enemies are all down; the infantry moves up to it (SB-2210)
+  | { kind: 'sectorSecured'; sector: SectorId } // enough infantry has reached the sector's hold line; it is secured (SB-2210)
+  | { kind: 'sectorCounter'; sector: SectorId } // the sector's securing brought a counterattack (SB-2220)
+  | { kind: 'sectorSpawn'; sector: SectorId; x: number; z: number } // one counterattack enemy comes out here (SB-2220)
+  | { kind: 'sectorStable'; sector: SectorId; weak: boolean } // the counterattack is beaten off; the sector is stable (SB-2220)
   | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
   | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
   | { kind: 'allyDown'; id: string; x: number; z: number; by: AllyFateBy } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'allyCall'; id: string; line: string } // an ally called on the radio before its fate
   | { kind: 'assistFire'; fromX: number; fromZ: number; toX: number; toZ: number } // the scripted allies shot an enemy from (fromX, fromZ) at (toX, toZ); a look only
+  // one of the infantry at the hold line shot an enemy (SB-2240): from the soldier at (from.x, from.z) to the enemy's
+  // chest at (to.x, to.y, to.z); the view draws the tracer, and the same frame's shot takes the enemy's health
+  | { kind: 'supportFire'; from: { x: number; z: number }; to: { x: number; y: number; z: number } }
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   // an ally's support fire flies at a silenced nest (SB-2024): from (x, y, z) to (tx, ty, tz); the view draws the tracer and the spark
   | { kind: 'coverFire'; enemy: string; x: number; y: number; z: number; tx: number; ty: number; tz: number }
@@ -261,14 +287,22 @@ function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
 
 // The game as a checkpoint keeps it: every field of GameModel except the ones listed here, which are not kept. `events`,
 // `bullets` and `shells` (a warning before it lands) are the frame's own, `checkpoint` never nests, and `id` is the checkpoint's name (cp1). `map` and
-// `mission` are definitions nothing writes to, so the copy points at the same ones.
-export type GameSnapshot = Omit<GameModel, 'events' | 'bullets' | 'shells' | 'nav' | 'checkpoint'> & { id: string };
+// `mission` are definitions nothing writes to, so the copy points at the same ones. The battle layer (`battle`,
+// `battleTune`) is rebuilt from the sectors when the sortie comes back.
+export type GameSnapshot = Omit<
+  GameModel,
+  'events' | 'bullets' | 'shells' | 'nav' | 'checkpoint' | 'battle' | 'battleTune'
+> & { id: string };
 
 export interface GameModel {
   time: number; // seconds since the sortie began
   map: MapDef;
   mission: MissionDef; // the script's write-up (data/missions/m1.ts)
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
+  battle: BattleState; // the battle layer's infantry and shells; step moves it, the view only draws it
+  sectors: SectorsState | null; // the front's sectors; null where the sortie's sectors do not run (the arena)
+  trickle: TrickleState | null; // the enemies the front keeps putting out (SB-2230); null where the sectors do not run
+  battleTune: FxTune; // the values the battle layer runs on (the sortie's, or the arena's thinner one)
   // The line on screen now. `time` is when it came up plus the cutscene seconds since (stepRadio holds it still while a
   // cutscene hides the HUD), so game.time - time is the seconds the HUD has shown it; null before one
   radio: { line: string; time: number; callout?: string } | null;
@@ -308,6 +342,7 @@ export interface GameModel {
   // the allies' support fire under way (SB-2024): the wave it holds quiet, the seconds left, the wait to the next tracer, the nest to fire at next, and whether the radio line about the rounds running short has gone out; null when none
   cover: { wave: string; left: number; wait: number; next: number; warned: boolean } | null;
   assist: AssistState | null; // the script's assist once a cue has started it (SB-1840); null before one
+  supportT: number; // the seconds until the infantry's next support shot (SB-2240)
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
   checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
@@ -918,8 +953,17 @@ export function fortressBlast(game: GameModel, blast: BlastState): void {
 }
 
 // A new sortie on `map` with the script `mission`: the mech on the landing craft's deck at the middle of the front edge,
-// facing the land, every target at its health, and the script at its start.
-export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
+// facing the land, every target at its health, and the script at its start. `battleTune` thins the battle layer (the arena
+// asks for the beach's own tune with its allies, shells and planes off); the sortie's is the default. `sectors` false
+// leaves the sector rules off (the arena walks its infantry only), keeping the hold at the water's edge.
+export function newGame(
+  map: MapDef,
+  mission: MissionDef = M1,
+  options: { battleTune?: FxTune; sectors?: boolean } = {},
+): GameModel {
+  const battleTune = options.battleTune ?? PLAY_BATTLE_TUNE;
+  const sectors = options.sectors === false ? null : newSectors();
+  const trickle = sectors === null ? null : newTrickle(M1_SECTORS.length);
   const mech = newMech();
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = craftZ(map.bounds) + LANDING_TUNE.startDepth;
@@ -942,6 +986,10 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     map,
     mission,
     script: newScript(mission),
+    battle: newBattle(stream('crowd'), map.bounds, battleTune, SECTOR_TUNE.startHoldZ, map.spawns[M1_NEST_WAVE] ?? []),
+    sectors,
+    trickle,
+    battleTune,
     radio: null,
     radioQueue: [],
     mech,
@@ -986,6 +1034,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     calm: null,
     cover: null,
     assist: null,
+    supportT: 0,
     events: [],
     cleared: false,
     checkpoint: null,
@@ -1316,6 +1365,8 @@ function snapshotOf(game: GameModel, id: string): GameSnapshot {
     shells: _shells,
     nav: _nav,
     checkpoint: _checkpoint,
+    battle: _battle,
+    battleTune: _battleTune,
     map,
     mission,
     ...kept
@@ -1334,10 +1385,13 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   const checkpoint = game.checkpoint;
   if (checkpoint === null) throw new Error('no checkpoint to retry from');
   const { id, map, mission, ...rest } = checkpoint;
+  const hold = sectorHold(rest.sectors, rest.script.blasts, map.blasts ?? []);
   const next: GameModel = {
     ...structuredClone(rest),
     map,
     mission,
+    battle: newBattle(stream('crowd'), map.bounds, game.battleTune, hold.holdZ, map.spawns[M1_NEST_WAVE] ?? []),
+    battleTune: game.battleTune,
     armor: MECH_TUNE.armor,
     downed: false,
     // the weapons the checkpoint had, loaded full again
@@ -1369,7 +1423,7 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
 
 // The sortie again from the start.
 export function restartGame(game: GameModel): GameModel {
-  const next = newGame(game.map, game.mission);
+  const next = newGame(game.map, game.mission, { battleTune: game.battleTune, sectors: game.sectors !== null });
   next.retries = game.retries + 1;
   next.events.push({ kind: 'retried', from: null });
   return next;
@@ -1409,6 +1463,11 @@ function stepEnemies(game: GameModel, dt: number): void {
       if (out.ram) ramMech(game, enemy, out.ram.dx, out.ram.dz);
       if (out.addWave) addWave = true;
       if (out.down) game.events.push({ kind: 'wardenDown', id: enemy.id, x: enemy.x, z: enemy.z });
+      continue;
+    }
+    // a fallen enemy only marks the time since it fell: the trickle's bodies are taken out after a while (SB-2230)
+    if (enemy.hp <= 0) {
+      enemy.fallenT += dt;
       continue;
     }
     // the nests draw from a stream of their own, so their bursts do not shift the walkers' spread
@@ -1576,6 +1635,28 @@ function stepAssist(game: GameModel, dt: number): void {
   damageEnemy(game, enemy, enemy.hp);
 }
 
+// The infantry's support fire (SB-2240): the soldiers at the hold line shoot the nearest awake enemy in range, and the
+// shot takes a share of its health and suppresses it. A cutscene holds the infantry, the downed and the cleared sortie
+// have no line to shoot from, and the enemy's fall still goes through damageEnemy, so the tracer is pushed first.
+function stepSupport(game: GameModel, dt: number): void {
+  if (game.script.cutscene !== null || game.downed || game.cleared) return;
+  const world: SupportWorld = {
+    battle: game.battle,
+    enemies: game.enemies,
+    supportT: game.supportT,
+    hold: sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []),
+  };
+  const shots = stepSupportState(world, stream('support'), dt);
+  game.supportT = world.supportT;
+  for (const shot of shots) {
+    const enemy = game.enemies.find(entry => entry.id === shot.enemy);
+    if (enemy === undefined || enemy.hp <= 0) continue;
+    game.events.push({ kind: 'supportFire', from: shot.from, to: shot.to });
+    damageEnemy(game, enemy, supportDamage(ENEMIES[enemy.kind].hp, shot.factor));
+    if (enemy.hp > 0) enemy.suppressT = SUPPORT_TUNE.suppressSec;
+  }
+}
+
 // How near the mech an aim point is too close to turn toward (m): a point under its feet would spin it every frame.
 const AIM_MIN_DIST = 0.9;
 
@@ -1644,12 +1725,155 @@ export function timeScale(game: GameModel): number {
 // ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
 // (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
 // enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
-// (the closing cutscene may still be playing: it goes on to its end) or the mech is downed, step does nothing.
-// A milestone's slowdown (SB-2010) scales the whole frame by `slow.scale`; its clock counts real seconds, so it ends
-// after `slow.left` seconds have gone by whatever the game's own clock says.
+// (the closing cutscene may still be playing: it goes on to its end) the game's own frame does nothing, but the battle
+// layer still moves (see stepBattleLayer). A downed mech stops the whole frame, battle layer too: the infantry, its
+// waiting line's loss and its waves hold still until the retry. A milestone's slowdown (SB-2010) scales the whole
+// frame by `slow.scale`; its clock counts real seconds, so it ends after `slow.left` seconds have gone by whatever the
+// game's own clock says.
 export function step(game: GameModel, given: GameInput, dt: number): void {
   game.events = [];
-  if ((game.cleared && game.script.cutscene === null) || game.downed) return;
+  if (game.downed) return;
+  if (game.cleared && game.script.cutscene === null) {
+    stepBattleLayer(game, dt * timeScale(game));
+    return;
+  }
+  stepFrame(game, given, dt);
+  stepBattleLayer(game, dt * timeScale(game));
+}
+
+// Moves the battle layer by one frame after the game's own frame (or instead of it while the cleared sortie's closing
+// cutscene plays), in the order the view used to: the game's own shells and mines take the soldiers near them, the
+// sectors move the waiting line and send the wave a cleared one brings (not while any cutscene plays or the sortie is
+// cleared), and
+// then the battle steps (the landing's cutscene holds it still). The fallen, the shell and the sector events become this
+// frame's events for the view to draw. The state is the game's, so a test can read it.
+function stepBattleLayer(game: GameModel, dt: number): void {
+  const tune = game.battleTune;
+  // A shell of the game's own (a mortar round or a mine) takes the infantry near it, as the battle's own shells do.
+  for (const event of [...game.events]) {
+    if (event.kind !== 'shellLand' && event.kind !== 'mineBlast') continue;
+    const fell = fallNear(
+      game.battle.crowd,
+      event.x,
+      event.z,
+      tune.shellFallRadius,
+      tune.shellFallShare,
+      stream('crowd'),
+    );
+    for (const soldier of fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
+  }
+  const cutscene = game.script.cutscene;
+  if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
+  if (game.sectors !== null) {
+    // The sectors and the trickle wait while a cutscene plays or the sortie is cleared: no wave, no counterattack and
+    // no radio comes out then.
+    if (game.script.cutscene === null && !game.cleared) {
+      for (const event of stepSectors(game.sectors, game, dt)) {
+        game.events.push(event);
+        if (event.kind === 'sectorCleared') {
+          const sector = M1_SECTORS.find(entry => entry.id === event.sector);
+          if (sector !== undefined) {
+            game.battle.crowd.holdZ = sector.holdZ;
+            game.battle.crowd.holdT = 0;
+            if (game.battle.crowd.bounds !== null && SECTOR_TUNE.surge > 0) {
+              spawnCrowd(game.battle.crowd, stream('crowd'), game.battle.crowd.bounds, SECTOR_TUNE.surge, tune);
+            }
+          }
+          queueRadio(game, 'm1.sector-cleared');
+          // The infantry cannot answer "move up" while a line the mech has not blown holds it back: say what to do.
+          const lineHold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
+          if (sector !== undefined && lineHold.holdZ > sector.holdZ) queueRadio(game, 'm1.sector-line-closed');
+        } else if (event.kind === 'sectorSecured') {
+          queueRadio(game, 'm1.sector-secured');
+        } else if (event.kind === 'sectorCounter') {
+          queueRadio(game, 'm1.sector-counter');
+        } else if (event.kind === 'sectorSpawn') {
+          spawnSectorCounter(game, event);
+        } else {
+          queueRadio(game, event.weak ? 'm1.sector-weak' : 'm1.sector-stable');
+        }
+      }
+      if (game.trickle !== null) {
+        const spawn = stepTrickle(
+          game.trickle,
+          {
+            mech: game.mech,
+            enemies: game.enemies,
+            targets: game.targets,
+            rects: game.rects,
+            bounds: game.map.bounds,
+            sectors: game.sectors,
+            paused: game.script.cutscene !== null || game.cleared,
+          },
+          stream('trickle'),
+          dt,
+        );
+        if (spawn !== null) spawnTrickle(game, spawn.x, spawn.z);
+        clearFallenTrickle(game);
+      }
+    }
+    const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
+    if (game.battle.crowd.holdZ !== hold.holdZ) {
+      game.battle.crowd.holdZ = hold.holdZ;
+      game.battle.crowd.holdT = 0;
+    }
+    // While the infantry waits, a wave that is wiped out entirely is made up from behind, so the line is not left empty
+    // before it is secured (SB-2210). One wave a frame: the wave just put out has its soldiers alive.
+    if (
+      hold.held &&
+      SECTOR_TUNE.refill > 0 &&
+      game.battle.crowd.bounds !== null &&
+      game.battle.crowd.soldiers.every(soldier => !soldier.alive)
+    ) {
+      spawnCrowd(game.battle.crowd, stream('crowd'), game.battle.crowd.bounds, SECTOR_TUNE.refill, tune);
+      game.battle.crowd.holdT = 0;
+    }
+  }
+  const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
+  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, hold.held);
+  for (const soldier of frame.fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
+  if (frame.shell !== null) {
+    game.events.push({ kind: 'battleShell', x: frame.shell.x, z: frame.shell.z, shake: frame.shell.shake });
+  }
+  stepSupport(game, dt);
+}
+
+// Puts out one enemy of a sector's counterattack (SB-2220): the sectors choose the point, the game makes the enemy as
+// a wave's own are made, awake from the start, and remembers its id so the sector knows when they are all down. The
+// wave's name is outside the mission's, so the script's `cleared` never waits on it.
+function spawnSectorCounter(game: GameModel, event: Extract<GameEvent, { kind: 'sectorSpawn' }>): void {
+  if (game.sectors === null) return;
+  const index = M1_SECTORS.findIndex(sector => sector.id === event.sector);
+  if (index < 0) return;
+  const wave = `counter-${event.sector}`;
+  const id = `${wave}-${game.sectors.counterIds[index].length + 1}`;
+  const enemy = newEnemy(id, wave, SECTOR_TUNE.counterKind, event.x, event.z);
+  enemy.awake = true;
+  game.enemies.push(enemy);
+  game.sectors.counterIds[index].push(id);
+}
+
+// Puts out one enemy of the trickle (SB-2230): the trickle chose the point and spent its sector's budget, the game makes
+// the enemy awake and names it by how many the trickle has put out so far, so the names do not collide.
+function spawnTrickle(game: GameModel, x: number, z: number): void {
+  if (game.trickle === null) return;
+  const count = game.trickle.spent.reduce((sum, spent) => sum + spent, 0);
+  const enemy = newEnemy(`${TRICKLE_WAVE}-${count}`, TRICKLE_WAVE, TRICKLE_TUNE.kind, x, z);
+  enemy.awake = true;
+  game.enemies.push(enemy);
+}
+
+// Takes the fallen of the trickle out of the list once their bodies have shown for fallenKeep seconds, so a long sortie
+// does not keep growing it. Only the trickle's own fallen are taken: the script's enemies stay for its `cleared`.
+function clearFallenTrickle(game: GameModel): void {
+  const keep = TRICKLE_TUNE.fallenKeep;
+  const gone = (enemy: EnemyState) => enemy.wave === TRICKLE_WAVE && enemy.hp <= 0 && enemy.fallenT >= keep;
+  if (!game.enemies.some(gone)) return;
+  game.enemies = game.enemies.filter(enemy => !gone(enemy));
+}
+
+// The game's own frame, without the battle layer.
+function stepFrame(game: GameModel, given: GameInput, dt: number): void {
   const slow = game.slow;
   const span = slow === null ? dt : dt * slow.scale;
   if (slow !== null) {

@@ -1,8 +1,9 @@
 // The battle around the mech, in the sortie and in #view-fx (SB-045, SB-170): the allies walking landward, the shells
 // falling near the mech, the smoke they leave, the columns from the wrecks, the tracers crossing the view and the planes
-// overhead. It reads the battle's state (logic/battle.ts) and draws it; it does not decide anything about the game and
-// touches no part of GameModel. Everything that comes in numbers is drawn from one instanced mesh per kind, made once at
-// the size the tune asks for.
+// overhead. It draws the battle's state (logic/battle.ts). The sortie keeps that state in GameModel and step moves it; the
+// view only draws the frame's events. #view-fx keeps its own state and steps it. Either way the view decides nothing about
+// the game and writes nothing back. Everything that comes in numbers is drawn from one instanced mesh per kind, made once
+// at the size the tune asks for.
 import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { burst, camera, disposeTree, scene } from '@engine/render/index.ts';
@@ -11,11 +12,11 @@ import { DROID_TUNE } from '../../data/droids.ts';
 import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
-import { newBattle, stepBattle } from '../../logic/battle.ts';
+import { newBattle, stepBattle, type BattleState } from '../../logic/battle.ts';
 import type { GroundRect } from '../../logic/collide.ts';
 import { MAX_SOLDIERS, crowdCounts, fallNear, spawnWave, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
-import { blastFaceHeight } from '../../logic/game.ts';
+import { blastFaceHeight, type GameEvent } from '../../logic/game.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
 import { droidMatricesChanged, selectNearSoldiers, showDroid, writeDroid } from '../droidPose.ts';
 import { shellBurst } from '../hazards.ts';
@@ -76,14 +77,18 @@ export interface Battle {
   crowd: Crowd;
   group: THREE.Group;
   // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m). While `held`,
-  // the allies wait at the crowd's holdZ and no new wave comes in.
+  // the allies wait at the crowd's holdZ and no new wave comes in. The sortie does not call this: its GameModel owns the
+  // state and step moves it, and the view calls draw.
   step(dt: number, mech: { x: number; y: number; z: number }, held?: boolean): number;
+  // Draws the battle the game's step has already moved (the sortie): the dust of the soldiers that fell and the shells
+  // that landed, then the view's own smoke, tracers and planes. Gives back the shake the shells ask the camera to add.
+  draw(dt: number, mech: { x: number; y: number; z: number }, held: boolean, events: readonly GameEvent[]): number;
   // Moves the waiting line to a milestone's next cover and sends one more wave of infantry in from the sea (SB-2010).
   advance(holdZ: number, count: number): void;
   // Lets one tracer fly from a place at a velocity (m, m/s); the allies of the sortie shoot with it.
   tracer(at: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }): void;
   // Moves and draws only the tracers already out, for the landing cutscene: the battlefield's own clock stays still.
-  advanceTracers(dt: number): void;
+  drawTracersOnly(dt: number): void;
   // Lets a blast of the game's own (a mortar shell or a mine) take the soldiers near it (m), with the dust of each.
   blast(x: number, z: number): void;
   counts(): CrowdCounts;
@@ -116,11 +121,12 @@ export function buildBattle(
   start: { x: number; z: number },
   holdZ: number | null = null,
   rects: readonly GroundRect[] = [],
+  given: BattleState | null = null,
 ): Battle {
   const group = new THREE.Group();
   group.name = BATTLE_GROUP_NAME;
   // the machine-gun nests are on the map's spawns; a squad walks on one and falls in its fire (see logic/crowd.ts)
-  const state = newBattle(rng, map.bounds, tune, holdZ, map.spawns[M1_NEST_WAVE] ?? []);
+  const state = given ?? newBattle(rng, map.bounds, tune, holdZ, map.spawns[M1_NEST_WAVE] ?? []);
   const crowd = state.crowd;
   const nearSoldiers = soldierMeshes();
   const farSoldiers = soldierMeshes(MAX_SOLDIERS, 'far');
@@ -391,15 +397,28 @@ export function buildBattle(
     }
   }
 
+  // The view's own share of a frame, once the battle's state is where the game put it.
+  function drawFrame(dt: number, mech: { x: number; y: number; z: number }, held: boolean) {
+    stepSmoke(dt);
+    stepTracers(dt, mech);
+    stepPlanes(dt);
+    drawSoldiers(held);
+    drawSmoke();
+    drawTracers();
+    drawPlanes();
+  }
+
   return {
     crowd,
     group,
     advance(holdZ, count) {
+      if (given !== null) return; // the game's own state: only its step moves it
       crowd.holdZ = holdZ;
       crowd.holdT = 0; // each new line starts its waiting loss over (SB-2020)
       if (crowd.bounds !== null && count > 0) spawnWave(crowd, rng, crowd.bounds, count, tune);
     },
     step(dt, mech, held = false) {
+      if (given !== null) return 0;
       const frame = stepBattle(state, rng, dt, tune, mech, held);
       for (const soldier of frame.fell) burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
       let shake = 0;
@@ -407,24 +426,32 @@ export function buildBattle(
         landShell(frame.shell.x, frame.shell.z);
         shake = frame.shell.shake;
       }
-      stepSmoke(dt);
-      stepTracers(dt, mech);
-      stepPlanes(dt);
-      drawSoldiers(held);
-      drawSmoke();
-      drawTracers();
-      drawPlanes();
+      drawFrame(dt, mech, held);
+      return shake;
+    },
+    draw(dt, mech, held, events) {
+      let shake = 0;
+      for (const event of events) {
+        if (event.kind === 'battleFell') {
+          burst(event.x, 0.5, event.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
+        } else if (event.kind === 'battleShell') {
+          landShell(event.x, event.z);
+          shake = event.shake;
+        }
+      }
+      drawFrame(dt, mech, held);
       return shake;
     },
     tracer(at, velocity) {
       if (tracerList.length >= MAX_TRACERS) return;
       tracerList.push({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, life: TRACER_LIFE });
     },
-    advanceTracers(dt) {
+    drawTracersOnly(dt) {
       moveTracers(dt);
       drawTracers();
     },
     blast(x, z) {
+      if (given !== null) return; // the game's own state: its step takes the soldiers a shell reaches
       for (const soldier of fallNear(crowd, x, z, tune.shellFallRadius, tune.shellFallShare, rng)) {
         burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
       }
