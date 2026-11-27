@@ -20,9 +20,18 @@
 // logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
 import { distXZ } from '@engine/core/index.ts';
 import { ALLY_TUNE, COVER_TUNE } from '../data/allies.ts';
+import { CUTSCENES } from '../data/cutscenes.ts';
 import { LINE2_FLAG } from '../data/front.ts';
 import { DEFENDER_POSTS, defenderPostOf } from '../data/defenders.ts';
-import { ENEMIES, ENEMY_CHEST, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
+import {
+  ENEMIES,
+  ENEMY_CHEST,
+  ENEMY_KINDS,
+  M1_NEST_WAVE,
+  M1_WAVE_DROP,
+  M1_WAVE_ENEMY,
+  type EnemyKind,
+} from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE, M1_SHUTTERS } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
@@ -36,13 +45,15 @@ import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
-import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../data/tune.ts';
 import type { FcsTune } from '../data/tuneTypes.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
+import { newBattle, stepBattle, type BattleState } from './battle.ts';
 import { pushOutCircle, rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
 import { allyCraftRects, craftBack, craftRects, inCraftLane } from './craft.ts';
+import { fallNear, spawnWave as spawnCrowd } from './crowd.ts';
 import {
   armoured,
   newBattery,
@@ -81,6 +92,7 @@ import {
   type Ray3,
 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
+import { frontOf, type FrontId } from './front.ts';
 import {
   inCircle,
   mineStepped,
@@ -171,6 +183,8 @@ export type GameEvent =
   | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
   | { kind: 'shellLand'; x: number; y: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
   | { kind: 'mineBlast'; x: number; y: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
+  | { kind: 'battleFell'; x: number; z: number } // one of the battle layer's soldiers fell this frame; the view puts its dust there
+  | { kind: 'battleShell'; x: number; z: number; shake: number } // a shell of the battle layer landed; the view draws it and shakes the camera
   | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
   | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
@@ -261,14 +275,21 @@ function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
 
 // The game as a checkpoint keeps it: every field of GameModel except the ones listed here, which are not kept. `events`,
 // `bullets` and `shells` (a warning before it lands) are the frame's own, `checkpoint` never nests, and `id` is the checkpoint's name (cp1). `map` and
-// `mission` are definitions nothing writes to, so the copy points at the same ones.
-export type GameSnapshot = Omit<GameModel, 'events' | 'bullets' | 'shells' | 'nav' | 'checkpoint'> & { id: string };
+// `mission` are definitions nothing writes to, so the copy points at the same ones. The battle layer (`battle`, `battleFront`,
+// `battleTune`) is rebuilt from the front line's flags when the sortie comes back.
+export type GameSnapshot = Omit<
+  GameModel,
+  'events' | 'bullets' | 'shells' | 'nav' | 'checkpoint' | 'battle' | 'battleFront' | 'battleTune'
+> & { id: string };
 
 export interface GameModel {
   time: number; // seconds since the sortie began
   map: MapDef;
   mission: MissionDef; // the script's write-up (data/missions/m1.ts)
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
+  battle: BattleState; // the battle layer's infantry and shells; step moves it, the view only draws it
+  battleFront: FrontId; // the front line the battle layer was last moved to
+  battleTune: FxTune; // the values the battle layer runs on (the sortie's, or the arena's thinner one)
   // The line on screen now. `time` is when it came up plus the cutscene seconds since (stepRadio holds it still while a
   // cutscene hides the HUD), so game.time - time is the seconds the HUD has shown it; null before one
   radio: { line: string; time: number; callout?: string } | null;
@@ -918,8 +939,11 @@ export function fortressBlast(game: GameModel, blast: BlastState): void {
 }
 
 // A new sortie on `map` with the script `mission`: the mech on the landing craft's deck at the middle of the front edge,
-// facing the land, every target at its health, and the script at its start.
-export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
+// facing the land, every target at its health, and the script at its start. `battleTune` thins the battle layer (the arena
+// asks for the beach's own tune with its allies, shells and planes off); the sortie's is the default.
+export function newGame(map: MapDef, mission: MissionDef = M1, options: { battleTune?: FxTune } = {}): GameModel {
+  const battleTune = options.battleTune ?? PLAY_BATTLE_TUNE;
+  const front = frontOf([]);
   const mech = newMech();
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = craftZ(map.bounds) + LANDING_TUNE.startDepth;
@@ -942,6 +966,9 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     map,
     mission,
     script: newScript(mission),
+    battle: newBattle(stream('crowd'), map.bounds, battleTune, front.holdZ, map.spawns[M1_NEST_WAVE] ?? []),
+    battleFront: front.id,
+    battleTune,
     radio: null,
     radioQueue: [],
     mech,
@@ -1316,6 +1343,9 @@ function snapshotOf(game: GameModel, id: string): GameSnapshot {
     shells: _shells,
     nav: _nav,
     checkpoint: _checkpoint,
+    battle: _battle,
+    battleFront: _battleFront,
+    battleTune: _battleTune,
     map,
     mission,
     ...kept
@@ -1334,10 +1364,14 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   const checkpoint = game.checkpoint;
   if (checkpoint === null) throw new Error('no checkpoint to retry from');
   const { id, map, mission, ...rest } = checkpoint;
+  const front = frontOf(rest.script.flags);
   const next: GameModel = {
     ...structuredClone(rest),
     map,
     mission,
+    battle: newBattle(stream('crowd'), map.bounds, game.battleTune, front.holdZ, map.spawns[M1_NEST_WAVE] ?? []),
+    battleFront: front.id,
+    battleTune: game.battleTune,
     armor: MECH_TUNE.armor,
     downed: false,
     // the weapons the checkpoint had, loaded full again
@@ -1369,7 +1403,7 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
 
 // The sortie again from the start.
 export function restartGame(game: GameModel): GameModel {
-  const next = newGame(game.map, game.mission);
+  const next = newGame(game.map, game.mission, { battleTune: game.battleTune });
   next.retries = game.retries + 1;
   next.events.push({ kind: 'retried', from: null });
   return next;
@@ -1644,12 +1678,59 @@ export function timeScale(game: GameModel): number {
 // ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
 // (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
 // enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
-// (the closing cutscene may still be playing: it goes on to its end) or the mech is downed, step does nothing.
-// A milestone's slowdown (SB-2010) scales the whole frame by `slow.scale`; its clock counts real seconds, so it ends
-// after `slow.left` seconds have gone by whatever the game's own clock says.
+// (the closing cutscene may still be playing: it goes on to its end) or the mech is downed, the game's own frame does
+// nothing, but the battle layer still moves (see stepBattleLayer). A milestone's slowdown (SB-2010) scales the whole
+// frame by `slow.scale`; its clock counts real seconds, so it ends after `slow.left` seconds have gone by whatever the
+// game's own clock says.
 export function step(game: GameModel, given: GameInput, dt: number): void {
   game.events = [];
-  if ((game.cleared && game.script.cutscene === null) || game.downed) return;
+  if ((game.cleared && game.script.cutscene === null) || game.downed) {
+    stepBattleLayer(game, dt * timeScale(game));
+    return;
+  }
+  stepFrame(game, given, dt);
+  stepBattleLayer(game, dt * timeScale(game));
+}
+
+// Moves the battle layer by one frame after the game's own frame (or instead of it while the sortie is downed or cleared),
+// in the order the view used to: the game's own shells and mines take the soldiers near them, a new front line moves the
+// waiting line and sends a wave, and then the battle steps (the landing's cutscene holds it still). The fallen and the
+// shell become this frame's events for the view to draw. The state is the game's, so a test can read it.
+function stepBattleLayer(game: GameModel, dt: number): void {
+  const tune = game.battleTune;
+  // A shell of the game's own (a mortar round or a mine) takes the infantry near it, as the battle's own shells do.
+  for (const event of [...game.events]) {
+    if (event.kind !== 'shellLand' && event.kind !== 'mineBlast') continue;
+    const fell = fallNear(
+      game.battle.crowd,
+      event.x,
+      event.z,
+      tune.shellFallRadius,
+      tune.shellFallShare,
+      stream('crowd'),
+    );
+    for (const soldier of fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
+  }
+  const front = frontOf(game.script.flags);
+  if (front.id !== game.battleFront) {
+    game.battleFront = front.id;
+    game.battle.crowd.holdZ = front.holdZ;
+    game.battle.crowd.holdT = 0;
+    if (game.battle.crowd.bounds !== null && PAYOFF_TUNE.surgeAllies > 0) {
+      spawnCrowd(game.battle.crowd, stream('crowd'), game.battle.crowd.bounds, PAYOFF_TUNE.surgeAllies, tune);
+    }
+  }
+  const cutscene = game.script.cutscene;
+  if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
+  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, front.id !== 'pillboxes');
+  for (const soldier of frame.fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
+  if (frame.shell !== null) {
+    game.events.push({ kind: 'battleShell', x: frame.shell.x, z: frame.shell.z, shake: frame.shell.shake });
+  }
+}
+
+// The game's own frame, without the battle layer.
+function stepFrame(game: GameModel, given: GameInput, dt: number): void {
   const slow = game.slow;
   const span = slow === null ? dt : dt * slow.scale;
   if (slow !== null) {

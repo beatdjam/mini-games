@@ -1,6 +1,7 @@
 // The battle behind the sortie and #view-fx (SB-170): which way the allies walk and when and where the shells fall. Pure
-// functions over a small state, with the random draw passed in; no three and no DOM, so a node test can run them. What
-// the shells and the walkers look like is the view's (view/battle/); nothing here touches the mech or the game's state.
+// functions over a small state, with the random draw passed in; no three and no DOM, so a node test can run them. The
+// sortie keeps this state in GameModel and step moves it; the view (view/battle/) only draws what it is given. What the
+// shells and the walkers look like is the view's; nothing here touches the mech or the rest of the game's state.
 import type { Rng } from '@engine/core/index.ts';
 import type { MapBounds, SpawnPoint } from '../data/types.ts';
 import type { FxTune } from '../data/tune.ts';

@@ -19,15 +19,14 @@ import { PILLBOXES_FLAG } from '../data/front.ts';
 import { YARD_TUNE } from '../data/fortress.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
-import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
+import { PAYOFFS } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, QUARTER_TUNE, type FxTune } from '../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, QUARTER_TUNE } from '../data/tune.ts';
 import type { QuarterTune } from '../data/tuneTypes.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import type { WeaponId } from '../data/weapons.ts';
 import { hudLayoutFrom, type HudLayout } from '../data/hudLayout.ts';
 import { blastTarget } from '../logic/blasts.ts';
-import { frontOf, type FrontId } from '../logic/front.ts';
 import { blastFaceHeight, type GameModel } from '../logic/game.ts';
 import { cutsceneElapsed, cutsceneMech, cutscenePose } from '../logic/cutscene.ts';
 import type { Ray3 } from '../logic/fcs.ts';
@@ -127,8 +126,7 @@ export interface PlayView {
   blasts: BlastView; // the blast points' rings and the charges planted on them
   hazards: HazardView; // the warned shells' rings and the mines' discs
   seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
-  battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; looks only (SB-170)
-  frontId: FrontId; // the front line the battle layer was last put at (SB-2010)
+  battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; the game moves it, the view draws it (SB-170)
   allies: AllyView; // the script's allied mech
   hud: PlayHud; // the sortie's HUD, in the page
   useNear: boolean; // whether the mech is in reach of a blast point, so the touch use button lights (SB-2017)
@@ -138,11 +136,10 @@ export interface PlayView {
 }
 
 // Builds the sortie's map and its mech into the scene. Hiding the start-up field is left to the caller.
-// `world` lets a view bring its own map (the arena's flat ground); `battleTune` thins the battle layer, which the arena
-// leaves out by asking for no allies, shells or planes.
+// `world` lets a view bring its own map (the arena's flat ground). The battle layer runs on `game.battleTune`, which the
+// caller sets when it makes the game (the arena asks for a thinner one).
 export interface PlayViewOptions {
   world?: World;
-  battleTune?: FxTune;
   hudLayout?: HudLayout;
 }
 
@@ -171,11 +168,8 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     stage.setShadow(shadow);
     stage.setEnv(env);
   }
-  // The page picks the placement with ?hud=a|b|c (the arena passes its own hash query); A stays the sortie's default.
+  // The page picks the placement with ?hud=a|b|c|d (the arena passes its own hash query); A stays the sortie's default.
   const hud = buildPlayHud(document.body, options.hudLayout ?? hudLayoutFrom(location.search));
-  // The line the allies hold now: a checkpoint or a suspend that comes back after a milestone starts the battle layer
-  // at that line's waiting z, so the infantry does not walk the ground it has already taken again (SB-2010).
-  const front = frontOf(game.script.flags);
   // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
   // events before it (already played) are not all played again in the first frame.
   const startSecond = cutsceneElapsed(game.script.cutscene);
@@ -200,20 +194,19 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     blasts: buildBlastView(game.map),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
-    // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner, and its squads fall in the
-    // machine-gun nests' fire. The battle is made at the mech's start and keeps no link to the game's state.
-    // `front.holdZ` is where the infantry waits at the line the allies hold now; PLAY_BATTLE_TUNE has no such value, so
-    // it stays the FX look.
+    // The battle layer's state lives in the game, which step moves; the view draws it. The tune is the one the game was
+    // made with (PLAY_BATTLE_TUNE for the sortie, the arena's thinner one there). The rng here is the view's own draws
+    // (planes, wrecks, smoke, tracers); the infantry's draws come from stream('crowd') in the game.
     battle: buildBattle(
       game.map,
-      options.battleTune ?? PLAY_BATTLE_TUNE,
+      game.battleTune,
       stream('battle'),
       stream('craters'),
       { x: game.mech.x, z: game.mech.z },
-      front.holdZ,
+      null,
       game.rects,
+      game.battle,
     ),
-    frontId: front.id,
     allies: buildAllyView(),
     hud,
     useNear: false,
@@ -553,8 +546,6 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       // the sea has no ground face: a shell past the map's front edge keeps the height its flash had over the water
       const water = event.z >= game.map.bounds.maxZ;
       blast(water ? 'water' : 'large', event.x, landBlastHeight(water, event.y), event.z);
-      // the game's own blast takes the infantry near it, as the battle's shells do (SB-1610)
-      view.battle.blast(event.x, event.z);
     } else if (event.kind === 'planted') {
       spawnDust(event.x, event.z, PLANT_DUST, FEEL_TUNE);
     } else if (event.kind === 'blast') {
@@ -610,25 +601,20 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       blast('large', x, 1, z);
     }
   }
-  // The infantry waits at the front line's hold until the pillboxes are down, then goes on to the far line. When a
-  // milestone moves the line, the battle layer takes the next hold and one more wave comes in from the sea (SB-2010).
-  // The landing cutscene holds the battlefield's clock still (`holdsBattle`), so the first squad runs and falls once the
-  // player has the controls; the cutscene's own machine-gun tracers still fly (advanceTracers). The other cutscenes run
-  // it on.
+  // The infantry waits at the front line's hold until the pillboxes are down, then goes on to the far line. The game's
+  // step moves it: a new front line moves the hold and sends one more wave (SB-2010), and the soldiers that fell and the
+  // shells that landed are in this frame's events for the view to draw. The landing cutscene holds the battlefield's clock
+  // still (`holdsBattle`), so the first squad runs and falls once the player has the controls; the cutscene's own
+  // machine-gun tracers still fly (drawTracersOnly). The other cutscenes run it on.
   const cutscene = game.script.cutscene;
   const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
-  const front = frontOf(game.script.flags);
-  if (view.frontId !== front.id) {
-    view.frontId = front.id;
-    view.battle.advance(front.holdZ, PAYOFF_TUNE.surgeAllies);
-  }
   if (!holdsBattle) {
-    const shellShake = view.battle.step(dt, game.mech, front.id !== 'pillboxes');
+    const shellShake = view.battle.draw(dt, game.mech, game.battleFront !== 'pillboxes', game.events);
     // The battlefield's shells shake the camera within the same cap as the blasts: a shell landing in the same frame as
     // a blast near the mech must not add the two past shakeMax and throw the camera off.
     if (shellShake > 0) feelBoom(view.feel, shellShake, FEEL_TUNE);
   } else {
-    view.battle.advanceTracers(dt);
+    view.battle.drawTracersOnly(dt);
   }
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
   if (meleeHit) feelMelee(view.feel);
