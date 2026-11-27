@@ -5,12 +5,17 @@ const SKIP_KEYS = ['Enter', 'Space', 'Escape'];
 
 let armedAt = 0; // the time (ms, as Event.timeStamp) the sortie began; earlier presses are not requests
 let requested = false; // a press came since the last take
+let requestedByPointer = false; // that press was a mouse or tap, so its held button must not fire
+let takenByPointer = false; // whether the request the last take returned came from a pointer
 let ready = false; // the listeners are set up (a second call does nothing)
 
 function request(event: Event): void {
   // the pause button and menu mark themselves: pressing them is not a request to skip
   if (event.target instanceof Element && event.target.closest('[data-noskip]')) return;
-  if (event.timeStamp > armedAt) requested = true;
+  if (event.timeStamp > armedAt) {
+    requested = true;
+    requestedByPointer = event.type === 'pointerdown' || event.type === 'click';
+  }
 }
 
 // Starts a sortie's listening: forgets any earlier request and ignores presses from before now. The listeners go up
@@ -18,6 +23,8 @@ function request(event: Event): void {
 export function armSkip(): void {
   armedAt = performance.now();
   requested = false;
+  requestedByPointer = false;
+  takenByPointer = false;
   if (ready) return;
   ready = true;
   window.addEventListener('click', request);
@@ -31,11 +38,17 @@ export function armSkip(): void {
 // comes, and the release itself is the request (pause.ts). The cutscene's guard is still taken by the update.
 export function requestSkip(): void {
   requested = true;
+  requestedByPointer = false;
 }
 
 // Whether a skip was asked for since the last call.
 export function takeSkip(): boolean {
   const was = requested;
+  takenByPointer = requestedByPointer;
   requested = false;
+  requestedByPointer = false;
   return was;
 }
+
+// Whether the skip the last take returned came from a mouse or tap press.
+export const skipFromPointer = (): boolean => takenByPointer;

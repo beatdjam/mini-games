@@ -5,7 +5,6 @@ import { disposeTree, scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
-import { MECH_TUNE } from '../data/tune.ts';
 import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
 import {
@@ -37,10 +36,10 @@ import { aimPointOf, buildPlayView, drawPlay, removeWardenChargeView, type PlayV
 import { resetSound, soundFrame } from '../view/sound.ts';
 import { openBriefing } from './briefing.ts';
 import { clearSuspend, loadSuspend, save, writeSave, writeSuspend } from './storage.ts';
-import { initPlayInput, readInput, type PlayRead } from './input.ts';
+import { holdMouseFireUntilRelease, initPlayInput, readInput, type PlayRead } from './input.ts';
 import { hidePause, initPause, showPauseButton } from './pause.ts';
 import { setState } from './screen.ts';
-import { armSkip, takeSkip } from './skip.ts';
+import { armSkip, skipFromPointer, takeSkip } from './skip.ts';
 import { releaseTouch } from './touch.ts';
 
 let game: GameModel | null = null; // the sortie in play; null before the first one
@@ -50,12 +49,18 @@ let confirmingStart = false; // the title's start button asked whether to discar
 let started = false; // the play system and the result's button are set up once
 
 // The movement frame and the ground point a PC adds to a step: WASD moves with the screen's top (the quarter camera's
-// azimuth) and the mech faces the ground under the cursor (the middle of the screen until the mouse moves). The touch
-// screen keeps its own movement, so it adds nothing. The arena calls this too, so the two write the same values once.
-export function cursorAim(game: GameModel, view: PlayView, read: PlayRead): Pick<GameInput, 'frame' | 'aimAt'> {
+// azimuth) and the mech faces the ground under the cursor at its feet (the middle of the screen until the mouse moves).
+// With no point (the first frame, or the top edge above the horizon) the current yaw is held, so the turn keys do not take
+// the aim over. The touch screen keeps its own movement, so it adds nothing. The arena calls this too.
+export function cursorAim(
+  game: GameModel,
+  view: PlayView,
+  read: PlayRead,
+): Pick<GameInput, 'frame' | 'aimAt' | 'face'> {
   if (isTouch) return {};
-  const at = aimPointOf(view, read.cursor ?? { x: 0, y: 0 }, game.mech.y + MECH_TUNE.chestHeight);
-  return at === null ? { frame: view.quarter.tune.azimuth } : { frame: view.quarter.tune.azimuth, aimAt: at };
+  const at = aimPointOf(view, read.cursor ?? { x: 0, y: 0 }, game.mech.y);
+  if (at === null) return { frame: view.quarter.tune.azimuth, face: game.mech.yaw };
+  return { frame: view.quarter.tune.azimuth, aimAt: at };
 }
 
 // Hides the start-up field's ground and size box; the sortie's map takes their place.
@@ -260,7 +265,11 @@ function update(dt: number): void {
   const cutscene = game.script.cutscene;
   if (cutscene !== null) {
     const elapsed = cutsceneElapsed(cutscene);
-    if (!hasCutscene(cutscene.id) || (skip && elapsed >= CUTSCENE_SKIP_GUARD_SEC)) sendToScript(game, { kind: 'skip' });
+    if (!hasCutscene(cutscene.id) || (skip && elapsed >= CUTSCENE_SKIP_GUARD_SEC)) {
+      sendToScript(game, { kind: 'skip' });
+      // The mouse press that skipped must not turn into a shot once the controls come back (ticket 2137).
+      if (skip && skipFromPointer()) holdMouseFireUntilRelease();
+    }
   }
   hideTouchInCutscene(game.script.cutscene !== null);
   // the cutscene's sounds play too: this line is not behind the cutscene branch

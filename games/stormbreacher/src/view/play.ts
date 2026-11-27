@@ -28,7 +28,7 @@ import type { WeaponId } from '../data/weapons.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { frontOf, type FrontId } from '../logic/front.ts';
 import { blastFaceHeight, type GameModel } from '../logic/game.ts';
-import { cutsceneElapsed, cutsceneMech } from '../logic/cutscene.ts';
+import { cutsceneElapsed, cutsceneMech, cutscenePose } from '../logic/cutscene.ts';
 import type { Ray3 } from '../logic/fcs.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { hudModel } from '../logic/hud.ts';
@@ -632,9 +632,20 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // (ticket 2115) starts from where the player left it.
   if (cutscene === null) view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
   const pose = quarterPose({ x: game.mech.x, y: game.mech.y, z: game.mech.z }, view.quarter.tune);
-  // The cutscene draws its own camera over this one (drawCutscene). The game's camera sits at its place meanwhile, so it
-  // starts the first controlled frame, or the one after a skip, where it stands and does not fly in from elsewhere.
-  view.quarter.pose = cutscene === null ? followQuarter(view.quarter.pose, pose, dt, view.quarter.tune) : pose;
+  if (cutscene === null) {
+    // The follow starts from the last pose drawn, so a skip or a cutscene's end eases into the quarter view (ticket 2137).
+    view.quarter.pose = followQuarter(view.quarter.pose, pose, dt, view.quarter.tune);
+  } else if (CUTSCENES[cutscene.id] !== undefined) {
+    // The cutscene draws its own camera over this one (drawCutscene). Keep that third-person pose as the follow's start,
+    // so the first controlled frame passes through it instead of jumping to the quarter view.
+    const shown = cutscenePose(cutscene.id, Math.max(0, cutsceneElapsed(cutscene)), walk ?? game.mech);
+    view.quarter.pose = {
+      pos: new THREE.Vector3(shown.pos[0], shown.pos[1], shown.pos[2]),
+      look: new THREE.Vector3(shown.look[0], shown.look[1], shown.look[2]),
+    };
+  } else {
+    view.quarter.pose = pose;
+  }
   const pos = view.quarter.pose.pos.clone().add(frame.offset);
   camera.position.copy(pos);
   camera.lookAt(view.quarter.pose.look);

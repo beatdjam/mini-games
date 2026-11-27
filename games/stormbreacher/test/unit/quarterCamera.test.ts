@@ -65,6 +65,32 @@ test('followQuarter with lag 0 takes the pose whole', () => {
   expect(result.pos).not.toBe(pose.pos);
 });
 
+test('followQuarter eases from a cutscene pose into the quarter pose', () => {
+  // the landing's last key: the third-person pose behind the mech
+  const from: QuarterPose = { pos: new THREE.Vector3(2.15, 6.2, 8.6), look: new THREE.Vector3(2.15, 4.7, 0) };
+  const target = quarterPose(MECH, QUARTER_TUNE);
+  const next = followQuarter(from, target, 1 / 60, QUARTER_TUNE);
+  const moved = next.pos.distanceTo(from.pos);
+  const whole = target.pos.distanceTo(from.pos);
+  // the first controlled frame moves toward the quarter pose instead of jumping to it
+  expect(moved).toBeGreaterThan(0);
+  expect(moved).toBeLessThan(whole);
+  expect(next.pos.distanceTo(target.pos)).toBeLessThan(whole);
+});
+
+test('the top cursor meets the plane at the mech feet within 0.1m', () => {
+  const pose = quarterPose(MECH, QUARTER_TUNE);
+  const cam = cameraOf(pose);
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(0, 1), cam);
+  const hit = new THREE.Vector3();
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -MECH.y);
+  expect(ray.ray.intersectPlane(plane, hit)).not.toBeNull();
+  const at = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 0, y: 1 }, MECH.y);
+  expect(at).not.toBeNull();
+  expect(Math.hypot(at!.x - hit.x, at!.z - hit.z)).toBeLessThan(0.1);
+});
+
 test('quarterTuneFrom overrides a value and ignores a bad one or an unknown name', () => {
   const tuned = quarterTuneFrom(new URLSearchParams('q.height=30'), QUARTER_TUNE);
   expect(tuned.height).toBe(30);

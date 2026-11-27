@@ -8,7 +8,15 @@ import { camera, scene } from '@engine/render/index.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { cursorAim } from '../../app/play.ts';
 import { mixOf } from '../arenaMix.ts';
-import { FCS_TUNE, FEEL_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../data/tune.ts';
+import {
+  FCS_QUARTER,
+  FCS_TUNE,
+  FEEL_TUNE,
+  MECH_TUNE,
+  MOVE_TUNE,
+  PLAY_BATTLE_TUNE,
+  type FxTune,
+} from '../../data/tune.ts';
 import type { MapDef, MissionDef } from '../../data/types.ts';
 import { WEAPONS } from '../../data/weapons.ts';
 import { newEnemy } from '../../logic/enemies.ts';
@@ -146,6 +154,25 @@ function addHud(): HTMLDivElement {
 
 // The feel, the movement and the soft lock's main values, the same rows #view-move and #view-fcs turn by URL.
 function addTunePanel() {
+  // The arena aims with FCS_QUARTER on a PC and FCS_TUNE.soft on a touch screen, so the panel writes the one in use.
+  const fcsLabels = {
+    cone: '照準の円の大きさ（半角, 度）',
+    range: 'ロックが届く距離 (m)',
+    spread: '弾のばらつき (度)',
+    pull: '照準が敵へ吸い付く速さ (度/秒)',
+    nearRange: '近距離とみなす距離 (m)',
+    nearSpread: '近距離でのばらつきの残り（割合）',
+  };
+  const fcsRanges = {
+    cone: { min: 0, max: 30, step: 0.5 },
+    range: { min: 20, max: 300, step: 5 },
+    spread: { min: 0, max: 10, step: 0.1 },
+    pull: { min: 0, max: 60, step: 1 },
+    nearRange: { min: 0, max: 40, step: 1 },
+    nearSpread: { min: 0, max: 10, step: 0.1 },
+  };
+  const soft = <T>(rows: Record<string, T>): Record<string, T> =>
+    Object.fromEntries(Object.entries(rows).map(([key, value]) => [`soft.${key}`, value]));
   createTunePanel({
     id: 'sbArenaTune',
     title: '調整',
@@ -194,24 +221,10 @@ function addTunePanel() {
         },
       },
       {
-        name: 'FCS_TUNE',
-        table: FCS_TUNE,
-        labels: {
-          'soft.cone': '照準の円の大きさ（半角, 度）',
-          'soft.range': 'ロックが届く距離 (m)',
-          'soft.spread': '弾のばらつき (度)',
-          'soft.pull': '照準が敵へ吸い付く速さ (度/秒)',
-          'soft.nearRange': '近距離とみなす距離 (m)',
-          'soft.nearSpread': '近距離でのばらつきの残り（割合）',
-        },
-        ranges: {
-          'soft.cone': { min: 0, max: 30, step: 0.5 },
-          'soft.range': { min: 20, max: 300, step: 5 },
-          'soft.spread': { min: 0, max: 10, step: 0.1 },
-          'soft.pull': { min: 0, max: 60, step: 1 },
-          'soft.nearRange': { min: 0, max: 40, step: 1 },
-          'soft.nearSpread': { min: 0, max: 10, step: 0.1 },
-        },
+        name: isTouch ? 'FCS_TUNE' : 'FCS_QUARTER',
+        table: isTouch ? FCS_TUNE : FCS_QUARTER,
+        labels: isTouch ? soft(fcsLabels) : fcsLabels,
+        ranges: isTouch ? soft(fcsRanges) : fcsRanges,
       },
     ],
   });

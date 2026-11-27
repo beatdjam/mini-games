@@ -24,6 +24,7 @@ let jumpEnabled = true; // the main body and the arena take no jump (D-50); the 
 let lockOn = false;
 let mainMouse = false; // the left mouse button is down on the canvas with the free cursor
 let subMouse = false; // the right mouse button is down (while the pointer is locked, or on the canvas with the free cursor)
+let mouseHeldOff = false; // a press that skipped a cutscene is not fire until it is let go (ticket 2137)
 let cursorMode = false; // the free cursor is in use, so the canvas's buttons are read without the pointer lock
 let ready = false; // initKeyboard has run (a second call does nothing)
 
@@ -62,6 +63,7 @@ function initMouse() {
   document.addEventListener('mouseup', e => {
     if (e.button === 0) mainMouse = false;
     if (e.button === 2) subMouse = false;
+    if (!mainMouse && !subMouse) mouseHeldOff = false;
   });
   // A lock lost while the button is held would leave the shot on for the next lock.
   document.addEventListener('pointerlockchange', () => {
@@ -70,8 +72,15 @@ function initMouse() {
   window.addEventListener('blur', () => {
     mainMouse = false;
     subMouse = false;
+    mouseHeldOff = false;
     jumpPressed = false;
   });
+}
+
+// A mouse press that skipped a cutscene must not start firing when the controls come back: hold its fire until it is let
+// go. A press of a key (or a tap) leaves the mouse alone.
+export function holdMouseFireUntilRelease(): void {
+  if (mainMouse || subMouse) mouseHeldOff = true;
 }
 
 export function initKeyboard(options: { cursor?: boolean; jump?: boolean } = {}) {
@@ -102,14 +111,14 @@ export function readKeyboard(dt: number): KeyboardRead {
     jump: jumpEnabled && jumpPressed,
     jumpHeld: jumpEnabled && actionDown('jump'),
     boost: actionDown('boost'),
-    fire: actionDown('main') || mouseFire || mainMouse,
+    fire: actionDown('main') || mouseFire || (mainMouse && !mouseHeldOff),
   };
   jumpPressed = false;
   return {
     input,
     pitchDelta: actionAxis('lookUp', 'lookDown') * KEY_TUNE.pitchRate * dt,
     lock: lockState(),
-    sub: actionDown('sub') || (cursorMode ? subMouse : locked && subMouse),
+    sub: actionDown('sub') || (cursorMode ? subMouse && !mouseHeldOff : locked && subMouse),
     use: actionDown('use'),
     melee: actionDown('melee'),
   };

@@ -4,8 +4,10 @@ import { el, isTouch } from '@engine/core/index.ts';
 import { requestLock } from '@engine/ui/index.ts';
 import { mergeInput, withoutJump } from '../logic/input.ts';
 import type { MechInput } from '../logic/mech.ts';
-import { initKeyboard, readKeyboard } from './keyboard.ts';
+import { holdMouseFireUntilRelease, initKeyboard, readKeyboard } from './keyboard.ts';
 import { initTouch, readTouch } from './touch.ts';
+
+export { holdMouseFireUntilRelease };
 
 export interface PlayRead {
   input: MechInput;
@@ -32,8 +34,8 @@ export const cursorPlay = (): boolean => cursorMode;
 
 // Starts both readers. On a PC the touch screen stays hidden and a click on the canvas asks for the pointer lock, so
 // the mouse can look and shoot. With `cursor`, the main body and the arena keep the cursor on the screen instead: the
-// click asks for no lock and a mousemove gives the canvas's normalized point. With `jump` false, neither reader makes
-// a jump: the main body and the arena take none (D-50).
+// click asks for no lock and a mousemove gives the canvas's normalized point, even over a button above it. With `jump`
+// false, neither reader makes a jump: the main body and the arena take none (D-50).
 export function initPlayInput(options: PlayInputOptions = {}) {
   if (ready) return;
   ready = true;
@@ -47,7 +49,8 @@ export function initPlayInput(options: PlayInputOptions = {}) {
     canvas.addEventListener('click', () => requestLock());
     return;
   }
-  canvas.addEventListener('mousemove', event => {
+  // The window, not the canvas: the pause and fullscreen buttons take the events, and the point must keep following there.
+  window.addEventListener('mousemove', event => {
     const rect = canvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
     cursorAt = {
