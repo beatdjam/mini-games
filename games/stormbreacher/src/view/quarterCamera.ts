@@ -32,6 +32,47 @@ export function followQuarter(prev: QuarterPose | null, pose: QuarterPose, dt: n
   };
 }
 
+// The point on the horizontal plane at height `y` where the screen's point (`ndc`, -1 to 1 with + up) looks: the camera
+// at `pose.pos`, through `pose.look`, with the vertical field of view `fov` (deg) and the screen's `aspect`. Null when the
+// line does not come down to the plane (the sky is above the horizon). The camera's matrices are not used, so a stale
+// one cannot spoil the point.
+export function groundPoint(
+  pose: QuarterPose,
+  fov: number,
+  aspect: number,
+  ndc: { x: number; y: number },
+  y: number,
+): { x: number; z: number } | null {
+  // forward: from the camera to the look point
+  let fx = pose.look.x - pose.pos.x;
+  let fy = pose.look.y - pose.pos.y;
+  let fz = pose.look.z - pose.pos.z;
+  const flen = Math.hypot(fx, fy, fz);
+  if (flen < 1e-9) return null;
+  fx /= flen;
+  fy /= flen;
+  fz /= flen;
+  // right: cross(forward, world up), flat on the ground
+  let rx = -fz;
+  let rz = fx;
+  const rlen = Math.hypot(rx, rz);
+  if (rlen < 1e-9) return null;
+  rx /= rlen;
+  rz /= rlen;
+  // up: cross(right, forward), already unit because the other two are
+  const ux = -rz * fy;
+  const uy = rz * fx - rx * fz;
+  const uz = rx * fy;
+  const tan = Math.tan((fov * Math.PI) / 360);
+  const dx = fx + ndc.x * aspect * tan * rx + ndc.y * tan * ux;
+  const dy = fy + ndc.y * tan * uy;
+  const dz = fz + ndc.x * aspect * tan * rz + ndc.y * tan * uz;
+  if (dy >= -1e-9) return null;
+  const t = (y - pose.pos.y) / dy;
+  if (!(t > 0)) return null;
+  return { x: pose.pos.x + dx * t, z: pose.pos.z + dz * t };
+}
+
 // `base` with the values the URL asks for: `?q.height=30` sets `height`. Numbers that cannot be read and names that are
 // not in the tune are ignored, so a plain sortie keeps the table's values and a typo changes nothing.
 export function quarterTuneFrom(params: URLSearchParams, base: QuarterTune): QuarterTune {

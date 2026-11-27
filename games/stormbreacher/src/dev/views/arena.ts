@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { addSystem, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
+import { cursorAim } from '../../app/play.ts';
 import { mixOf } from '../arenaMix.ts';
 import { FCS_TUNE, FEEL_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../data/tune.ts';
 import type { MapDef, MissionDef } from '../../data/types.ts';
@@ -241,7 +242,7 @@ export function showArena(_hash: string) {
     world: buildArenaWorld(ARENA_MAP),
     battleTune: ARENA_BATTLE_TUNE,
   });
-  initPlayInput();
+  initPlayInput({ cursor: true });
   el('#touch').hidden = !isTouch;
   resetSound(arena.radio);
 
@@ -280,7 +281,7 @@ export function showArena(_hash: string) {
     name: 'sb-arena',
     update: dt => {
       const read = readInput(dt);
-      step(arena, { ...read.input, sub: read.sub, use: read.use, aim: view.aim }, dt);
+      step(arena, { ...read.input, ...cursorAim(arena, view, read), sub: read.sub, use: read.use, aim: view.aim }, dt);
 
       // The sortie's craft lane is the one way past the front edge of the map (logic/game.ts stepBounds); the arena has no
       // craft, so put the mech back on the sand where the craft's walls would have stood.

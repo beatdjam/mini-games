@@ -14,18 +14,43 @@ export interface PlayRead {
   sub: boolean; // the touch sub button, the sub key, or the right mouse button
   use: boolean; // the touch use button or the use key
   melee: boolean; // the touch melee button or the melee key
+  cursor: { x: number; y: number } | null; // the cursor on the canvas in normalized coordinates (-1 to 1, + up); null until it moves
+}
+
+export interface PlayInputOptions {
+  cursor?: boolean; // the main body and the arena: aim with a free cursor instead of the pointer lock
 }
 
 let ready = false; // initPlayInput has run (a second call does nothing)
+let cursorMode = false; // the free cursor is in use (a PC on the main body or the arena)
+let cursorAt: { x: number; y: number } | null = null; // the cursor's last place on the canvas, normalized; null until it moves
+
+// Whether the free cursor is in use: the pause menu keeps the pointer lock away then.
+export const cursorPlay = (): boolean => cursorMode;
 
 // Starts both readers. On a PC the touch screen stays hidden and a click on the canvas asks for the pointer lock, so
-// the mouse can look and shoot.
-export function initPlayInput() {
+// the mouse can look and shoot. With `cursor`, the main body and the arena keep the cursor on the screen instead: the
+// click asks for no lock and a mousemove gives the canvas's normalized point.
+export function initPlayInput(options: PlayInputOptions = {}) {
   if (ready) return;
   ready = true;
-  initKeyboard();
+  cursorMode = options.cursor === true && !isTouch;
+  initKeyboard({ cursor: cursorMode });
   initTouch({ show: isTouch });
-  if (!isTouch) el('#gl').addEventListener('click', () => requestLock());
+  const canvas = el('#gl');
+  if (isTouch) return;
+  if (!cursorMode) {
+    canvas.addEventListener('click', () => requestLock());
+    return;
+  }
+  canvas.addEventListener('mousemove', event => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    cursorAt = {
+      x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      y: -(((event.clientY - rect.top) / rect.height) * 2 - 1),
+    };
+  });
 }
 
 // This frame's input: both readers are read (each clears what it keeps for one read) and then merged.
@@ -39,5 +64,6 @@ export function readInput(dt: number): PlayRead {
     sub: touch.sub || keyboard.sub,
     use: touch.use || keyboard.use,
     melee: touch.melee || keyboard.melee,
+    cursor: cursorMode ? cursorAt : null,
   };
 }

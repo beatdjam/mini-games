@@ -1,5 +1,7 @@
 // Keyboard and mouse input for the mech (SB-030 keyboard): the engine's key actions and mouse look become the same
-// MechInput that the touch screen fills. The right mouse button is the sub shot while the pointer is locked.
+// MechInput that the touch screen fills. The right mouse button is the sub shot while the pointer is locked, or on the
+// canvas with the free cursor the main body and the arena use.
+import { el } from '@engine/core/index.ts';
 import { actionDown, actionOf, defineActions, locked, mouseFire } from '@engine/ui/index.ts';
 import { KEY_DEFAULTS, KEY_TUNE, type KeyAction } from '../data/keys.ts';
 import type { MechInput } from '../logic/mech.ts';
@@ -8,7 +10,7 @@ export interface KeyboardRead {
   input: MechInput;
   pitchDelta: number; // the pitch the arrow keys add this frame (rad)
   lock: boolean; // the lock display, shared with the touch screen's lock button
-  sub: boolean; // the sub shot: its key, or the right mouse button while locked
+  sub: boolean; // the sub shot: its key, or the right mouse button (while locked, or on the canvas with the free cursor)
   use: boolean; // the use key (planting a charge)
   melee: boolean; // the fist's key
 }
@@ -19,7 +21,9 @@ const ACTION_DEFS = Object.entries(KEY_DEFAULTS).map(([id, keys]) => ({ id, keys
 // A key went down since the last read; a held key repeats keydown but that is not a new press.
 let jumpPressed = false;
 let lockOn = false;
-let subMouse = false; // the right mouse button is down while the pointer is locked
+let mainMouse = false; // the left mouse button is down on the canvas with the free cursor
+let subMouse = false; // the right mouse button is down (while the pointer is locked, or on the canvas with the free cursor)
+let cursorMode = false; // the free cursor is in use, so the canvas's buttons are read without the pointer lock
 let ready = false; // initKeyboard has run (a second call does nothing)
 
 export const lockState = (): boolean => lockOn;
@@ -38,10 +42,23 @@ export function handleKey(e: KeyboardEvent) {
 }
 
 function initMouse() {
-  document.addEventListener('mousedown', e => {
-    if (e.button === 2 && locked) subMouse = true;
-  });
+  if (cursorMode) {
+    const canvas = el('#gl');
+    // the free cursor: the left button is the main shot and the right the sub, both without the pointer lock
+    canvas.addEventListener('mousedown', e => {
+      if (e.button === 0) mainMouse = true;
+      else if (e.button === 2) subMouse = true;
+    });
+    // the right button's menu would cover the game
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+  } else {
+    document.addEventListener('mousedown', e => {
+      if (e.button === 2 && locked) subMouse = true;
+    });
+  }
+  // let go at the document, so a button released off the canvas stops too
   document.addEventListener('mouseup', e => {
+    if (e.button === 0) mainMouse = false;
     if (e.button === 2) subMouse = false;
   });
   // A lock lost while the button is held would leave the shot on for the next lock.
@@ -49,14 +66,16 @@ function initMouse() {
     if (!locked) subMouse = false;
   });
   window.addEventListener('blur', () => {
+    mainMouse = false;
     subMouse = false;
     jumpPressed = false;
   });
 }
 
-export function initKeyboard() {
+export function initKeyboard(options: { cursor?: boolean } = {}) {
   if (ready) return;
   ready = true;
+  cursorMode = options.cursor === true;
   defineActions(ACTION_DEFS);
   initMouse();
 }
@@ -80,14 +99,14 @@ export function readKeyboard(dt: number): KeyboardRead {
     jump: jumpPressed,
     jumpHeld: actionDown('jump'),
     boost: actionDown('boost'),
-    fire: actionDown('main') || mouseFire,
+    fire: actionDown('main') || mouseFire || mainMouse,
   };
   jumpPressed = false;
   return {
     input,
     pitchDelta: actionAxis('lookUp', 'lookDown') * KEY_TUNE.pitchRate * dt,
     lock: lockState(),
-    sub: actionDown('sub') || (locked && subMouse),
+    sub: actionDown('sub') || (cursorMode ? subMouse : locked && subMouse),
     use: actionDown('use'),
     melee: actionDown('melee'),
   };

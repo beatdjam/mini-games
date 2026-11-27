@@ -1,7 +1,13 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { QUARTER_TUNE } from '../../src/data/tune.ts';
-import { followQuarter, quarterPose, quarterTuneFrom, type QuarterPose } from '../../src/view/quarterCamera.ts';
+import {
+  followQuarter,
+  groundPoint,
+  quarterPose,
+  quarterTuneFrom,
+  type QuarterPose,
+} from '../../src/view/quarterCamera.ts';
 
 const MECH = { x: 0, y: 0, z: 0 };
 
@@ -66,4 +72,27 @@ test('quarterTuneFrom overrides a value and ignores a bad one or an unknown name
   expect(QUARTER_TUNE.height).toBe(25); // the table itself is not changed
   const ignored = quarterTuneFrom(new URLSearchParams('q.height=abc&q.unknown=1'), QUARTER_TUNE);
   expect(ignored).toEqual(QUARTER_TUNE);
+});
+
+test('groundPoint finds the look point under the middle of the screen', () => {
+  const pose = quarterPose(MECH, QUARTER_TUNE);
+  const at = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 0, y: 0 }, pose.look.y);
+  expect(at).not.toBeNull();
+  expect(Math.abs(at!.x - pose.look.x)).toBeLessThan(0.01);
+  expect(Math.abs(at!.z - pose.look.z)).toBeLessThan(0.01);
+});
+
+test('the top of the screen is more inland than its middle', () => {
+  const pose = quarterPose(MECH, QUARTER_TUNE);
+  const middle = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 0, y: 0 }, pose.look.y)!;
+  const top = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 0, y: 1 }, pose.look.y)!;
+  // azimuth pi/4: the screen's top runs toward -x and -z, so the top point lies farther inland (smaller z)
+  expect(top.z).toBeLessThan(middle.z);
+  expect(top.x).toBeLessThan(middle.x);
+});
+
+test('groundPoint gives null when the top of the screen looks above the horizon', () => {
+  const pose = quarterPose(MECH, QUARTER_TUNE);
+  // a wide enough fov lifts the top edge of the screen above level
+  expect(groundPoint(pose, 150, 16 / 9, { x: 0, y: 1 }, 0)).toBeNull();
 });

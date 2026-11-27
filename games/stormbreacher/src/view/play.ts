@@ -54,7 +54,7 @@ import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
 import { mechSeeThrough } from './mechFade.ts';
 import { buildProtoMech, protoMuzzle, setProtoOpacity } from './mechProtoModel.ts';
 import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
-import { followQuarter, quarterPose, quarterTuneFrom, type QuarterPose } from './quarterCamera.ts';
+import { followQuarter, groundPoint, quarterPose, quarterTuneFrom, type QuarterPose } from './quarterCamera.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const fadeChest = new THREE.Vector3(); // the mech's chest, the far end of the line a low prop fades on
@@ -103,7 +103,7 @@ export interface PlayView {
   feel: FeelState;
   pitch: number; // the camera's pitch (rad); the quarter camera keeps it but does not use it yet (tickets 2110, 2115)
   quarter: { tune: QuarterTune; pose: QuarterPose | null }; // the overview camera's values and its place and look last frame, before the feel's shake
-  aim: Ray3 | undefined; // the line through the middle of the screen; undefined until the cursor's aim comes (ticket 2115)
+  aim: Ray3 | undefined; // the line through the middle of the screen; undefined here: the main body and the arena aim with aimAt (ticket 2115), the other dev views pass aimRay
   gunfire: GunfireView; // the muzzle flashes, the tracers in flight and the impacts' sparks and smoke
   enemies: EnemyView; // the enemies' instanced boxes
   wardenCharge: WardenChargeView; // the red band ahead of a warden about to charge
@@ -129,6 +129,14 @@ export interface PlayView {
 export interface PlayViewOptions {
   world?: World;
   battleTune?: FxTune;
+}
+
+// The ground point at height `y` that the screen's point (`ndc`) looks at, from the quarter camera's pose before the
+// feel's shake. The view owns the screen-to-ground step; null until the camera has a pose (the first frame) or when the
+// point looks above the horizon.
+export function aimPointOf(view: PlayView, ndc: { x: number; y: number }, y: number): { x: number; z: number } | null {
+  if (view.quarter.pose === null) return null;
+  return groundPoint(view.quarter.pose, view.quarter.tune.fov, window.innerWidth / window.innerHeight, ndc, y);
 }
 
 export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): PlayView {
@@ -632,8 +640,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   camera.lookAt(view.quarter.pose.look);
   camera.fov = view.quarter.tune.fov + (frame.fov - CAMERA_TUNE.fov);
   camera.updateProjectionMatrix();
-  // The aim is the cursor's ground point (ticket 2115); until then step's own line, level from the chest along the mech's
-  // yaw, is what the shots use.
+  // The main body and the arena pass the cursor's ground point as aimAt; the view leaves this line undefined and step
+  // makes a level line from the chest to the point. The other dev views pass their own aimRay.
   view.aim = undefined;
   drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset, view.battle);
   drawBooms(dt);
