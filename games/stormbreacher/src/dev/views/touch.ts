@@ -1,18 +1,19 @@
 // The touch view (#view-touch): the flat field, mech and targets of flatRange.ts, moved by the
-// touch screen (app/touch.ts) or the keyboard and mouse (app/keyboard.ts) through app/input.ts. The button layout can
-// be edited on the phone, and the screen reports how hard the layout is to use: the presses, the most fingers down at
-// once and how long the three actions overlapped.
-import { addSystem, clamp, el, isTouch } from '@engine/core/index.ts';
-import { camera, scene } from '@engine/render/index.ts';
-import { buttonLayout, locked, openLayoutEditor } from '@engine/ui/index.ts';
-import { CAMERA_TUNE, FOV_TUNE } from '../../data/tune.ts';
+// touch screen (app/touch.ts) or the keyboard and mouse (app/keyboard.ts) through app/input.ts, under the overview
+// camera. The button layout can be edited on the phone, and the screen reports how hard the layout is to use: the
+// presses, the most fingers down at once and how long the three actions overlapped.
+import { addSystem, el, isTouch } from '@engine/core/index.ts';
+import { scene } from '@engine/render/index.ts';
+import { buttonLayout, openLayoutEditor } from '@engine/ui/index.ts';
+import { FOV_TUNE } from '../../data/tune.ts';
 import { TOUCH_BUTTONS, type TouchButton } from '../../data/touch.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { touchStats, type TouchStats } from '../../app/touch.ts';
+import { playInputOptions } from '../../logic/input.ts';
 import type { MechState } from '../../logic/mech.ts';
-import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildFlatRange, moveFeelFromParams } from '../flatRange.ts';
+import { createQuarterRig } from '../quarterRig.ts';
 
 declare global {
   interface Window {
@@ -108,10 +109,10 @@ export function showTouch(_hash: string) {
   const range = buildFlatRange(FOV_TUNE.feel);
   const mech = range.mech;
   const { moveTune, feelTune } = moveFeelFromParams(new URLSearchParams(location.search));
-  initPlayInput();
-
-  let pitch = 0;
-  let cam: CameraState | null = null;
+  const rig = createQuarterRig();
+  initPlayInput(playInputOptions());
+  // the touch view takes no jump, so its touch layer has no jump button
+  el('#btnJump').hidden = true;
 
   const hud = document.createElement('div');
   hud.id = 'sbTouchHud';
@@ -120,13 +121,11 @@ export function showTouch(_hash: string) {
     'font:12px/1.4 monospace;color:#fff;background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none';
   document.body.appendChild(hud);
 
-  // The keys on a PC, small at the bottom middle; the pointer lock hides it while the mouse is in use.
+  // The keys on a PC, small at the bottom middle. The mouse aims at the cursor; the overview camera does not turn.
   const hint = isTouch ? null : document.createElement('div');
   if (hint) {
     hint.id = 'sbPlayHint';
-    hint.textContent =
-      'クリックで操作開始 / WASD 移動 / マウス・矢印 視点 / Space ジャンプ（長押しで滞空） / Shift ブースト / ' +
-      '左クリック・J メイン / 右クリック・K サブ / E ロック / F 使う / Esc 解除';
+    hint.textContent = 'WASD 移動 / Shift ブースト / J メイン / K サブ / E ロック / F 使う / Q 殴る / P 一時停止';
     hint.style.cssText =
       'position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);transform:translateX(-50%);' +
       'max-width:calc(100% - 16px);padding:4px 8px;border-radius:6px;font:11px/1.4 monospace;color:#d5e4ee;' +
@@ -159,14 +158,8 @@ export function showTouch(_hash: string) {
     name: 'sb-touch',
     update: dt => {
       const read = readInput(dt);
-      if (hint) hint.hidden = locked;
-      pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
-      const step = range.step(read.input, dt, moveTune, feelTune);
-
-      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
-      cam = followCamera(cam, pose, dt, CAMERA_TUNE);
-      const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
+      const step = range.step({ ...read.input, ...rig.aim(read, mech) }, dt, moveTune, feelTune);
+      rig.follow(mech, dt, step);
 
       hud.textContent = hudText(mech, read.lock, touchStats());
     },
