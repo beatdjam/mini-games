@@ -70,13 +70,13 @@ export interface CameraTune {
 }
 
 // The three ways the aim assist (FCS) may work (SB-060). `manual` does nothing, `soft` pulls the shot toward the
-// nearest target in the aim circle, and `hard` locks a target after a short wait and follows it.
+// nearest target in the soft-lock cone, and `hard` locks a target after a short wait and follows it.
 export type FcsKind = 'manual' | 'soft' | 'hard';
 
 // One FCS's values. Angles are degrees, `range` is m, `pull` and `trackRate` are degrees a second, `lockTime` is s.
 export interface FcsTune {
   flat?: boolean; // true: measure the circle's angle and range on the level (x and z only), for the top-down camera; left out means 3D
-  cone: number; // the aim circle's half-angle (deg); soft and hard use it, manual does not
+  cone: number; // the soft-lock cone's half-angle (deg); soft and hard use it, manual does not
   range: number; // the farthest a target may be from the mech's chest (m); every kind uses it
   spread: number; // how far a shot drifts inside its cone (deg); every kind uses it
   nearRange: number; // the distance inside which a target is aimed at directly and the spread shrinks (m)

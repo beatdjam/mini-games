@@ -195,7 +195,7 @@ function useBar(color: string): { box: HTMLElement; fill: HTMLElement } {
 
 // The reticle with its parts pulled out, and its dot put at `at`. On a touch screen the aim circle shows; on a PC the
 // dot alone marks the cursor, so the cone's ring is hidden.
-function makeReticle(at: ReturnType<typeof reticleAt>): { root: SVGSVGElement; reticle: Reticle } {
+export function makeReticle(at: ReturnType<typeof reticleAt>): { root: SVGSVGElement; reticle: Reticle } {
   const root = reticleSvg();
   const reticle: Reticle = {
     dot: root.querySelector('.sb-ret-dot') as SVGCircleElement,

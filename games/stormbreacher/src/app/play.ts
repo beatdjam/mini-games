@@ -37,7 +37,7 @@ import { aimPointOf, buildPlayView, drawPlay, removeWardenChargeView, type PlayV
 import { resetSound, soundFrame } from '../view/sound.ts';
 import { openBriefing } from './briefing.ts';
 import { clearSuspend, loadSuspend, save, writeSave, writeSuspend } from './storage.ts';
-import { holdMouseFireUntilRelease, initPlayInput, readInput, type PlayRead } from './input.ts';
+import { cursorAimInput, holdMouseFireUntilRelease, initPlayInput, readInput, type PlayRead } from './input.ts';
 import { hidePause, initPause, showPauseButton } from './pause.ts';
 import { setState } from './screen.ts';
 import { armSkip, skipFromPointer, takeSkip } from './skip.ts';
@@ -60,8 +60,7 @@ export function cursorAim(
 ): Pick<GameInput, 'frame' | 'aimAt' | 'face'> {
   if (isTouch) return {};
   const at = aimPointOf(view, read.cursor ?? { x: 0, y: 0 }, game.mech.y);
-  if (at === null) return { frame: view.quarter.tune.azimuth, face: game.mech.yaw };
-  return { frame: view.quarter.tune.azimuth, aimAt: at };
+  return { frame: view.quarter.tune.azimuth, ...cursorAimInput(at, game.mech.yaw) };
 }
 
 // Hides the start-up field's ground and size box; the sortie's map takes their place.

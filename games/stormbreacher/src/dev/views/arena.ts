@@ -157,7 +157,7 @@ function addHud(): HTMLDivElement {
 function addTunePanel() {
   // The arena aims with FCS_QUARTER on a PC and FCS_TUNE.soft on a touch screen, so the panel writes the one in use.
   const fcsLabels = {
-    cone: '照準の円の大きさ（半角, 度）',
+    cone: '吸着の円錐の大きさ（半角, 度）',
     range: 'ロックが届く距離 (m)',
     spread: '弾のばらつき (度)',
     pull: '照準が敵へ吸い付く速さ (度/秒)',

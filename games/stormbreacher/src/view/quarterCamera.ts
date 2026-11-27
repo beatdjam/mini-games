@@ -32,6 +32,18 @@ export function followQuarter(prev: QuarterPose | null, pose: QuarterPose, dt: n
   };
 }
 
+// The pose a cutscene showed, as the quarter camera's follow start: the same place and look, in new vectors so the
+// follow cannot change the cutscene's own values.
+export function quarterPoseFromCutscene(shown: {
+  pos: readonly [number, number, number];
+  look: readonly [number, number, number];
+}): QuarterPose {
+  return {
+    pos: new THREE.Vector3(shown.pos[0], shown.pos[1], shown.pos[2]),
+    look: new THREE.Vector3(shown.look[0], shown.look[1], shown.look[2]),
+  };
+}
+
 // The point on the horizontal plane at height `y` where the screen's point (`ndc`, -1 to 1 with + up) looks: the camera
 // at `pose.pos`, through `pose.look`, with the vertical field of view `fov` (deg) and the screen's `aspect`. Null when the
 // line does not come down to the plane (the sky is above the horizon). The camera's matrices are not used, so a stale

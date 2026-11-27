@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { jumpReading, mergeInput, playInputOptions, withoutJump } from '../../src/logic/input.ts';
+import { cursorAimInput, jumpReading, mergeInput, playInputOptions, withoutJump } from '../../src/logic/input.ts';
 import type { MechInput } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -53,4 +53,10 @@ test('the main body and the arena start the play input with no jump', () => {
   // the dev views call initPlayInput with no options and keep the jump
   expect(jumpReading({})).toBe(true);
   expect(jumpReading({ jump: true })).toBe(true);
+});
+
+test('the cursor aims at its point and holds the yaw without one', () => {
+  const at = { x: 3, z: -4 };
+  expect(cursorAimInput(at, 1.2)).toEqual({ aimAt: at });
+  expect(cursorAimInput(null, 1.2)).toEqual({ face: 1.2 });
 });

@@ -6,6 +6,8 @@ import { newEnemy } from '../../src/logic/enemies.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { currentGame, currentPlayView, startSortie, showResult } from '../../src/app/play.ts';
 import { aimPointOf } from '../../src/view/play.ts';
+import { makeReticle } from '../../src/view/hud.ts';
+import { reticleAt } from '../../src/view/hudParts.ts';
 import { boot } from '../../src/app/boot.ts';
 import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
@@ -28,6 +30,12 @@ test('a sortie shows the HUD', () => {
   expect(hud.querySelector('[data-hud="radio"]')?.hasAttribute('hidden'), 'no radio line at the start').toBe(true);
   expect(hud.querySelector('[data-hud="heat"]'), 'the HUD should not have heat').toBeNull();
   expect(document.querySelector('#sbHud')).toBeNull();
+});
+
+test('a built reticle keeps the place it is given', () => {
+  const { reticle } = makeReticle(reticleAt({ x: 0.5, y: -0.5 }));
+  expect(reticle.dot.getAttribute('cx')).toBe('75%');
+  expect(reticle.dot.getAttribute('cy')).toBe('75%');
 });
 
 test('the ammo count follows the shots', async () => {

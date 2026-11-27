@@ -1,5 +1,6 @@
 // Bringing the touch screen and the keyboard into one MechInput (SB-030 keyboard). Pure, with no three and no DOM, so a
 // node test can run it.
+import type { GameInput } from './game.ts';
 import type { MechInput } from './mech.ts';
 
 // A stick pushed farther than this from its centre steers; below it the keyboard's move keys decide (unitless, 0-1).
@@ -36,4 +37,10 @@ export function playInputOptions(): { cursor: true; jump: false } {
 // off. A missing value keeps the jump for the dev views.
 export function jumpReading(options: { jump?: boolean }): boolean {
   return options.jump !== false;
+}
+
+// The aim the cursor gives: with a ground point the mech turns toward it and its shot flies there; with none (the first
+// frame, or the top edge above the horizon) the yaw is held, so the turn keys do not take the aim over.
+export function cursorAimInput(at: { x: number; z: number } | null, yaw: number): Pick<GameInput, 'aimAt' | 'face'> {
+  return at === null ? { face: yaw } : { aimAt: at };
 }

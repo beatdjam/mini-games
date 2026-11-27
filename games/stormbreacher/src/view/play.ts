@@ -54,7 +54,14 @@ import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
 import { mechSeeThrough } from './mechFade.ts';
 import { buildProtoMech, protoMuzzle, setProtoOpacity } from './mechProtoModel.ts';
 import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
-import { followQuarter, groundPoint, quarterPose, quarterTuneFrom, type QuarterPose } from './quarterCamera.ts';
+import {
+  followQuarter,
+  groundPoint,
+  quarterPose,
+  quarterPoseFromCutscene,
+  quarterTuneFrom,
+  type QuarterPose,
+} from './quarterCamera.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const fadeChest = new THREE.Vector3(); // the mech's chest, the far end of the line a low prop fades on
@@ -102,7 +109,9 @@ export interface PlayView {
   mechFaded: boolean; // whether the mech is drawn see-through, for the camera is near
   feel: FeelState;
   pitch: number; // the camera's pitch (rad); the quarter camera keeps it but does not use it yet (tickets 2110, 2115)
-  quarter: { tune: QuarterTune; pose: QuarterPose | null }; // the overview camera's values and its place and look last frame, before the feel's shake
+  // the overview camera's values, its place and look last frame (before the feel's shake), and the vertical field of
+  // view the last frame was drawn with (the feel's boost included), which the cursor's point uses
+  quarter: { tune: QuarterTune; pose: QuarterPose | null; fov: number };
   aim: Ray3 | undefined; // the line through the middle of the screen; undefined here: the main body and the arena aim with aimAt (ticket 2115), the other dev views pass aimRay
   gunfire: GunfireView; // the muzzle flashes, the tracers in flight and the impacts' sparks and smoke
   enemies: EnemyView; // the enemies' instanced boxes
@@ -132,11 +141,11 @@ export interface PlayViewOptions {
 }
 
 // The ground point at height `y` that the screen's point (`ndc`) looks at, from the quarter camera's pose before the
-// feel's shake. The view owns the screen-to-ground step; null until the camera has a pose (the first frame) or when the
-// point looks above the horizon.
+// feel's shake and the fov it was last drawn with. The view owns the screen-to-ground step; null until the camera has a
+// pose (the first frame) or when the point looks above the horizon.
 export function aimPointOf(view: PlayView, ndc: { x: number; y: number }, y: number): { x: number; z: number } | null {
   if (view.quarter.pose === null) return null;
-  return groundPoint(view.quarter.pose, view.quarter.tune.fov, window.innerWidth / window.innerHeight, ndc, y);
+  return groundPoint(view.quarter.pose, view.quarter.fov, window.innerWidth / window.innerHeight, ndc, y);
 }
 
 export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): PlayView {
@@ -163,6 +172,7 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
   // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
   // events before it (already played) are not all played again in the first frame.
   const startSecond = cutsceneElapsed(game.script.cutscene);
+  const quarterTune = quarterTuneFrom(new URLSearchParams(location.search), QUARTER_TUNE);
   return {
     world,
     model,
@@ -172,7 +182,7 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     pitch: 0,
     // The first frame's pose is null, so the camera sits at its place at once: a checkpoint or a suspend resumes
     // without it flying in. `?q.height=30` tries a value without a build (quarterTuneFrom).
-    quarter: { tune: quarterTuneFrom(new URLSearchParams(location.search), QUARTER_TUNE), pose: null },
+    quarter: { tune: quarterTune, pose: null, fov: quarterTune.fov },
     aim: undefined,
     gunfire: buildGunfireView(),
     enemies: buildEnemyView(),
@@ -639,10 +649,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     // The cutscene draws its own camera over this one (drawCutscene). Keep that third-person pose as the follow's start,
     // so the first controlled frame passes through it instead of jumping to the quarter view.
     const shown = cutscenePose(cutscene.id, Math.max(0, cutsceneElapsed(cutscene)), walk ?? game.mech);
-    view.quarter.pose = {
-      pos: new THREE.Vector3(shown.pos[0], shown.pos[1], shown.pos[2]),
-      look: new THREE.Vector3(shown.look[0], shown.look[1], shown.look[2]),
-    };
+    view.quarter.pose = quarterPoseFromCutscene(shown);
   } else {
     view.quarter.pose = pose;
   }
@@ -650,6 +657,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   camera.position.copy(pos);
   camera.lookAt(view.quarter.pose.look);
   camera.fov = view.quarter.tune.fov + (frame.fov - CAMERA_TUNE.fov);
+  view.quarter.fov = camera.fov;
   camera.updateProjectionMatrix();
   // The main body and the arena pass the cursor's ground point as aimAt; the view leaves this line undefined and step
   // makes a level line from the chest to the point. The other dev views pass their own aimRay.

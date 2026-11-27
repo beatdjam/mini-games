@@ -342,7 +342,8 @@ test('when the landing ends the mech is at its start and the camera eases from t
   expect(model.position.x).toBeCloseTo(game().mech.x, 3);
   expect(model.position.z).toBeCloseTo(START_Z, 3);
   // the model faces the way the game's mech does: the cursor's point decides that now, not a fixed 0
-  expect(model.rotation.y).toBeCloseTo(game().mech.yaw, 6);
+  const yaw = Math.atan2(Math.sin(model.rotation.y - game().mech.yaw), Math.cos(model.rotation.y - game().mech.yaw));
+  expect(yaw).toBeCloseTo(0, 6);
   expectEaseToQuarter(shown, 60);
 });
 
@@ -355,6 +356,7 @@ test('a skip puts the mech at its start and eases the camera from the frame it s
   if (!view || view.quarter.pose === null) throw new Error('the sortie has no camera');
   const shown = view.quarter.pose.pos.clone();
   el('#gl').click();
+  steps(1);
   await untilSteps(() => bars().hidden);
   expect(mechModel().position.z).toBeCloseTo(START_Z, 3);
   // the skipped frame is far out at sea, so the ease has farther to come than the landing's last key

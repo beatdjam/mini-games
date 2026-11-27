@@ -2,12 +2,12 @@
 // game and the dev views use this instead of either device's reader.
 import { el, isTouch } from '@engine/core/index.ts';
 import { requestLock } from '@engine/ui/index.ts';
-import { jumpReading, mergeInput, withoutJump } from '../logic/input.ts';
+import { cursorAimInput, jumpReading, mergeInput, withoutJump } from '../logic/input.ts';
 import type { MechInput } from '../logic/mech.ts';
 import { holdMouseFireUntilRelease, initKeyboard, readKeyboard } from './keyboard.ts';
 import { initTouch, readTouch } from './touch.ts';
 
-export { holdMouseFireUntilRelease };
+export { cursorAimInput, holdMouseFireUntilRelease };
 
 export interface PlayRead {
   input: MechInput;

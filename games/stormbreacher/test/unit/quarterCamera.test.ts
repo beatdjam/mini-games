@@ -5,6 +5,7 @@ import {
   followQuarter,
   groundPoint,
   quarterPose,
+  quarterPoseFromCutscene,
   quarterTuneFrom,
   type QuarterPose,
 } from '../../src/view/quarterCamera.ts';
@@ -91,6 +92,13 @@ test('followQuarter eases from a cutscene pose into the quarter pose', () => {
   expect(moved).toBeGreaterThan(0);
   expect(moved).toBeLessThan(whole);
   expect(next.pos.distanceTo(target.pos)).toBeLessThan(whole);
+});
+
+test('the quarter camera starts from the pose a cutscene showed', () => {
+  const shown = { pos: [2.15, 6.2, 8.6] as const, look: [2.15, 4.7, 0] as const };
+  const pose = quarterPoseFromCutscene(shown);
+  expect(pose.pos.toArray()).toEqual([2.15, 6.2, 8.6]);
+  expect(pose.look.toArray()).toEqual([2.15, 4.7, 0]);
 });
 
 test('the top cursor meets the plane at the mech feet within 0.1m', () => {
