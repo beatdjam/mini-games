@@ -194,8 +194,15 @@ function circleTargets(
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
     if (!target.alive || target.lockable === false) continue;
-    if (distance(target.cx, target.cy, target.cz, chest.x, chest.y, chest.z) > tune.range) continue;
-    const angle = angleDeg(aim.dx, aim.dy, aim.dz, target.cx - aim.ox, target.cy - aim.oy, target.cz - aim.oz);
+    // A flat tune measures the circle on the level (x and z only), so a target up steps is judged by its ground bearing;
+    // every other tune, and the near aim below, stays in 3D.
+    const reach = tune.flat
+      ? Math.hypot(target.cx - chest.x, target.cz - chest.z)
+      : distance(target.cx, target.cy, target.cz, chest.x, chest.y, chest.z);
+    if (reach > tune.range) continue;
+    const angle = tune.flat
+      ? angleDeg(aim.dx, 0, aim.dz, target.cx - aim.ox, 0, target.cz - aim.oz)
+      : angleDeg(aim.dx, aim.dy, aim.dz, target.cx - aim.ox, target.cy - aim.oy, target.cz - aim.oz);
     if (angle > tune.cone) continue;
     inCone.push(i);
     if (angle < nearestAngle) {

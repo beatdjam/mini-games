@@ -187,6 +187,22 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
   },
 };
 
+// The soft values the body and the arena use while the player aims with the cursor on the top-down camera (SB-2120): a
+// wider circle measured on the level that reaches about as far as the screen shows, pulled in almost at once. Kept out of
+// FCS_TUNE, which stays keyed by the three kinds.
+export const FCS_QUARTER: FcsTune = {
+  flat: true,
+  cone: 20,
+  range: 45,
+  spread: 0.8,
+  nearRange: 12,
+  nearSpread: 0.25,
+  pull: 720,
+  lockTime: 0,
+  trackRate: 0,
+  breakCone: 0,
+};
+
 // The HUD's values (SB-160). All provisional.
 export const HUD_TUNE = {
   radarRange: 200, // how far the radar sees (m); a target farther than this is not drawn

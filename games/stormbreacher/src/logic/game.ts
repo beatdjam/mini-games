@@ -36,7 +36,8 @@ import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
-import { BLAST_FACE_TUNE, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
+import type { FcsTune } from '../data/tuneTypes.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
@@ -446,11 +447,12 @@ function muzzleOf(mech: MechState): { x: number; y: number; z: number } {
   };
 }
 
-// One shot from the muzzle toward `dir`, spread by a random draw at `dist` m: a bullet with `weapon`'s range to fly.
-function shoot(game: GameModel, weapon: WeaponId, dir: Dir3, dist: number): void {
+// One shot from the muzzle toward `dir`, spread by a random draw at `dist` m with `tune`: a bullet with `weapon`'s range
+// to fly.
+function shoot(game: GameModel, weapon: WeaponId, dir: Dir3, dist: number, tune: FcsTune): void {
   const def = WEAPONS[weapon];
   const { x, y, z } = muzzleOf(game.mech);
-  const aimed = spreadDir(dir, spreadFor(dist, FCS_TUNE.soft), stream('shots'));
+  const aimed = spreadDir(dir, spreadFor(dist, tune), stream('shots'));
   game.bullets.push({ weapon, x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, left: def.range });
   game.events.push({ kind: 'shot', x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, weapon });
 }
@@ -1716,12 +1718,15 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     ],
     groundY: 0,
   };
-  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, muzzleOf(game.mech), fcsTargets(game, chest), span, world);
+  // The cursor's ground point on the top-down camera gets the wider, level values; the inputs without it (touch, bots,
+  // tests) keep the third-person soft values.
+  const fcsTune = input.aimAt === undefined ? FCS_TUNE.soft : FCS_QUARTER;
+  const fcs = stepFcs(game.fcs, 'soft', fcsTune, aim, muzzleOf(game.mech), fcsTargets(game, chest), span, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
   const mainShots = stepWeapon(game.main, held.fire, span);
   const subShots = stepWeapon(game.sub, held.sub, span);
-  for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir, fcs.shotDist);
-  for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir, fcs.shotDist);
+  for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir, fcs.shotDist, fcsTune);
+  for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir, fcs.shotDist, fcsTune);
   stepEnemies(game, span);
   stepPillboxes(game, span);
   stepBattery(game, span);

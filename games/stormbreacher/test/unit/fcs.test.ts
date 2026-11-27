@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { FCS_TUNE } from '../../src/data/tune.ts';
+import { FCS_QUARTER, FCS_TUNE } from '../../src/data/tune.ts';
 import { fireRay, type Aabb } from '../../src/logic/fire.ts';
 import { newFcs, spreadDir, stepFcs, type FcsTarget, type Ray3 } from '../../src/logic/fcs.ts';
 
@@ -97,6 +97,36 @@ test('soft leaves a target outside the circle alone', () => {
   }
   const toTarget = { x: t.cx - CHEST.x, y: t.cy - CHEST.y, z: t.cz - CHEST.z };
   expect(angleDeg(asVec(result.shotDir), toTarget)).toBeGreaterThan(5);
+});
+
+test('flat measures the circle on the level, so a target up steps stays in cone 20', () => {
+  // 20 m out, 10 degrees to the side, 10 m above the aim line: a level angle of 10 degrees
+  const centre = atAngle(10, 20);
+  const t = target(0, centre.x, CHEST.y + 10, centre.z);
+  const flat = stepFcs(newFcs(), 'soft', FCS_QUARTER, aimStraight(), CHEST, [t], 1 / 60);
+  expect(flat.inCone).toContain(0);
+  expect(flat.candidateId).toBe(0);
+
+  // the same values in 3D: about 28 degrees, outside the 20 degree cone
+  const full = stepFcs(newFcs(), 'soft', { ...FCS_QUARTER, flat: undefined }, aimStraight(), CHEST, [t], 1 / 60);
+  expect(full.inCone).toHaveLength(0);
+  expect(full.candidateId).toBe(null);
+});
+
+test('flat measures the range on the level, so a target 50 m out is past range 45', () => {
+  const centre = atAngle(0, 50);
+  const t = target(0, centre.x, CHEST.y, centre.z);
+  const result = stepFcs(newFcs(), 'soft', FCS_QUARTER, aimStraight(), CHEST, [t], 1 / 60);
+  expect(result.inCone).toHaveLength(0);
+  expect(result.candidateId).toBe(null);
+});
+
+test('flat aims a shot up at a target on a higher step', () => {
+  const centre = atAngle(0, 20);
+  const t = target(0, centre.x, CHEST.y + 10, centre.z);
+  const result = stepFcs(newFcs(), 'soft', FCS_QUARTER, aimStraight(), CHEST, [t], 1 / 60);
+  expect(result.candidateId).toBe(0);
+  expect(result.shotDir.dy).toBeGreaterThan(0);
 });
 
 function lockHard(t: FcsTarget, aim: Ray3, frames: number): ReturnType<typeof newFcs> {
