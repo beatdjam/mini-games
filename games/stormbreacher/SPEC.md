@@ -356,7 +356,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
-| `damage` | 25 | 1発の威力。種類ごとの倍率を掛ける |
+| `damage` | 40 | 1発の威力。種類ごとの倍率を掛ける |
 | `range` | 6 | m。扇の半径。物と目標は中心ではなく当たりの箱の最近点から測る |
 | `halfArcDeg` | 40 | 度。機体の前から左右へこの角度までが扇 |
 | `interval` | 0.8 | s。次の一撃までの待ち |
@@ -378,18 +378,20 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | 当たる種類 | `MELEE_DAMAGE_MUL` | 体力 | 一撃の数（仮） |
 |------------|-------------------|------|----------------|
 | 突撃 `assault` | 1 | 20 | 1 |
-| 射撃 `grunt` | 1 | 40 | 2 |
-| 重装 `heavy` | 0.5 | 120 | 10 |
-| 機銃座 `emplacement` | 0.6 | 140 | 10 |
+| 射撃 `grunt` | 1 | 40 | 1 |
+| 重装 `heavy` | 0.6 | 120 | 5 |
+| 機銃座 `emplacement` | 0.375 | 140 | 10 |
+| 中ボス `warden` | 0.0625 | 400 | 160 |
 | トーチカ `pillbox` | 0 | 100 | 壊せない（制圧だけ。壊せるのは爆薬） |
-| 集積所 `depot` | 0.25 | 60 | 10 |
-| 砲台の主砲 `gun` | 0.1 | 200 | 80 |
-| 火薬庫 `magazine` | 0.15 | 80 | 22 |
-| 地雷 `mine` | 1 | 10 | 1（殴った機体はその爆風を受けない） |
-| 壊せる物 `prop` | 0.25 | 物の `PROP_HP` | 物による |
+| 集積所 `depot` | 0.15625 | 60 | 10 |
+| 砲台の主砲 `gun` | 0.0625 | 200 | 80 |
+| 要塞の機関砲 `fortressGun` | 0.0625 | 300 | 120 |
+| 火薬庫 `magazine` | 0.09375 | 80 | 22 |
+| 地雷 `mine` | 0.625 | 10 | 1（殴った機体はその爆風を受けない） |
+| 壊せる物 `prop` | 0.15625 | 物の `PROP_HP` | 物による |
 
 - 入力と時刻: `GameInput.melee`（キー Q。タッチは `#btnMelee`）。押している間、`game.melee.wait` を毎フレーム `span`（節目の溜めの間は `dt × slow.scale`）だけ減らし、0 以下で `beginMelee` が一撃を始める。一撃は振りかぶり（`windupSec`）→ 振り抜き（`swingSec`）→ 戻り（`returnSec`）の順に進み、当たりは振り抜きの途中、`windupSec + swingSec * hitShare`（`meleeHitSec()`）のフレーム。押しっぱなしでも `interval` より速くは出ない。F の長押しで爆薬を仕掛けている間は殴らない（`step` が `held` から `melee` も外す）
-- 当たる相手: 機体の前の扇（`range` 以内、`halfArcDeg` 以内）にいて、生きている敵（量産機の3種・機銃座・中ボス）・生きている目標（`pillbox`・`depot`・`gun`・`magazine`）・残っている地雷・壊せる物のうち一番近いもの。距離と扇の向きは、物と目標では中心ではなく当たりの箱の最近点（機体に近い面）で見るので、大きな目標にも面の前から届く。機体の胸から当たりの点までの線が物か立っている目標に遮られている相手には当たらず、隠れている守備兵（`post` があり `holdOut` でない敵）は候補から外れる。`MELEE_DAMAGE_MUL` の倍率を掛けたダメージを、弾と同じ関数（`damageEnemy`・`damageTarget`・`damageMine`・`damageProp`）で与えるので、0 になったときの `enemyDown`・`destroyed`・`mineBlast`・`propDestroyed` と台本への知らせは弾と同じ流れ。トーチカは弾と同じで体力を減らさず、砲口を `suppressPillbox` で制圧するだけ（初めて当たったときの無線も弾と同じ。壊せるのは爆薬だけ、SB-2015）。中ボスは殴りの倍率が `MELEE_DAMAGE_MUL.warden`（0.1、仮）で、正面・背中の装甲の倍率は殴りには掛けない。目標の正面の決まりはこのとおり
+- 当たる相手: 機体の前の扇（`range` 以内、`halfArcDeg` 以内）にいて、生きている敵（量産機の3種・機銃座・中ボス）・生きている目標（`pillbox`・`depot`・`gun`・`magazine`）・残っている地雷・壊せる物のうち一番近いもの。距離と扇の向きは、物と目標では中心ではなく当たりの箱の最近点（機体に近い面）で見るので、大きな目標にも面の前から届く。機体の胸から当たりの点までの線が物か立っている目標に遮られている相手には当たらず、隠れている守備兵（`post` があり `holdOut` でない敵）は候補から外れる。`MELEE_DAMAGE_MUL` の倍率を掛けたダメージを、弾と同じ関数（`damageEnemy`・`damageTarget`・`damageMine`・`damageProp`）で与えるので、0 になったときの `enemyDown`・`destroyed`・`mineBlast`・`propDestroyed` と台本への知らせは弾と同じ流れ。トーチカは弾と同じで体力を減らさず、砲口を `suppressPillbox` で制圧するだけ（初めて当たったときの無線も弾と同じ。壊せるのは爆薬だけ、SB-2015）。中ボスは殴りの倍率が `MELEE_DAMAGE_MUL.warden`（0.0625、仮）で、正面・背中の装甲の倍率は殴りには掛けない。目標の正面の決まりはこのとおり
 - 踏み込み: 一撃が当たったフレームに `game.melee.lunge` を作り、機体の向きへ `lungeDistance`（空振りは `missDistance`）だけ `lungeSec` かけて進む。`stepMeleeLunge` が 1/120 秒より細かい刻みで動かし、`pushOutCircle` で物と目標の四角から押し出すので、薄い壁を抜けない。踏み込みも `span` で進む。マップの端は `step` の機体と同じく `stepBounds`（艇のランプの幅だけ前の縁を越える）と半径を残して止める
 - 出来事 `melee`（`hit`・位置・`enemy`・`target`・`prop`）: 当たったら当たった物の近い面、空振りなら機体の前の空間の位置。`enemy` は敵の id、`target` は目標の id、`prop` は壊せる物の `map.props` での番号。`src/view/play.ts` が当たりの位置に火花（`MELEE_SPARK_COLOR`）を出し、`feelMelee` が揺れとヒットストップ（`MELEE_TUNE.hitStop`）を足す。音は `src/view/sound.ts` が `hit` で `meleeHit`、空振りで `meleeMiss` を鳴らす
 - モーション: 一撃の時計は `game.melee.blow.t`（`meleeBlowSec()` まで残す）。`view/mechDrive.ts` が `MotionInput.meleeT` に渡し、`view/mechMotion.ts` が同じ時計から振りかぶり・振り抜き・戻りを作る。出撃の機体は試作（`buildProtoMech`）なので、`view/mechProtoModel.ts` の `poseProto` が動かす。大砲を持つ右腕は狙いを保ち、空いた左腕（`shoulderL`・`elbowL`）を引き（`punchBack`）、振り抜きで前へ突き出し（`punchReach`）、胴を振りかぶりで逆へひねって振り抜きで戻し（`punchTwist`）、前へ傾け（`punchLean`）、当たりで沈める（`punchDip`、`dipDepth` に着地の沈みと足す）。すべて仮の値。箱の案の機体（`view/mechModel.ts`）は出撃で使われないので、殴りの腕は持たない。`#view-mech` の「殴る」（キー Q）で試作の腕の動きを見られる
@@ -715,7 +717,7 @@ SB-1850。中庭の3つの波を片付けると、陸側の門の内側から中
 - 迫撃砲: `mortar` は `burstTelegraph` ののち `mortar.count` 発の `ShellState` を返す。各弾は機体のまわり `mortar.spread` 以内に落ち、`mortar.warn` 秒の予告の輪を `src/view/hazards.ts` の `drawHazards` がそのまま描く。型は増やさない
 - 突撃型の呼び出し: 体力が `addsAt` 以下になったフレームに `M1_WAVE_ENEMY['warden-adds'] = ['assault', 'assault']` と `map.spawns['warden-adds']`（中庭の左右の扉 x −22・22, z −95）で2機を1回だけ出す（`spawnWave` と同じ形）
 - 装甲: `wardenDamageMul(yaw, dx, dz, exposed)`。`exposed` なら `backMul`。そうでなければ弾の水平の向きと中ボスの前（`-sin yaw, -cos yaw`）の内積が −0.5 以下なら正面、0.5 以上なら背中、その間は横。`flyBullet` が敵に当たったとき、`warden` だけこの倍率を掛けて `damageEnemy` に渡す（他の敵と目標の扱いは変えない）
-- 倒れる: 体力 0 で `dying` を `dieSec` から数え、煙を出しながら低い姿になり、`dieSec` 後に `wardenDown`（`id`・`x`・`z`）を1回だけ出す。`enemyDown` は体力 0 のフレームに従来どおり出るが、`warden` のとき `drawPlay` はその場の小爆発を描かず、煙と `wardenDown` の大爆発に任せる。音は `enemyDown` が `explosionSmall`（体力 0 の一撃）、`wardenDown` が `explosionLarge`（3秒後の大爆発）。殴りは `MELEE_DAMAGE_MUL.warden`（0.1、仮）でほとんど効かず、正面・背中の倍率は掛けない。`enemyBox` は倒れている3秒の間も残るが、`hp` 0 なので弾も FCS も当たらない
+- 倒れる: 体力 0 で `dying` を `dieSec` から数え、煙を出しながら低い姿になり、`dieSec` 後に `wardenDown`（`id`・`x`・`z`）を1回だけ出す。`enemyDown` は体力 0 のフレームに従来どおり出るが、`warden` のとき `drawPlay` はその場の小爆発を描かず、煙と `wardenDown` の大爆発に任せる。音は `enemyDown` が `explosionSmall`（体力 0 の一撃）、`wardenDown` が `explosionLarge`（3秒後の大爆発）。殴りは `MELEE_DAMAGE_MUL.warden`（0.0625、仮）でほとんど効かず、正面・背中の倍率は掛けない。`enemyBox` は倒れている3秒の間も残るが、`hp` 0 なので弾も FCS も当たらない
 - 乱数: `stepWarden` の散らしと迫撃砲の落ちる所は既存の `stream('enemies')` から引く。新しい `StreamName` は足さない
 - 保存: `EnemyState.warden` はチェックポイントと中断に入る。`SUSPEND_VERSION` を 27 に上げた（26 は中庭の援護）。戻したとき（`retryFromCheckpoint`・`restoreSuspend`）は、飛んでいた弾と予告の弾が消えるので、`restartWarden` が途中の三連射・突進・よろけ・迫撃砲を捨て、`burstRest` 休んでから選び直す形（`phase` `burst`・`burstLeft` 0・`exposed` 0・`mortarT` は `mortarEvery`）にする。体力・`walkout`・倒れている途中・突撃型を呼んだか（`called`）はそのまま
 - テスト: `test/unit/warden.test.ts`（予兆の秒・突進の停止と2秒の `exposed`・正面/横/背中の倍率・段階2の迫撃砲・3秒と `down` 1回・同じ種で同じ結果・三連射の威力が `ENEMIES.warden.damage` だけ）、`test/integration/warden.test.ts`（中庭の3波のあとに出る・同じ弾数で正面と背中の残り体力が違う・突進を壁で止めると背中が出る・突進が機体に触れて装甲を引き横へ押すのは1回・`wardenDown` が1回）、`test/integration/checkpoint.test.ts`・`suspend.test.ts`（戻すと段階の頭から）、`test/unit/enemies.test.ts`（`NAV_RADIUS` が 0.75 のまま）、`test/integration/m1Run.test.ts`（横へ回り込みながら中ボスを倒して先へ進む）
