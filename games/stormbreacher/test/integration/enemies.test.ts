@@ -20,7 +20,7 @@ import {
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
 import { fireRayHit } from '../../src/logic/fire.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
-import { newPlayGame } from './playGame.ts';
+import { clearInfantry, newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
 const DT = 1 / 60;
@@ -149,6 +149,8 @@ test('four autocannon shots bring a grunt down, and so does one heavy gun shot',
 test('a fallen enemy stays but does not move, shoot or take a hit', () => {
   seed(1);
   const game = withSquad([{ x: 0, z: -40 }]);
+  // the beach is empty here, so the sectors would send a counterattack into this test's field (SB-2220)
+  game.sectors = null;
   const fallen = game.enemies[0];
   fallen.hp = 0;
   fallen.awake = true;
@@ -189,6 +191,8 @@ test('an enemy’s bullets take the armour down, with the way they came from', (
   seed(5);
   // the enemy stands 25 m ahead of the mech and wakes at once
   const game = withSquad([{ x: 0, z: -GRUNT.stopDist }]);
+  // the beach is empty here, so the sectors would send a counterattack whose shots come from the sea (SB-2220)
+  game.sectors = null;
   const damaged: Extract<GameEvent, { kind: 'damaged' }>[] = [];
   let mechHits = 0;
   for (let i = 0; i < 1800; i++) {
@@ -460,6 +464,8 @@ test('the six nests stand at the map’s places from the first frame, asleep and
 
 test('stepping off the craft wakes the front nest alone, and it starts to shoot', () => {
   const game = newPlayGame(M1B_HAND);
+  // this test reads the front nest alone: the infantry's support fire would put it down first (SB-2240)
+  clearInfantry(game);
   const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
   const front = nests.find(enemy => enemy.id === 'b-emplacements-1');
   if (!front) throw new Error('the front nest is out');

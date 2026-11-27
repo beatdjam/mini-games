@@ -412,6 +412,7 @@ export function buildBattle(
     crowd,
     group,
     advance(holdZ, count) {
+      if (given !== null) return; // the game's own state: only its step moves it
       crowd.holdZ = holdZ;
       crowd.holdT = 0; // each new line starts its waiting loss over (SB-2020)
       if (crowd.bounds !== null && count > 0) spawnWave(crowd, rng, crowd.bounds, count, tune);
@@ -450,6 +451,7 @@ export function buildBattle(
       drawTracers();
     },
     blast(x, z) {
+      if (given !== null) return; // the game's own state: its step takes the soldiers a shell reaches
       for (const soldier of fallNear(crowd, x, z, tune.shellFallRadius, tune.shellFallShare, rng)) {
         burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
       }

@@ -6,6 +6,7 @@ import { WARDEN_TUNE } from '../../src/data/warden.ts';
 import { newGame, targetRect } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
+import { sectorHold } from '../../src/logic/sectors.ts';
 import { SUSPEND_VERSION, restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 
 // The data as the storage hands it back: written to JSON and read again.
@@ -47,9 +48,15 @@ describe('suspend', () => {
     game.retries = 2;
     game.events = [];
     const back = restoreSuspend(stored(suspendOf(game)));
-    expect(back).toEqual({ ...game, bullets: [], shells: [], events: [] });
-    expect(back?.map).toBe(M1B_HAND);
-    expect(back?.mission).toBe(M1);
+    if (!back) throw new Error('not read');
+    // The battle layer is not saved; it is made again from the sectors (SB-2200). Every other field comes back the same.
+    const { battle: _battle, ...expected } = game;
+    const { battle: _backBattle, ...rest } = back;
+    expect(rest).toEqual({ ...expected, bullets: [], shells: [], events: [] });
+    expect(back.battle).not.toBe(game.battle);
+    expect(back.battle.crowd.holdZ).toBe(sectorHold(game.sectors).holdZ);
+    expect(back.map).toBe(M1B_HAND);
+    expect(back.mission).toBe(M1);
   });
 
   test('a blow under way is kept: its wait, lunge and clock come back the same', () => {

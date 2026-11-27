@@ -81,6 +81,9 @@ function hitTarget(game: GameModel, id: string, frames = 240): GameEvent[] {
 // A mech in the open landward of line 2, its face to pillbox-1.
 function pillboxGame(): GameModel {
   const game = newPlayGame(quietMap());
+  // The quiet map has no enemies, so the sector rules would clear the beach at once and put its radio line first (SB-2210).
+  game.sectors = null;
+  game.trickle = null;
   game.mech.x = -33;
   game.mech.y = 0;
   game.mech.z = 5;

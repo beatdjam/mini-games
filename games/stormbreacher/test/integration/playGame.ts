@@ -18,3 +18,11 @@ export function newPlayGame(map: MapDef, mission: MissionDef = M1): GameModel {
   game.events = [];
   return game;
 }
+
+// Takes the battle layer's infantry off the field for a test that reads other things alone: no soldier means no support
+// fire (SB-2240), and with no bounds the line is not made up again when it is wiped out (SB-2210). A test that calls this
+// is about the thing the infantry would otherwise shoot or delay.
+export function clearInfantry(game: GameModel): void {
+  game.battle.crowd.soldiers = [];
+  game.battle.crowd.bounds = null;
+}

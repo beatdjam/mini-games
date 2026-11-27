@@ -7,6 +7,8 @@ import { M1_SECTORS, SECTOR_TUNE, type Sector, type SectorId } from '../data/sec
 import { rectDistance, type GroundRect } from './collide.ts';
 import type { Crowd, Soldier } from './crowd.ts';
 
+// 'secured' is only the step between a secured sector and its counterattack: stepSectors moves a sector on to 'counter'
+// in the same frame, so a state that is read between frames never holds it (a test may set it).
 export type SectorPhase = 'idle' | 'advancing' | 'secured' | 'counter' | 'stable';
 
 export interface SectorsState {
@@ -68,8 +70,9 @@ export function arrivedSoldiers(crowd: Crowd, holdZ: number): Soldier[] {
   return crowd.soldiers.filter(soldier => soldier.alive && soldier.z <= holdZ + SECTOR_TUNE.arriveBand);
 }
 
-// Whether a sector has no living enemy left in it. Its enemies count from its landZ to seaMargin past its seaZ; the
-// pillbox line also counts the pillboxes that still stand.
+// Whether a sector has no living enemy left in it. Its enemies count from its landZ to seaMargin past its seaZ, so the
+// margin overlaps the sector seaward of it (an enemy there counts for both; the sectors are looked at front to back, so
+// the front one decides); the pillbox line also counts the pillboxes that still stand.
 function sectorClear(sector: Sector, world: SectorWorld): boolean {
   if (world.mech.z > sector.seaZ - SECTOR_TUNE.enterDepth) return false;
   for (const enemy of world.enemies) {
@@ -94,17 +97,18 @@ function sectorSecured(crowd: Crowd, holdZ: number): boolean {
 
 // The i-th point the counterattack comes out at: z is counterBack inland of the sector's land-side edge, and x runs
 // evenly from -counterSpread to +counterSpread. A point that a ground rect covers is moved 2m at a time until it is
-// clear; if it is still covered after ten moves, the point is skipped (null).
-function counterPoint(sector: Sector, index: number, rects: readonly GroundRect[]): { x: number; z: number } | null {
+// clear; if it is still covered after ten moves, the last point tried is used, so the counterattack always comes out.
+function counterPoint(sector: Sector, index: number, rects: readonly GroundRect[]): { x: number; z: number } {
   const z = sector.landZ - SECTOR_TUNE.counterBack;
   const spread = SECTOR_TUNE.counterSpread;
   const base = sector.counter <= 1 ? 0 : -spread + (2 * spread * index) / (sector.counter - 1);
   const radius = ENEMIES[SECTOR_TUNE.counterKind].radius;
+  let x = base;
   for (let move = 0; move <= 10; move++) {
-    const x = base + move * 2;
-    if (rects.every(rect => rectDistance(rect, x, z) > radius)) return { x, z };
+    x = base + move * 2;
+    if (rects.every(rect => rectDistance(rect, x, z) > radius)) break;
   }
-  return null;
+  return { x, z };
 }
 
 // Moves the sectors on by one frame. Only the frontmost sector that is not stable is looked at, so the ones behind it
@@ -138,7 +142,7 @@ export function stepSectors(state: SectorsState, world: SectorWorld, dt: number)
       state.counterT[i] += SECTOR_TUNE.counterEvery;
       const point = counterPoint(sector, sector.counter - state.counterLeft[i], world.rects);
       state.counterLeft[i] -= 1;
-      return point === null ? [] : [{ kind: 'sectorSpawn', sector: sector.id, ...point }];
+      return [{ kind: 'sectorSpawn', sector: sector.id, ...point }];
     }
     const standing = state.counterIds[i].some(id => {
       const enemy = world.enemies.find(entry => entry.id === id);

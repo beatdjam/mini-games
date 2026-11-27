@@ -45,13 +45,14 @@ export function supportDamage(maxHp: number, factor: number): number {
   return maxHp * (SUPPORT_TUNE.damageBase + SUPPORT_TUNE.damagePer * factor);
 }
 
-// The nearest enemy a soldier at `from` may shoot: living, awake, not dormant, and out of cover (a posted defender only
+// The nearest enemy a soldier at `from` may shoot: living, awake, not dormant, not the mid boss (its exposure rules the
+// damage it takes, which the infantry would go around), and out of cover (a posted defender only
 // while it has stepped out), within SUPPORT_TUNE.range. With none, null.
 function nearestFoe(enemies: readonly SupportFoe[], from: { x: number; z: number }): SupportFoe | null {
   let pick: SupportFoe | null = null;
   let best = SUPPORT_TUNE.range;
   for (const enemy of enemies) {
-    if (enemy.hp <= 0 || !enemy.awake || enemy.dormant) continue;
+    if (enemy.hp <= 0 || !enemy.awake || enemy.dormant || enemy.kind === 'warden') continue;
     if (enemy.post !== null && !enemy.holdOut) continue;
     const dist = distXZ(from, enemy);
     if (dist > best) continue;

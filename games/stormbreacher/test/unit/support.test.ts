@@ -128,3 +128,13 @@ test('a pillbox in range is not shot', () => {
   expect(game.events.some(event => event.kind === 'supportFire')).toBe(false);
   expect(game.targets[0].hp).toBe(100);
 });
+
+test('the mid boss is not a target, even when it is the only enemy in range', () => {
+  const warden = newEnemy('w-1', 'w', 'warden', 0, HOLD - 20);
+  warden.awake = true;
+  const world = worldOf(12, [warden]);
+  const rng = createRng(1);
+  let shots = 0;
+  for (let i = 0; i < 60 * 5; i++) shots += stepSupport(world, rng, DT).length;
+  expect(shots).toBe(0);
+});

@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.ts';
-import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newGame, restartGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { arrivedSoldiers } from '../../src/logic/sectors.ts';
@@ -135,6 +135,36 @@ describe('the sectors of M1', () => {
     step(game, idle, DT);
     expect(game.events.some(event => event.kind === 'sectorStable' && event.sector === 'beach')).toBe(true);
     expect(game.sectors?.phase[0]).toBe('stable');
+  });
+
+  test('the sectors do not move while a cutscene plays, the mech is downed or the sortie is cleared', () => {
+    for (const hold of ['cutscene', 'downed', 'cleared'] as const) {
+      seed(7);
+      const game = newPlayGame(M1B_HAND);
+      enterSector(game, 'beach');
+      if (hold === 'cutscene') game.script.cutscene = { id: 'beach-held', left: 1000 };
+      else game[hold] = true;
+      for (let frame = 0; frame < 60; frame++) step(game, idle, DT);
+      expect(game.sectors?.phase[0], hold).toBe('idle');
+      expect(
+        game.events.some(event => event.kind === 'sectorCleared'),
+        hold,
+      ).toBe(false);
+    }
+  });
+
+  test('a restart makes the sectors, the trickle, the support and the battle layer again, as a new game has them', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    enterSector(game, 'beach');
+    step(game, idle, DT);
+    expect(game.sectors?.phase[0]).toBe('advancing');
+    const again = restartGame(game);
+    expect(again.battle).not.toBe(game.battle);
+    expect(again.sectors?.phase).toEqual(M1_SECTORS.map(() => 'idle'));
+    expect(again.battle.crowd.holdZ).toBe(SECTOR_TUNE.startHoldZ);
+    expect(again.trickle?.spent.every(spent => spent === 0)).toBe(true);
+    expect(again.supportT).toBe(0);
   });
 
   test('a suspend brings the sectors and the waiting line back', () => {

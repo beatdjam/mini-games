@@ -8,7 +8,7 @@ import { ENEMIES, ENEMY_CHEST } from '../../src/data/enemies.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { fireRayHit } from '../../src/logic/fire.ts';
 import { isEnemyBullet, newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
-import { newPlayGame } from './playGame.ts';
+import { clearInfantry, newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const idle: GameInput = {
@@ -54,6 +54,8 @@ test('line 2’s near point stands in the nests’ fire and the far one behind t
 
 test('the ally’s support fire silences the nests for the mission’s seconds and then lets them fire again', () => {
   const game = newPlayGame(M1B_HAND);
+  // this test reads the ally mech's support fire alone: the infantry's would weaken the nests it watches (SB-2240)
+  clearInfantry(game);
   game.armor = 1e9;
   game.mech.x = 0;
   game.mech.z = 106; // just short of line 2’s approach area (z 82 to 100), in sight of its nests
@@ -103,6 +105,8 @@ test('the ally’s support fire silences the nests for the mission’s seconds a
 
 test('the support fire shows as tracers at the nests while the window runs, the rounds-low line comes before it ends, and all stops after', () => {
   const game = newPlayGame(M1B_HAND);
+  // this test reads the ally mech's support fire alone: the infantry's would weaken the nests it watches (SB-2240)
+  clearInfantry(game);
   game.armor = 1e9;
   game.mech.x = 0;
   game.mech.z = 135;

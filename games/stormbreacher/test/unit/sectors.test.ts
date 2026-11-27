@@ -264,3 +264,20 @@ test('every sector line has text in ja and en', () => {
     for (const key of keys) expect(LANG[code].ui[key], `${code} is missing "${key}"`).toBeTruthy();
   }
 });
+
+test('a counterattack point covered after ten moves still comes out, at the last point tried', () => {
+  const { state } = secureBeach();
+  // one rect wide enough to cover every point the ten moves try
+  const wall = { x: 0, z: BEACH.landZ - SECTOR_TUNE.counterBack, halfW: 500, halfD: 5, yaw: 0 };
+  const seen = world({ rects: [wall] });
+  state.counterT[0] = 0;
+  const events = stepSectors(state, seen, 1 / 60);
+  const spawn = events.find(event => event.kind === 'sectorSpawn');
+  expect(spawn).toEqual({
+    kind: 'sectorSpawn',
+    sector: 'beach',
+    x: -SECTOR_TUNE.counterSpread + 20,
+    z: BEACH.landZ - SECTOR_TUNE.counterBack,
+  });
+  expect(state.counterLeft[0]).toBe(BEACH.counter - 1);
+});

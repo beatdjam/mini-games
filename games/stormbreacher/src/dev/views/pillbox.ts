@@ -8,7 +8,7 @@ import { DEFENDER_TUNE } from '../../data/defenders.ts';
 import { FRONT_TUNE } from '../../data/front.ts';
 import { PAYOFF_TUNE } from '../../data/payoff.ts';
 import { PILLBOX_BLAST, PILLBOX_BREAK, PILLBOX_TUNE } from '../../data/pillbox.ts';
-import { BATTLE_TUNE } from '../../data/tune.ts';
+import { M1_SECTORS } from '../../data/sectors.ts';
 import { sendToScript } from '../../logic/game.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
 import { CHARGE_TUNE } from '../../data/charge.ts';
@@ -64,18 +64,21 @@ const BREAK_LABELS: Record<string, string> = {
   lean: '傾く角(rad)',
 };
 
-// The battle layer's table: only the waiting line. The allies' count is not here, because the sortie reads it when it
-// makes PLAY_BATTLE_TUNE; change src/data/tune.ts to see another number.
-const BATTLE_RANGES: Record<string, TuneRange> = {
-  holdZ: { min: -30, max: 10, step: 1 },
-  holdBeachZ: { min: 100, max: 170, step: 1 },
-  holdLine1Z: { min: 60, max: 150, step: 1 },
+// The sectors' waiting lines (SB-2210): the infantry waits at the `holdZ` of M1_SECTORS' front sector, which the game
+// reads every frame, so a change follows at once. (BATTLE_TUNE's holdZ values are only the table those are copied from.)
+// The allies' count is not here, because the sortie reads it when it makes PLAY_BATTLE_TUNE; change src/data/tune.ts.
+const SECTOR_RANGES: Record<string, TuneRange> = {
+  'sectors.0.holdZ': { min: 100, max: 170, step: 1 },
+  'sectors.1.holdZ': { min: 60, max: 150, step: 1 },
+  'sectors.2.holdZ': { min: 0, max: 100, step: 1 },
+  'sectors.3.holdZ': { min: -30, max: 10, step: 1 },
 };
 
-const BATTLE_LABELS: Record<string, string> = {
-  holdZ: '歩兵ドロイドの待ち線(z)',
-  holdBeachZ: '待ち線: 浜(z)',
-  holdLine1Z: '待ち線: 線1の後ろ(z)',
+const SECTOR_LABELS: Record<string, string> = {
+  'sectors.0.holdZ': '待ち線: 浜(z)',
+  'sectors.1.holdZ': '待ち線: 線1(z)',
+  'sectors.2.holdZ': '待ち線: 線2(z)',
+  'sectors.3.holdZ': '待ち線: トーチカ線(z)',
 };
 
 const BUTTON_STYLE =
@@ -153,7 +156,7 @@ export function showPillbox(_hash: string) {
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
   note.textContent =
-    '射撃では壊れず、しばらく銃眼が黙るだけ（制圧）。\nF（使う）を長押しすると仕掛ける。\n離れて導火線が切れると爆破する。\n壊し直すときは「やり直す」。\n待ち線は作り直しで反映する。\n保存はしない。';
+    '射撃では壊れず、しばらく銃眼が黙るだけ（制圧）。\nF（使う）を長押しすると仕掛ける。\n離れて導火線が切れると爆破する。\n壊し直すときは「やり直す」。\n保存はしない。';
   extra.appendChild(note);
 
   createTunePanel({
@@ -164,7 +167,7 @@ export function showPillbox(_hash: string) {
       { name: 'PILLBOX_TUNE', table: PILLBOX_TUNE, ranges: TUNE_RANGES, labels: TUNE_LABELS },
       { name: 'PILLBOX_BREAK', table: PILLBOX_BREAK, ranges: BREAK_RANGES, labels: BREAK_LABELS },
       { name: 'DEFENDER_TUNE', table: DEFENDER_TUNE, ranges: DEFENDER_RANGES, labels: DEFENDER_LABELS },
-      { name: 'BATTLE_TUNE', table: BATTLE_TUNE, ranges: BATTLE_RANGES, labels: BATTLE_LABELS },
+      { name: 'M1_SECTORS', table: { sectors: M1_SECTORS }, ranges: SECTOR_RANGES, labels: SECTOR_LABELS },
       {
         name: 'FRONT_TUNE',
         table: FRONT_TUNE,

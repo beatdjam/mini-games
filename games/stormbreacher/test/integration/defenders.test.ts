@@ -14,7 +14,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
-import { newPlayGame } from './playGame.ts';
+import { clearInfantry, newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const idle: GameInput = {
@@ -268,6 +268,8 @@ describe('a posted enemy on its own', () => {
 
   test('a new enemy that has a post runs with its back to the mech and fires nothing on the way', () => {
     const game = newPlayGame(OPEN_MAP);
+    // this test reads its own runner alone: the infantry's support fire would suppress it and slow its run (SB-2240)
+    clearInfantry(game);
     const post = DEFENDER_POSTS[5];
     const enemy = newEnemy('run-1', 'line1-hold', 'grunt', 0, 120);
     enemy.awake = true;

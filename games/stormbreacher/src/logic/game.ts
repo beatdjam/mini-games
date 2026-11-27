@@ -1646,14 +1646,14 @@ function stepSupport(game: GameModel, dt: number): void {
     supportT: game.supportT,
     hold: sectorHold(game.sectors),
   };
-  const shots = stepSupportState(world, stream('crowd'), dt);
+  const shots = stepSupportState(world, stream('support'), dt);
   game.supportT = world.supportT;
   for (const shot of shots) {
     const enemy = game.enemies.find(entry => entry.id === shot.enemy);
     if (enemy === undefined || enemy.hp <= 0) continue;
     game.events.push({ kind: 'supportFire', from: shot.from, to: shot.to });
     damageEnemy(game, enemy, supportDamage(ENEMIES[enemy.kind].hp, shot.factor));
-    enemy.suppressT = SUPPORT_TUNE.suppressSec;
+    if (enemy.hp > 0) enemy.suppressT = SUPPORT_TUNE.suppressSec;
   }
 }
 
@@ -1741,7 +1741,8 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
 
 // Moves the battle layer by one frame after the game's own frame (or instead of it while the sortie is downed or cleared),
 // in the order the view used to: the game's own shells and mines take the soldiers near them, the sectors move the
-// waiting line and send the wave a cleared one brings (not while a cutscene holds the battle or the mech is downed), and
+// waiting line and send the wave a cleared one brings (not while any cutscene plays, the mech is downed or the sortie is
+// cleared), and
 // then the battle steps (the landing's cutscene holds it still). The fallen, the shell and the sector events become this
 // frame's events for the view to draw. The state is the game's, so a test can read it.
 function stepBattleLayer(game: GameModel, dt: number): void {
@@ -1762,7 +1763,9 @@ function stepBattleLayer(game: GameModel, dt: number): void {
   const cutscene = game.script.cutscene;
   if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
   if (game.sectors !== null) {
-    if (!game.downed) {
+    // The sectors and the trickle wait while the mech is downed, a cutscene plays or the sortie is cleared: no wave, no
+    // counterattack and no radio comes out then.
+    if (!game.downed && game.script.cutscene === null && !game.cleared) {
       for (const event of stepSectors(game.sectors, game, dt)) {
         game.events.push(event);
         if (event.kind === 'sectorCleared') {
@@ -1795,7 +1798,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
             rects: game.rects,
             bounds: game.map.bounds,
             sectors: game.sectors,
-            paused: game.script.cutscene !== null || game.cleared,
+            paused: game.script.cutscene !== null || game.downed || game.cleared,
           },
           stream('trickle'),
           dt,
