@@ -49,10 +49,10 @@ export const QUARTER_TUNE: QuarterTune = {
   zoomLag: 0.6, // s; the time constant for pulling back and coming in; 0 means no lag
 };
 
-// The enemy kinds large enough to pull the camera back while one is near the mech (SB-2160). A machine-gun nest and
-// the mid boss shoot from farther than the quarter view reaches. The soldiers are small enough to leave the view as it
-// is.
-export const ZOOM_ENEMY_KINDS = ['emplacement', 'warden'] as const satisfies readonly EnemyKind[];
+// The enemy kinds large enough to pull the camera back while one is near the mech (SB-2160): the mid boss. The beach's
+// machine-gun nests are not in it: six of them stand from the landing on, so the camera would stay pulled back for the
+// whole first half. The soldiers are small enough to leave the view as it is.
+export const ZOOM_ENEMY_KINDS = ['warden'] as const satisfies readonly EnemyKind[];
 
 // The target kinds large enough to pull the camera back (SB-2160): the coastal battery's main gun and the fortress's
 // machine-gun nest. A pillbox, depot or magazine is not counted: pillboxes line the beach, so they would leave the

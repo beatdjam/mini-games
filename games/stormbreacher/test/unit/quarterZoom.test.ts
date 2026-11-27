@@ -26,16 +26,20 @@ function targetAt(kind: TargetKind, x: number, z: number, w: number, d: number, 
 }
 
 test('a living large enemy inside the range pulls the camera back', () => {
-  expect(wantsWide(gameAt([newEnemy('e-1', 'w', 'emplacement', 0, -QUARTER_TUNE.zoomRange)]), QUARTER_TUNE)).toBe(true);
+  expect(wantsWide(gameAt([newEnemy('w-1', 'w', 'warden', 0, -QUARTER_TUNE.zoomRange + 1)]), QUARTER_TUNE)).toBe(true);
   expect(wantsWide(gameAt([newEnemy('w-1', 'w', 'warden', QUARTER_TUNE.zoomRange, 0)]), QUARTER_TUNE)).toBe(true);
   // the edge counts
-  expect(wantsWide(gameAt([newEnemy('e-1', 'w', 'emplacement', 0, QUARTER_TUNE.zoomRange)]), QUARTER_TUNE)).toBe(true);
+  expect(wantsWide(gameAt([newEnemy('w-1', 'w', 'warden', 0, QUARTER_TUNE.zoomRange)]), QUARTER_TUNE)).toBe(true);
+});
+
+test('a machine-gun nest leaves the camera as it is: the beach has six from the landing on', () => {
+  expect(wantsWide(gameAt([newEnemy('e-1', 'w', 'emplacement', 0, -1)]), QUARTER_TUNE)).toBe(false);
 });
 
 test('a large enemy outside the range or fallen does not pull the camera back', () => {
-  const far = newEnemy('e-1', 'w', 'emplacement', 0, -(QUARTER_TUNE.zoomRange + 1));
+  const far = newEnemy('w-1', 'w', 'warden', 0, -(QUARTER_TUNE.zoomRange + 1));
   expect(wantsWide(gameAt([far]), QUARTER_TUNE)).toBe(false);
-  const fallen = newEnemy('e-1', 'w', 'emplacement', 0, -1);
+  const fallen = newEnemy('w-1', 'w', 'warden', 0, -1);
   fallen.hp = 0;
   expect(wantsWide(gameAt([fallen]), QUARTER_TUNE)).toBe(false);
 });
