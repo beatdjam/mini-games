@@ -105,6 +105,11 @@ export function planSounds(input: SoundInput): SoundCue[] {
         // the survivors' shot at an enemy of the yard: the machine gun's note, from the gate it came from
         ask('enemyGun', { x: event.fromX, z: event.fromZ });
         break;
+      case 'supportFire':
+        // the infantry's support rifle (SB-2262), from the soldier that fired; the frame's limit keeps a burst from
+        // piling up
+        ask('supportFire', event.from);
+        break;
       case 'wardenDown':
       // the mid boss's blast at the end of its smoke (SB-1850)
       case 'mineBlast':

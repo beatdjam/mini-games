@@ -27,7 +27,7 @@ const idle: GameInput = {
 };
 
 function soldierAt(x: number, z: number): Soldier {
-  return { x, z, yaw: 0, alive: true, deadT: 0, phase: 0, squad: 0, fallAt: null, waited: true };
+  return { x, z, yaw: 0, alive: true, deadT: 0, phase: 0, squad: 0, fallAt: null, waited: true, post: null };
 }
 
 function crowdOf(count: number): Crowd {

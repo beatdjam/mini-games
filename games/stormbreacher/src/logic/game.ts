@@ -1768,7 +1768,16 @@ function stepBattleLayer(game: GameModel, dt: number): void {
     // The sectors and the trickle wait while a cutscene plays or the sortie is cleared: no wave, no counterattack and
     // no radio comes out then.
     if (game.script.cutscene === null && !game.cleared) {
-      for (const event of stepSectors(game.sectors, game, dt)) {
+      const world = {
+        mech: game.mech,
+        enemies: game.enemies,
+        targets: game.targets,
+        rects: game.rects,
+        battle: game.battle,
+        bounds: game.map.bounds,
+        props: game.map.props,
+      };
+      for (const event of stepSectors(game.sectors, world, dt)) {
         game.events.push(event);
         if (event.kind === 'sectorCleared') {
           const sector = M1_SECTORS.find(entry => entry.id === event.sector);

@@ -2,14 +2,19 @@
 // secured when enough infantry has reached its hold line, then counterattacked once before it is stable. The world here
 // is the small one the functions ask for, built by hand.
 import { expect, test } from 'vitest';
-import { LANG } from '@engine/core/index.ts';
+import { LANG, createRng } from '@engine/core/index.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
-import { newCrowd, type Soldier } from '../../src/logic/crowd.ts';
+import { FX_TUNE } from '../../src/data/tune.ts';
+import type { Prop } from '../../src/data/types.ts';
+import { newCrowd, stepCrowd, type Soldier } from '../../src/logic/crowd.ts';
+import type { GroundRect } from '../../src/logic/collide.ts';
 import {
   arrivedSoldiers,
   newSectors,
+  releasePosts,
   sectorHold,
+  sectorPosts,
   stepSectors,
   type SectorEvent,
   type SectorPhase,
@@ -25,7 +30,7 @@ const BLASTS = M1B_HAND.blasts ?? [];
 const LINE1_Z = BLASTS.find(point => point.id === 'l1-a')?.line ?? 0;
 
 function soldierAt(z: number, alive = true): Soldier {
-  return { x: 0, z, yaw: 0, alive, deadT: 0, phase: 0, squad: 0, fallAt: null, waited: false };
+  return { x: 0, z, yaw: 0, alive, deadT: 0, phase: 0, squad: 0, fallAt: null, waited: false, post: null };
 }
 
 function world(options: {
@@ -43,6 +48,8 @@ function world(options: {
     targets: options.targets ?? [],
     rects: options.rects ?? [],
     battle: { crowd },
+    bounds: M1B_HAND.bounds,
+    props: M1B_HAND.props,
   };
 }
 
@@ -309,4 +316,138 @@ test('a counterattack point covered after ten moves still comes out, at the last
     z: BEACH.landZ - SECTOR_TUNE.counterBack,
   });
   expect(state.counterLeft[0]).toBe(BEACH.counter - 1);
+});
+
+// SB-2262: a secured sector's soldiers take posts behind its cover and stop there, and the next sector's clearing
+// leaves some of them on the ground they took.
+test('the posts of a sector sit on the seaward side of its cover (out of sight of the land enemy), then spread across its width', () => {
+  const sector = M1_SECTORS[1];
+  const covers: GroundRect[] = [
+    { x: -20, z: 90, halfW: 3, halfD: 2, yaw: 0 },
+    { x: 0, z: 90, halfW: 3, halfD: 2, yaw: 0 },
+    { x: 20, z: 90, halfW: 3, halfD: 2, yaw: 0 },
+  ];
+  const posts = sectorPosts(sector, M1B_HAND.bounds, covers, [], covers.length);
+  expect(posts.map(post => post.x)).toEqual([-20, 0, 20]);
+  for (const [i, cover] of covers.entries()) expect(posts[i].z).toBeGreaterThan(cover.z);
+  // one more soldier than cover: it stands across the sector's width on its hold line
+  const extra = sectorPosts(sector, M1B_HAND.bounds, covers, [], covers.length + 1);
+  expect(extra).toHaveLength(covers.length + 1);
+  expect(new Set(extra.map(post => `${post.x},${post.z}`)).size).toBe(extra.length);
+  expect(extra.filter(post => post.z === sector.holdZ)).toHaveLength(1);
+  for (const post of extra) {
+    expect(post.z).toBeGreaterThanOrEqual(sector.landZ);
+    expect(post.z).toBeLessThanOrEqual(sector.seaZ);
+  }
+  // a crater is no blocker but still makes cover to post behind
+  const crater: Prop = { kind: 'crater', x: 10, z: 100, yaw: 0, scale: 1 };
+  const behindCrater = sectorPosts(sector, M1B_HAND.bounds, [], [crater], 1);
+  expect(behindCrater).toHaveLength(1);
+  expect(behindCrater[0].z).toBeGreaterThan(crater.z);
+});
+
+test('securing a sector gives its arriving soldiers distinct posts, and they walk to them and stop', () => {
+  const state = stateWith(['advancing', 'idle', 'idle', 'idle']);
+  const soldiers = atTheLine(10);
+  const seen = world({ soldiers });
+  expect(stepSectors(state, seen, 1 / 60).map(event => event.kind)).toEqual(['sectorSecured', 'sectorCounter']);
+  expect(soldiers.every(soldier => soldier.post !== null)).toBe(true);
+  const posts = soldiers.map(soldier => soldier.post);
+  expect(new Set(posts.map(post => `${post?.x},${post?.z}`)).size).toBe(10);
+  for (const post of posts) {
+    if (post === null) throw new Error('a secured soldier has no post');
+    expect(post.z).toBeGreaterThanOrEqual(BEACH.landZ);
+    expect(post.z).toBeLessThanOrEqual(BEACH.seaZ);
+  }
+
+  // ten seconds of walking at a test pace: each one is exactly on its post, facing the land, and none has gone through
+  const tune = { ...FX_TUNE, allyDeathRate: 0, allyWaves: 0, allySpeed: 30 };
+  const rng = createRng(5);
+  for (let i = 0; i < 60 * 10; i++) stepCrowd(seen.battle.crowd, rng, 1 / 60, tune);
+  const alive = seen.battle.crowd.soldiers.filter(soldier => soldier.alive);
+  expect(alive).toHaveLength(10);
+  for (const soldier of alive) {
+    if (soldier.post === null) throw new Error('a posted soldier lost its post');
+    expect(soldier.x).toBeCloseTo(soldier.post.x, 6);
+    expect(soldier.z).toBeCloseTo(soldier.post.z, 6);
+    expect(soldier.yaw).toBe(0);
+  }
+  expect(seen.battle.crowd.through).toBe(0);
+});
+
+test('clearing the next sector leaves about half of the posted soldiers on their ground', () => {
+  const soldiers = Array.from({ length: 10 }, (_, i) => {
+    const soldier = soldierAt(BEACH.holdZ);
+    soldier.x = i;
+    soldier.waited = true;
+    soldier.post = { x: i, z: BEACH.holdZ };
+    return soldier;
+  });
+  const mechZ = M1_SECTORS[1].seaZ - SECTOR_TUNE.enterDepth - 1;
+  const events = stepSectors(stateWith(['stable', 'idle', 'idle', 'idle']), world({ mechZ, soldiers }), 1 / 60);
+  expect(events).toEqual([{ kind: 'sectorCleared', sector: 'line1' }]);
+  const kept = soldiers.filter(soldier => soldier.post !== null).length;
+  expect(kept).toBe(Math.round(10 * SECTOR_TUNE.postStayShare));
+  expect(kept).toBeGreaterThan(0);
+  expect(kept).toBeLessThan(10);
+});
+
+test('a posted soldier counts as arrived however far behind the line it stands', () => {
+  const crowd = newCrowd();
+  const posted = soldierAt(BEACH.holdZ + SECTOR_TUNE.arriveBand + 30);
+  posted.post = { x: 0, z: posted.z };
+  const walking = soldierAt(BEACH.holdZ + SECTOR_TUNE.arriveBand + 30);
+  crowd.soldiers = [posted, walking];
+  expect(arrivedSoldiers(crowd, BEACH.holdZ)).toEqual([posted]);
+});
+
+test('a post is never in a wall, in the sea or outside the sector', () => {
+  const sector = M1_SECTORS[1];
+  // a cover whose seaward post would fall past the sector's sea edge, and one whose post lands inside another block
+  const covers: GroundRect[] = [
+    { x: -30, z: sector.seaZ - 1, halfW: 3, halfD: 2, yaw: 0 },
+    { x: 0, z: 100, halfW: 3, halfD: 2, yaw: 0 },
+    { x: 0, z: 104.5, halfW: 3, halfD: 2, yaw: 0 },
+  ];
+  const posts = sectorPosts(sector, M1B_HAND.bounds, covers, [], 6);
+  expect(posts).toHaveLength(6);
+  for (const post of posts) {
+    expect(post.z).toBeGreaterThanOrEqual(Math.max(sector.landZ, M1B_HAND.bounds.minZ));
+    expect(post.z).toBeLessThanOrEqual(Math.min(sector.seaZ, M1B_HAND.bounds.maxZ));
+    expect(post.x).toBeGreaterThanOrEqual(M1B_HAND.bounds.minX);
+    expect(post.x).toBeLessThanOrEqual(M1B_HAND.bounds.maxX);
+    for (const cover of covers) {
+      expect(Math.abs(post.x - cover.x) < cover.halfW && Math.abs(post.z - cover.z) < cover.halfD).toBe(false);
+    }
+  }
+  // the hold line crossing a block: the spread posts slide off it
+  const wall: GroundRect[] = [{ x: 0, z: sector.holdZ, halfW: 10, halfD: 3, yaw: 0 }];
+  for (const post of sectorPosts(sector, M1B_HAND.bounds, wall, [], 3)) {
+    expect(Math.abs(post.x) >= 10 || Math.abs(post.z - sector.holdZ) >= 3).toBe(true);
+  }
+});
+
+test('soldiers left posted in an earlier sector are not counted against the next sector, and one always walks on', () => {
+  // 4 posted far behind and 4 walking at the line: 4 walkers are enough (ceil(4 * 0.6) = 3), the posted do not add
+  const posted = Array.from({ length: 4 }, () => {
+    const soldier = soldierAt(BEACH.holdZ + 20);
+    soldier.post = { x: 0, z: soldier.z };
+    return soldier;
+  });
+  const lonely = [soldierAt(BEACH.holdZ + 40), ...posted];
+  const none = stepSectors(stateWith(['advancing', 'idle', 'idle', 'idle']), world({ soldiers: lonely }), 1 / 60);
+  expect(none).toEqual([]);
+  // every living soldier posted: nobody walks, the sector is taken as it is rather than never secured
+  const allPosted = Array.from({ length: 3 }, () => {
+    const soldier = soldierAt(BEACH.holdZ + 20);
+    soldier.post = { x: 0, z: soldier.z };
+    return soldier;
+  });
+  const taken = stepSectors(stateWith(['advancing', 'idle', 'idle', 'idle']), world({ soldiers: allPosted }), 1 / 60);
+  expect(taken.map(event => event.kind)).toEqual(['sectorSecured', 'sectorCounter']);
+  // releasing leaves at least one walker even with a share of 1
+  const crowd = newCrowd();
+  crowd.soldiers = allPosted;
+  releasePosts(crowd, 1);
+  expect(allPosted.filter(soldier => soldier.post === null)).toHaveLength(1);
 });
