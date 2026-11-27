@@ -32,4 +32,9 @@ export const TOUCH_DEFAULTS: Record<TouchButton, TouchDefault> = {
 export const TOUCH_TUNE = {
   lookX: 1, // horizontal: how far one px of drag turns the view
   lookY: 1, // vertical: how far one px of drag changes the pitch
+  // The right drag aims on the top-down view (SB-2180): the point is `aimReach` m from the mech along the drag's screen
+  // direction, and a drag no longer than `aimDeadzone` px is ignored. Provisional; only a phone can settle them. Keep
+  // aimReach inside FCS_QUARTER.range (45) and outside FCS_QUARTER.nearRange (12).
+  aimReach: 20, // m, from the mech's feet along the drag's direction
+  aimDeadzone: 16, // px, a shorter drag counts as no touch of the right side
 };

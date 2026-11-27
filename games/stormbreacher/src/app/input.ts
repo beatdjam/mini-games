@@ -17,6 +17,8 @@ export interface PlayRead {
   use: boolean; // the touch use button or the use key
   melee: boolean; // the touch melee button or the melee key
   cursor: { x: number; y: number } | null; // the cursor on the canvas in normalized coordinates (-1 to 1, + up); null until it moves
+  stick: { moveX: number; moveZ: number } | null; // the touch stick's values for the top-down aim; null on a PC
+  drag: { x: number; y: number } | null; // the right touch finger's move from where it went down (px); null without a touch drag
 }
 
 export interface PlayInputOptions {
@@ -73,5 +75,7 @@ export function readInput(dt: number): PlayRead {
     use: touch.use || keyboard.use,
     melee: touch.melee || keyboard.melee,
     cursor: cursorMode ? cursorAt : null,
+    stick: isTouch ? { moveX: touch.input.moveX, moveZ: touch.input.moveZ } : null,
+    drag: isTouch ? touch.drag : null,
   };
 }

@@ -126,3 +126,27 @@ test('the view counts as in use for LOOK_RECENT after a drag', () => {
   expect(lookInUse(t)).toBe(true);
   expect(lookInUse(t + LOOK_RECENT * 1000 + 5)).toBe(false);
 });
+
+test('the right drag reports its move from where the finger went down, and the stick does not', () => {
+  const touch = el('#touch');
+  touch.dispatchEvent(pointer('pointerdown', 41, 600, 150));
+  expect(readTouch().drag).toEqual({ x: 0, y: 0 });
+  touch.dispatchEvent(pointer('pointermove', 41, 640, 190));
+  expect(readTouch().drag).toEqual({ x: 40, y: 40 });
+  touch.dispatchEvent(pointer('pointerup', 41, 640, 190));
+  expect(readTouch().drag).toBeNull();
+
+  touch.dispatchEvent(pointer('pointerdown', 42, 100, 150));
+  expect(readTouch().drag).toBeNull();
+  touch.dispatchEvent(pointer('pointermove', 42, 140, 190));
+  expect(readTouch().drag).toBeNull();
+  touch.dispatchEvent(pointer('pointerup', 42, 140, 190));
+});
+
+test('the view drag still turns the dev views’ view', () => {
+  const touch = el('#touch');
+  touch.dispatchEvent(pointer('pointerdown', 43, 600, 150));
+  touch.dispatchEvent(pointer('pointermove', 43, 650, 150));
+  expect(readTouch().input.turn).not.toBe(0);
+  touch.dispatchEvent(pointer('pointerup', 43, 650, 150));
+});

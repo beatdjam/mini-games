@@ -9,15 +9,7 @@ import { initPlayInput, readInput } from '../../app/input.ts';
 import { cursorAim } from '../../app/play.ts';
 import { playInputOptions } from '../../logic/input.ts';
 import { mixOf } from '../arenaMix.ts';
-import {
-  FCS_QUARTER,
-  FCS_TUNE,
-  FEEL_TUNE,
-  MECH_TUNE,
-  MOVE_TUNE,
-  PLAY_BATTLE_TUNE,
-  type FxTune,
-} from '../../data/tune.ts';
+import { FCS_QUARTER, FEEL_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../data/tune.ts';
 import { HUD_LAYOUTS, hudLayoutFrom } from '../../data/hudLayout.ts';
 import type { MapDef, MissionDef } from '../../data/types.ts';
 import { WEAPONS } from '../../data/weapons.ts';
@@ -156,7 +148,7 @@ function addHud(): HTMLDivElement {
 
 // The feel, the movement and the soft lock's main values, the same rows #view-move and #view-fcs turn by URL.
 function addTunePanel() {
-  // The arena aims with FCS_QUARTER on a PC and FCS_TUNE.soft on a touch screen, so the panel writes the one in use.
+  // The arena aims with FCS_QUARTER on a PC and a touch screen, so the panel writes that table.
   const fcsLabels = {
     cone: '吸着の円錐の大きさ（半角, 度）',
     range: 'ロックが届く距離 (m)',
@@ -173,8 +165,6 @@ function addTunePanel() {
     nearRange: { min: 0, max: 40, step: 1 },
     nearSpread: { min: 0, max: 10, step: 0.1 },
   };
-  const soft = <T>(rows: Record<string, T>): Record<string, T> =>
-    Object.fromEntries(Object.entries(rows).map(([key, value]) => [`soft.${key}`, value]));
   createTunePanel({
     id: 'sbArenaTune',
     title: '調整',
@@ -223,10 +213,10 @@ function addTunePanel() {
         },
       },
       {
-        name: isTouch ? 'FCS_TUNE' : 'FCS_QUARTER',
-        table: isTouch ? FCS_TUNE : FCS_QUARTER,
-        labels: isTouch ? soft(fcsLabels) : fcsLabels,
-        ranges: isTouch ? soft(fcsRanges) : fcsRanges,
+        name: 'FCS_QUARTER',
+        table: FCS_QUARTER,
+        labels: fcsLabels,
+        ranges: fcsRanges,
       },
     ],
   });
