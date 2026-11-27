@@ -1,6 +1,6 @@
 // The mech's look plans A, E, F, B, D (#view-mech): the M1 B beach with the mech on it, spun to look around. It never
-// reads the game's state and never takes input. The buttons act out walking, boosting, jumping and firing for the
-// body's motion (SB-130's third card).
+// reads the game's state and never takes input. The buttons act out walking, boosting and firing for the body's
+// motion (SB-130's third card).
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
@@ -10,9 +10,8 @@ import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { meleeBlowSec } from '../../data/melee.ts';
 import { CORES, MECH_PAINT, MECH_PAINT_TEX, PARTS } from '../../data/mech.ts';
 import { PROTO_KIT_IDS, PROTO_KITS, PROTO_MATERIALS, PROTO_TUNE, type ProtoKitId } from '../../data/mechProto.ts';
-import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
+import { MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
 import { moveTuneOf } from '../../logic/mechTune.ts';
-import { applyPose, cameraPose } from '../../view/camera.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { animateMech, buildMechVisual, countMechDraws, disposeMech } from '../../view/mechModel.ts';
 import { animateProtoMech, buildProtoMech, countProtoDraws, disposeProtoMech } from '../../view/mechProtoModel.ts';
@@ -59,24 +58,20 @@ const KIT_LABELS: Record<ProtoKitId, string> = {
   boss: 'ボス（黒・赤）',
 };
 
-// The motions the buttons act out. 'jump' lasts one hop; the others stay on until pressed again.
-const ACTS = ['walk', 'boost', 'jump', 'fire'] as const;
+// The motions the buttons act out; each stays on until pressed again.
+const ACTS = ['walk', 'boost', 'fire'] as const;
 type Act = (typeof ACTS)[number];
-const ACT_LABELS: Record<Act, string> = { walk: '歩く', boost: 'ブースト', jump: '跳ぶ', fire: '撃つ' };
-const KEY_ACT: Record<string, Act> = { w: 'walk', b: 'boost', j: 'jump', f: 'fire' };
+const ACT_LABELS: Record<Act, string> = { walk: '歩く', boost: 'ブースト', fire: '撃つ' };
+const KEY_ACT: Record<string, Act> = { w: 'walk', b: 'boost', f: 'fire' };
 const FIRE_INTERVAL = 0.125; // the time between the acted shots (s)
-
-type ViewMode = 'spin' | 'behind';
 
 interface MechState {
   pattern: PatternId;
   spin: boolean;
-  view: ViewMode;
   proto: boolean; // draw the prototype (data/mechProto.ts) in place of the sortie's mech
   kit: ProtoKitId; // the parts and palette the prototype wears (?kit=player, sniper, scout, enemy)
   compare: boolean; // draw the prototype and the sortie's mech side by side
-  on: Record<Act, boolean>; // 'jump' is on while a hop lasts
-  hopT: number; // the time since the hop began (s)
+  on: Record<Act, boolean>;
   fireT: number; // the time left to the next acted shot (s)
   punchT: number | null; // the seconds since the acted blow began; null between blows
 }
@@ -106,12 +101,10 @@ function stateOf(params: URLSearchParams): MechState {
   return {
     pattern,
     spin: params.get('spin') !== '0',
-    view: params.get('view') === 'behind' ? 'behind' : 'spin',
     proto: params.has('proto') || params.has('compare') || params.has('kit'),
     kit,
     compare: params.has('compare'),
-    on: { walk: false, boost: false, jump: false, fire: false },
-    hopT: 0,
+    on: { walk: false, boost: false, fire: false },
     fireT: 0,
     punchT: null,
   };
@@ -180,10 +173,6 @@ export function showMech(_hash: string) {
     );
   const spinButton = button(bar, '回転', () => {
     state.spin = !state.spin;
-    paintButtons();
-  });
-  const viewButton = button(bar, '後ろから', () => {
-    state.view = state.view === 'spin' ? 'behind' : 'spin';
     paintButtons();
   });
 
@@ -372,13 +361,7 @@ export function showMech(_hash: string) {
   }
 
   function toggleAct(act: Act) {
-    if (act === 'jump') {
-      if (state.on.jump) return;
-      state.on.jump = true;
-      state.hopT = 0;
-    } else {
-      state.on[act] = !state.on[act];
-    }
+    state.on[act] = !state.on[act];
     paintButtons();
   }
 
@@ -391,7 +374,6 @@ export function showMech(_hash: string) {
     for (const [act, node] of actButtons) paintButton(node, state.on[act]);
     for (const [id, node] of kitButtons) paintButton(node, id === state.kit);
     paintButton(spinButton, state.spin);
-    paintButton(viewButton, state.view === 'behind');
     if (shadowButton !== null && stage !== null) paintButton(shadowButton, stage.shadowOn);
     if (envButton !== null && stage !== null) paintButton(envButton, stage.envOn);
     if (compareButton !== null) paintButton(compareButton, state.compare);
@@ -496,7 +478,6 @@ export function showMech(_hash: string) {
       mode: state.proto ? (state.compare ? 'compare' : 'proto') : 'pattern',
       kit: state.proto ? state.kit : null,
       spin: state.spin,
-      view: state.view,
       acts: state.on,
       mech: { calls: draws.calls, triangles: draws.triangles, boxes: countBoxes(mech), weight },
       proto,
@@ -505,21 +486,9 @@ export function showMech(_hash: string) {
     });
   };
 
-  // Acts the motions out: the speeds are the pattern's own legs' (moveTuneOf), the hop is the jump's arc under gravity.
+  // Acts the motions out: the speeds are the pattern's own legs' (moveTuneOf).
   const actMotion = (dt: number) => {
     const tune = moveTuneOf(PATTERNS[state.pattern].build, MOVE_TUNE);
-    let landSpeed: number | null = null;
-    if (state.on.jump) {
-      state.hopT += dt;
-      const height = tune.jump * state.hopT - (tune.gravity * state.hopT ** 2) / 2;
-      if (height <= 0) {
-        state.on.jump = false;
-        landSpeed = tune.jump;
-        paintButtons();
-      }
-      mech.position.y = Math.max(0, height);
-      if (protoMech !== null) protoMech.position.y = Math.max(0, height);
-    }
     let fired = false;
     state.fireT = Math.max(0, state.fireT - dt);
     if (state.on.fire && state.fireT === 0) {
@@ -531,29 +500,23 @@ export function showMech(_hash: string) {
       state.punchT += dt;
       if (state.punchT >= meleeBlowSec()) state.punchT = null;
     }
-    const input = { speed, grounded: !state.on.jump, boosting: state.on.boost, landSpeed, fired, meleeT: state.punchT };
+    const input = { speed, grounded: true, boosting: state.on.boost, landSpeed: null, fired, meleeT: state.punchT };
     animateMech(mech, input, dt);
     if (protoMech !== null) animateProtoMech(protoMech, input, dt);
   };
 
   const update = (dt: number) => {
     actMotion(dt);
-    if (state.view === 'behind') {
-      mech.rotation.y = 0;
-      if (protoMech !== null) protoMech.rotation.y = 0;
-      applyPose(camera, cameraPose({ x, y: 0, z, yaw: 0 }, 0, CAMERA_TUNE, []), CAMERA_TUNE.fov);
+    if (state.spin) {
+      mech.rotation.y += SPIN_RATE * dt;
+      if (protoMech !== null) protoMech.rotation.y += SPIN_RATE * dt;
+    }
+    if (state.compare) {
+      camera.position.set(x, height * 0.95, z + height * 3.4);
+      camera.lookAt(x, height * 0.52, z);
     } else {
-      if (state.spin) {
-        mech.rotation.y += SPIN_RATE * dt;
-        if (protoMech !== null) protoMech.rotation.y += SPIN_RATE * dt;
-      }
-      if (state.compare) {
-        camera.position.set(x, height * 0.95, z + height * 3.4);
-        camera.lookAt(x, height * 0.52, z);
-      } else {
-        camera.position.set(x + height, height * 0.9, z + height * 2.4);
-        camera.lookAt(x, height * 0.5, z);
-      }
+      camera.position.set(x + height, height * 0.9, z + height * 2.4);
+      camera.lookAt(x, height * 0.5, z);
     }
     cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
   };

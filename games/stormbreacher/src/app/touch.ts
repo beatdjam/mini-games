@@ -1,5 +1,5 @@
 // Touch input for the mech (SB-030): the engine's floating stick and view drag become the MechInput that keyboard
-// input fills in #view-move, and the jump / boost / lock buttons sit on top. Also measures how hard the layout is to
+// input fills, and the boost / lock buttons sit on top. Also measures how hard the layout is to
 // use: presses per button, the most fingers down at once, and how long the stick, the view drag and fire (or boost)
 // were all in use together.
 import { audioInit } from '@engine/audio/index.ts';
@@ -23,7 +23,6 @@ import { clearTouchEdits, loadTouchEdits, saveTouchEdits, type TouchEdits } from
 
 export interface TouchRead {
   input: MechInput;
-  pitchDelta: number; // the pitch this frame's drag adds (rad)
   drag: { x: number; y: number } | null; // the right finger's move from where it went down (px, down is +); null when not dragging
   lock: boolean; // the lock display the #btnLock button toggles
   sub: boolean; // #btnFire2 held (MechInput has no sub yet)
@@ -45,7 +44,7 @@ const STICK_ZONE = 0.45;
 // How long after a view drag the view still counts as in use (s).
 export const LOOK_RECENT = 0.25;
 
-const presses: Record<TouchButton, number> = { main: 0, sub: 0, melee: 0, jump: 0, boost: 0, lock: 0, use: 0 };
+const presses: Record<TouchButton, number> = { main: 0, sub: 0, melee: 0, boost: 0, lock: 0, use: 0 };
 const pointers = new Set<number>(); // every finger down on #touch (buttons included)
 let maxPointers = 0;
 let stickId: number | null = null; // the finger the engine's stick took
@@ -55,14 +54,10 @@ let lookId: number | null = null; // the finger the engine's view drag took
 let lookStart: { x: number; y: number } | null = null;
 let lookNow = { x: 0, y: 0 };
 let lastLookAt = -Infinity; // when the view last moved (ms, performance.now)
-let jumpPressed = false; // went down since the last readTouch
-let jumpHeld = false; // the jump button is held
-let jumpEnabled = true; // the main body and the arena take no jump (D-50); the dev views keep it
 let boostHeld = false;
 let useHeld = false; // the use button is held
 let meleeHeld = false; // the melee button is held
 let yawDelta = 0; // the view drag since the last readTouch (rad)
-let pitchDelta = 0; // the same, for the pitch (rad)
 let touchActive = false; // the touch view is running (INPUT.active)
 let touchReady = false; // initTouch has run (a second call does nothing)
 let edits: TouchEdits = {};
@@ -114,7 +109,6 @@ function touchDefs(): Record<TouchButton, TouchDefault & { name: string }> {
     main: { ...TOUCH_DEFAULTS.main, name: t('btn.main') },
     sub: { ...TOUCH_DEFAULTS.sub, name: t('btn.sub') },
     melee: { ...TOUCH_DEFAULTS.melee, name: t('btn.melee') },
-    jump: { ...TOUCH_DEFAULTS.jump, name: t('btn.jump') },
     boost: { ...TOUCH_DEFAULTS.boost, name: t('btn.boost') },
     lock: { ...TOUCH_DEFAULTS.lock, name: t('btn.lock') },
     use: { ...TOUCH_DEFAULTS.use, name: t('btn.use') },
@@ -149,11 +143,9 @@ function bindHold(btn: HTMLElement, onHold: (down: boolean) => void, onDown?: ()
 }
 
 // `show` false keeps #touch hidden (a PC): the buttons are still laid out, but the keyboard and mouse do the work.
-// `jump` false leaves the jump button dead: the main body and the arena take no jump (D-50).
-export function initTouch(options: { show?: boolean; jump?: boolean } = {}) {
+export function initTouch(options: { show?: boolean } = {}) {
   if (touchReady) return;
   touchReady = true;
-  jumpEnabled = options.jump !== false;
   initInput({ touch: el('#touch'), fire: el('#btnFire'), fire2: el('#btnFire2') });
   edits = loadTouchEdits();
   TOUCH_LAYOUT.defs = touchDefs();
@@ -212,15 +204,6 @@ export function initTouch(options: { show?: boolean; jump?: boolean } = {}) {
   touch.addEventListener('pointerup', end, true);
   touch.addEventListener('pointercancel', end, true);
 
-  bindHold(
-    el('#btnJump'),
-    down => {
-      jumpHeld = jumpEnabled && down;
-    },
-    () => {
-      if (jumpEnabled) jumpPressed = true;
-    },
-  );
   tapBtn(el('#btnLock'), () => {
     toggleLock();
     el('#btnLock').classList.toggle('on', lockState());
@@ -237,43 +220,39 @@ export function initTouch(options: { show?: boolean; jump?: boolean } = {}) {
 
   INPUT.active = () => touchActive;
   INPUT.key = handleKey;
-  INPUT.look = (dx: number, dy: number) => {
+  INPUT.look = (dx: number) => {
     lastLookAt = performance.now();
     yawDelta -= dx * TOUCH_TUNE.lookX;
-    pitchDelta -= dy * TOUCH_TUNE.lookY;
   };
 }
 
-// Throws away the jump and the use pressed before the pause menu was up (see clearPendingJump in keyboard.ts).
+// Throws away the use pressed before the pause menu was up: nothing reads it while paused, so without this the mech
+// would perform it on the first frame after the resume.
 export function clearPendingTouch(): void {
-  jumpPressed = false;
   useHeld = false;
   meleeHeld = false;
   lookStart = null; // the drag that was under the finger before the pause menu must not aim on return
   el('#btnMelee').classList.remove('down');
 }
 
-// This frame's input. The view motion is read and cleared, and a jump is true for one read only.
+// This frame's input. The view motion is read and cleared.
 export function readTouch(): TouchRead {
   sampleCombos(performance.now());
   const input: MechInput = {
     moveX: joy.x,
     moveZ: -joy.y, // the stick up is forward
     turn: yawDelta,
-    jump: jumpEnabled && jumpPressed,
-    jumpHeld: jumpEnabled && jumpHeld,
+    jump: false,
+    jumpHeld: false,
     boost: boostHeld,
     fire: fireHeld,
   };
-  const pitch = pitchDelta;
   yawDelta = 0;
-  pitchDelta = 0;
-  jumpPressed = false;
   const drag = lookStart === null ? null : { x: lookNow.x - lookStart.x, y: lookNow.y - lookStart.y };
-  return { input, pitchDelta: pitch, drag, lock: lockState(), sub: fire2Held, use: useHeld, melee: meleeHeld };
+  return { input, drag, lock: lockState(), sub: fire2Held, use: useHeld, melee: meleeHeld };
 }
 
-// Lets go of everything the fingers hold: the stick, the view drag, fire, jump, boost and use. A layer hidden under a
+// Lets go of everything the fingers hold: the stick, the view drag, fire, boost and use. A layer hidden under a
 // finger sends no pointerup, so what was held would stay held (and the mech would walk or shoot the moment the layer
 // comes back). The press counts and the stats are kept.
 export function releaseTouch(): void {
@@ -282,14 +261,11 @@ export function releaseTouch(): void {
   stickId = null;
   lookId = null;
   lookStart = null;
-  jumpPressed = false;
-  jumpHeld = false;
   boostHeld = false;
   useHeld = false;
   meleeHeld = false;
   yawDelta = 0;
-  pitchDelta = 0;
-  for (const id of ['#btnJump', '#btnBoost', '#btnUse', '#btnMelee']) el(id).classList.remove('down');
+  for (const id of ['#btnBoost', '#btnUse', '#btnMelee']) el(id).classList.remove('down');
 }
 
 export function touchStats(): TouchStats {

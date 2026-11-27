@@ -23,7 +23,7 @@ export const CALLOUT_TUNE = {
   sec: 2.5, // how long the order stays up from the moment its radio line comes up (s); under RADIO_TUNE.minSec
 };
 
-// A cutscene takes no skip this soon after it starts: the jump, shot or Enter that starts one (wave2-sinks, beach-held)
+// A cutscene takes no skip this soon after it starts: the Space, shot or Enter that starts one (wave2-sinks, beach-held)
 // comes in the same frame, and must not pass the cutscene over before it is drawn. Presses before this are thrown away.
 export const CUTSCENE_SKIP_GUARD_SEC = 0.4;
 

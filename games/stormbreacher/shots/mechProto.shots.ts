@@ -1,6 +1,6 @@
 // Screenshots of the prototype mech (SB-1468, second pass SB-1469, third pass SB-1471): #view-mech?proto from the front,
 // the rear quarter, the front 3/4 and the side, plus two close pictures (the chest and head, a leg's joints), one from
-// the sortie's shoulder camera, and two of the motion (mid-walk, the crouch of a jump). Every shot keeps the shadow and
+// the sortie's overview camera, and two of the motion (mid-walk, the crouch of a jump). Every shot keeps the shadow and
 // the surroundings' light on, on the beach. The same four angles are taken of the sortie's mech as it is now, so the two
 // can be compared side by side. npm run shots. Not a test: it is not part of npm test or the CI (the drawn pixels differ
 // between machines). SHOTS_OUT=<folder> picks where the pictures go; SHOTS_ONLY=<text> takes only the shots whose names
@@ -11,9 +11,9 @@ import * as THREE from 'three';
 import { systems } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { boot } from '../src/app/boot.ts';
-import { CAMERA_TUNE, MECH_TUNE } from '../src/data/tune.ts';
+import { FOV_TUNE, MECH_TUNE, QUARTER_TUNE } from '../src/data/tune.ts';
 import { showMech } from '../src/dev/views/mech.ts';
-import { applyPose, cameraPose } from '../src/view/camera.ts';
+import { quarterPose } from '../src/view/quarterCamera.ts';
 import { disposeMech } from '../src/view/mechModel.ts';
 import { animateProtoMech, disposeProtoMech } from '../src/view/mechProtoModel.ts';
 // loads the language files and boots the page, as the real page does
@@ -111,9 +111,16 @@ test('mech-proto3', async () => {
       look(detail.at[0], detail.at[1], detail.at[2], detail.look[0], detail.look[1], detail.look[2]);
       await picture(`mech-proto3-${detail.name}`);
     }
-    // the sortie's shoulder camera: the same place view/camera.ts puts it behind the mech
-    applyPose(camera, cameraPose({ x: at.x, y: 0, z: at.z, yaw: 0 }, 0, CAMERA_TUNE, []), CAMERA_TUNE.fov);
+    // the sortie's overview camera: the same place the game puts it above and behind the mech
+    const pose = quarterPose({ x: at.x, y: 0, z: at.z }, QUARTER_TUNE);
+    camera.position.copy(pose.pos);
+    camera.lookAt(pose.look);
+    camera.fov = QUARTER_TUNE.fov;
+    camera.updateProjectionMatrix();
     await picture('mech-proto3-game');
+    // the pictures after this one keep the field of view they had before the overview camera took it over
+    camera.fov = FOV_TUNE.feel;
+    camera.updateProjectionMatrix();
 
     // the motion: ten frames of walking catch the legs apart, then a hop's crouch bends the knees deep
     const walk = { speed: 6, grounded: true, boosting: false, landSpeed: null, fired: false };

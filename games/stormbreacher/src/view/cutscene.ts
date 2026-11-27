@@ -10,7 +10,7 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CUTSCENES, type CutsceneEvent } from '../data/cutscenes.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
-import { CAMERA_TUNE, FEEL_TUNE } from '../data/tune.ts';
+import { FEEL_TUNE, FOV_TUNE } from '../data/tune.ts';
 import type { CutsceneId, MapBounds } from '../data/types.ts';
 import {
   cutsceneElapsed,
@@ -251,7 +251,7 @@ export function drawCutscene(
     if (key !== null) playSound({ name: 'radio', gain: 1, pitch: 1 });
   }
 
-  camera.fov = CAMERA_TUNE.fov;
+  camera.fov = FOV_TUNE.cutscene;
   camera.updateProjectionMatrix();
   camera.position.set(...pose.pos).add(offset);
   camera.lookAt(...pose.look);

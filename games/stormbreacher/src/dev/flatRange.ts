@@ -1,18 +1,13 @@
-// The movement view (#view-move): a 4 m mech walks, jumps, boosts, lands and fires on the flat field, with the feel's
-// camera effects, while the values are turned with URL parameters. The targets are five boxes in front.
+// The flat range that #view-touch, #view-map and #view-fx share: the mech, the targets, the shots and their effects on
+// the flat field, with the feel and the tune tables the URL turns.
 import * as THREE from 'three';
-import { addSystem, clamp } from '@engine/core/index.ts';
-import { camera, scene } from '@engine/render/index.ts';
-import { FEEL_TUNE, MECH_TUNE, MOVE_TUNE, type FeelTune, type MoveTune } from '../../data/tune.ts';
-import type { GroundRect } from '../../logic/collide.ts';
-import { fireRay, type Aabb } from '../../logic/fire.ts';
-import { newMech, stepMech, type MechInput, type MechState } from '../../logic/mech.ts';
-import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
-import { SIZE_BOX_NAME } from '../../view/field.ts';
-import { feelEvents, feelStep, newFeel, spawnDust, type FeelState, type ShotResult } from '../../view/feel.ts';
-import { heldKeys } from '../keys.ts';
-import { buildMechProxy } from '../../view/mechProxy.ts';
-import { tuneFrom } from './camera.ts';
+import { scene } from '@engine/render/index.ts';
+import { FEEL_TUNE, MECH_TUNE, MOVE_TUNE, type FeelTune, type MoveTune } from '../data/tune.ts';
+import type { GroundRect } from '../logic/collide.ts';
+import { fireRay, type Aabb } from '../logic/fire.ts';
+import { newMech, stepMech, type MechInput, type MechState } from '../logic/mech.ts';
+import { feelEvents, feelStep, newFeel, spawnDust, type FeelState, type ShotResult } from '../view/feel.ts';
+import { buildMechProxy } from '../view/mechProxy.ts';
 
 const SHOT_RANGE = 200; // how far a shot reaches (m)
 const TARGET_WIDTH = 2; // the target's width (m)
@@ -23,7 +18,6 @@ const TARGET_HIT_COLOR = 0xc0392b; // the target flashes this on a hit
 const FLASH_TIME = 0.15; // how long a hit keeps the target red (s)
 const TRACER_COLOR = 0xffe066; // the shot's line
 const TRACER_TIME = 0.05; // how long the shot's line shows (s)
-const MOUSE_TURN = 0.004; // the yaw a pixel of mouse drag adds (rad/px)
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
 
@@ -67,9 +61,6 @@ export function checkOneTable(a: Record<string, number>, b: Record<string, numbe
     if (name in b) throw new Error(`the tune name "${name}" is in two tables`);
   }
 }
-
-const axis = (held: Set<string>, plus: string, minus: string): number =>
-  (held.has(plus) ? 1 : 0) - (held.has(minus) ? 1 : 0);
 
 function buildTargets(): Target[] {
   return TARGETS.map(({ dist, side }) => {
@@ -115,8 +106,8 @@ export interface FlatRangeOptions {
   rects?: readonly GroundRect[]; // the map's blocking rects; left out, nothing blocks
 }
 
-// Builds what #view-move and #view-touch share: the mech, the targets, the shots and their effects (the flat ground
-// is the start-up field's). Nothing here reads an input device; the caller fills MechInput.
+// Builds what #view-touch, #view-map and #view-fx share: the mech, the targets, the shots and their effects (the flat
+// ground is the start-up field's). Nothing here reads an input device; the caller fills MechInput.
 export function buildFlatRange(baseFov: number, options: FlatRangeOptions = {}): FlatRange {
   const mech = newMech();
   const feel = newFeel(baseFov);
@@ -213,79 +204,4 @@ export function moveFeelFromParams(params: URLSearchParams): { moveTune: MoveTun
     feelTune.dust = 0;
   }
   return { moveTune, feelTune };
-}
-
-export function showMove(_hash: string) {
-  const params = new URLSearchParams(location.search);
-  const cameraTune = tuneFrom(params);
-  const { moveTune, feelTune } = moveFeelFromParams(params);
-
-  const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
-  if (sizeBox) sizeBox.visible = false;
-
-  const range = buildFlatRange(cameraTune.fov);
-  const mech = range.mech;
-  const keys = heldKeys();
-  const walls: THREE.Box3[] = []; // no walls in this view
-
-  // The HUD at the bottom left: the numbers that say what the movement did.
-  const hud = document.createElement('div');
-  hud.id = 'sbMoveHud';
-  hud.style.cssText =
-    'position:fixed;left:8px;bottom:8px;padding:4px 6px;font:12px/1.4 monospace;color:#fff;' +
-    'background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none';
-  document.body.appendChild(hud);
-
-  let mouseDown = false;
-  let dragging = false;
-  let lastMouseX = 0;
-  let mouseYaw = 0; // the yaw the mouse added since the last frame (rad)
-  window.addEventListener('mousedown', event => {
-    if (event.button === 0) mouseDown = true;
-    dragging = true;
-    lastMouseX = event.clientX;
-  });
-  window.addEventListener('mouseup', event => {
-    if (event.button === 0) mouseDown = false;
-    dragging = false;
-  });
-  window.addEventListener('mousemove', event => {
-    if (!dragging) return;
-    mouseYaw -= (event.clientX - lastMouseX) * MOUSE_TURN;
-    lastMouseX = event.clientX;
-  });
-
-  let cam: CameraState | null = null;
-
-  addSystem({
-    name: 'sb-move',
-    update: dt => {
-      const turnKeys = clamp(axis(keys.held, 'KeyQ', 'KeyE') + axis(keys.held, 'ArrowLeft', 'ArrowRight'), -1, 1);
-      const input: MechInput = {
-        moveX: axis(keys.held, 'KeyD', 'KeyA'),
-        moveZ: axis(keys.held, 'KeyW', 'KeyS'),
-        turn: turnKeys * moveTune.turn * dt + mouseYaw,
-        jump: keys.pressed.has('Space'),
-        jumpHeld: keys.held.has('Space'),
-        boost: keys.held.has('ShiftLeft') || keys.held.has('ShiftRight'),
-        fire: keys.held.has('KeyJ') || mouseDown,
-      };
-      mouseYaw = 0;
-      keys.pressed.clear();
-
-      const step = range.step(input, dt, moveTune, feelTune);
-
-      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, 0, cameraTune, walls);
-      cam = followCamera(cam, pose, dt, cameraTune);
-      const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
-
-      // The HUD's numbers: the horizontal speed, the gauge, the ground and the landing stop.
-      hud.textContent =
-        `speed ${Math.hypot(mech.vx, mech.vz).toFixed(1)} m/s\n` +
-        `gauge ${mech.gauge.toFixed(2)}\n` +
-        `${mech.grounded ? 'ground' : 'air'}\n` +
-        `land ${mech.landT.toFixed(2)} s`;
-    },
-  });
 }

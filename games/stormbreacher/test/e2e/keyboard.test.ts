@@ -20,18 +20,6 @@ test('W moves the mech forward until it is let go', () => {
   expect(readInput(1 / 60).input.moveZ).toBe(0);
 });
 
-test('a jump is true for one read and held while Space stays down', () => {
-  window.dispatchEvent(key('keydown', 'Space'));
-  const first = readInput(1 / 60);
-  expect(first.input.jump).toBe(true);
-  expect(first.input.jumpHeld).toBe(true);
-  const second = readInput(1 / 60);
-  expect(second.input.jump).toBe(false);
-  expect(second.input.jumpHeld).toBe(true);
-  window.dispatchEvent(key('keyup', 'Space'));
-  expect(readInput(1 / 60).input.jumpHeld).toBe(false);
-});
-
 test('Shift boosts while held', () => {
   window.dispatchEvent(key('keydown', 'ShiftLeft'));
   expect(readInput(1 / 60).input.boost).toBe(true);
@@ -50,10 +38,4 @@ test('the left arrow turns by its rate for the frame time', () => {
   window.dispatchEvent(key('keydown', 'ArrowLeft'));
   expect(readInput(0.5).input.turn).toBeCloseTo(KEY_TUNE.lookRate * 0.5, 5);
   window.dispatchEvent(key('keyup', 'ArrowLeft'));
-});
-
-test("a held key's repeat does not count as a new jump", () => {
-  window.dispatchEvent(key('keydown', 'Space', true));
-  expect(readInput(1 / 60).input.jump).toBe(false);
-  window.dispatchEvent(key('keyup', 'Space'));
 });

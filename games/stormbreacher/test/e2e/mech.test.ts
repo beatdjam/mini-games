@@ -45,7 +45,6 @@ const report = () =>
   JSON.parse(window.sbMechReport!()) as {
     pattern: string;
     spin: boolean;
-    view: string;
     mech: { calls: number; triangles: number; boxes: number; weight: number };
     frame: { calls: number; triangles: number };
   };
@@ -80,7 +79,6 @@ test('the view opens, and number keys and buttons change the look', () => {
   const params = new URLSearchParams(location.search);
   params.set('pattern', 'b');
   params.delete('spin');
-  params.delete('view');
   history.replaceState(null, '', `${location.pathname}?${params.toString()}${location.hash}`);
   showMech('#view-mech');
   expect(report().pattern).toBe('b');
@@ -95,14 +93,10 @@ test('the view opens, and number keys and buttons change the look', () => {
 
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('#sbMechBar button')];
   const spin = buttons.find(node => node.textContent === '回転');
-  const behind = buttons.find(node => node.textContent === '後ろから');
-  if (!spin || !behind) throw new Error('missing #sbMechBar buttons');
+  if (!spin) throw new Error('missing #sbMechBar buttons');
   expect(report().spin).toBe(true);
   spin.click();
   expect(report().spin).toBe(false);
-  expect(report().view).toBe('spin');
-  behind.click();
-  expect(report().view).toBe('behind');
 });
 
 test('the report counts the mech and the frame', () => {

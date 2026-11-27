@@ -2,13 +2,11 @@
 // logic/game.ts and the drawing in view/play.ts; this file decides which of them runs and what the page shows.
 import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
 import { disposeTree, scene } from '@engine/render/index.ts';
-import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { TOUCH_TUNE } from '../data/touch.ts';
 import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
-import { playInputOptions } from '../logic/input.ts';
 import { touchAimInput } from '../logic/touchAim.ts';
 import {
   newGame,
@@ -132,11 +130,9 @@ function beginPlay(next: GameModel): void {
   // `?marker=dim|map|next` picks how the blast points' lights show (SB-2022)
   applyMarkerQuery(location.search);
   view = buildPlayView(game);
-  initPlayInput(playInputOptions());
+  initPlayInput();
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
   el('#touch').hidden = !isTouch;
-  // the main body takes no jump (D-50), so its touch layer has no jump button
-  el('#btnJump').hidden = true;
   touchCovered = false;
   hidePause();
   showPauseButton(true);
@@ -190,7 +186,6 @@ function returnToTitle(): void {
   const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
   if (sizeBox) sizeBox.visible = true;
   placeCamera();
-  exitLock();
   setState('title');
   syncTitle();
 }
@@ -272,7 +267,7 @@ function update(dt: number): void {
   // run at the same share of time, while the input still goes through (step already scaled its own frame).
   const drawDt = dt * timeScale(game);
   // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn. A
-  // cutscene that step has just started takes no skip for CUTSCENE_SKIP_GUARD_SEC: the jump, shot or Enter of this frame
+  // cutscene that step has just started takes no skip for CUTSCENE_SKIP_GUARD_SEC: the Space, shot or Enter of this frame
   // started it. takeSkip runs every frame, so a press inside the guard is thrown away rather than saved up.
   const skip = takeSkip();
   const cutscene = game.script.cutscene;
@@ -287,7 +282,7 @@ function update(dt: number): void {
   hideTouchInCutscene(game.script.cutscene !== null);
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);
-  drawPlay(view, game, drawDt, read.pitchDelta);
+  drawPlay(view, game, drawDt);
   // the PC's reticle marks the cursor; a touch screen keeps the dot and circle at the centre (read.cursor is null there)
   placeReticle(view.hud, read.cursor);
   // the touch use button lights while the mech stands in reach of a blast point (SB-2017)
@@ -353,7 +348,6 @@ export function showResult(): void {
   }
   el('#sbResultCheckpoint').hidden = !(game.downed && game.checkpoint);
   el('#sbResultRestart').hidden = !game.downed;
-  exitLock();
 }
 
 // The game in play, for the tests; null before the first sortie.

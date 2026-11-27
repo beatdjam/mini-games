@@ -64,7 +64,7 @@ test('the allies’ two crafts stand beside the player’s with the same boxes',
 
 test('the camera keeps out of the map and all three landing craft', () => {
   const blockers = cameraBlockers(M1B_HAND);
-  // the map's shapes come first, so the props' places in cameraBoxes still line up with blockingPropIndexes
+  // the map's shapes come first, so the props' rects still line up with blockingPropIndexes
   expect(blockers.slice(0, mapBlockers(M1B_HAND).length)).toEqual(mapBlockers(M1B_HAND));
   for (const rect of allyCraftRects(bounds)) expect(blockers).toContainEqual(rect);
   for (const rect of craftRects(bounds)) expect(blockers).toContainEqual(rect);

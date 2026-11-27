@@ -55,8 +55,8 @@ export interface CutsceneDef {
 // The map is M1B_HAND: the mech waits on the craft's deck at (0, 1.8, 177) looking to -z, the player's craft lies at
 // z 175-187 behind it and the sea is +z. Two more craft come in at x -12 and 12 with the allies aboard (view/shore.ts).
 // For the first 8.4 s the three sail in from 45 m seaward with a sinking row beside them (the `sail` event), and the
-// camera keys are offsets from the mech there, so the picture rides with the craft. The last key is the game's own
-// camera behind the mech at the start (the test compares it with cameraPose). The mech stands on the deck the whole time
+// camera keys are offsets from the mech there, so the picture rides with the craft. The last key is fixed at
+// (2.15, 4.4, 8.6) from the mech's start. The mech stands on the deck the whole time
 // and the ramps come down; the player walks down its ramp once the cutscene has handed over the controls.
 export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
   // The landing opens outside: over the sea behind the player's craft, which is in the middle of the picture, with the
@@ -64,7 +64,7 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
   // before the camera moves at 5.4 s. It then comes over the stern, above the wheelhouse (x +-1.5, z 182.5-185.5,
   // y 1.7-4.3; unit test) and the stern wall (top 4.7 m), and into the deck behind the mech without a cut. Inside it
   // looks at the ramp the whole time. The keys inside stay 4 m or more from the mech's chest so the model is not drawn
-  // see-through. The last key is the third-person pose the quarter view eases from. Values are provisional.
+  // see-through. The quarter view eases from the last key. Values are provisional.
   landing: {
     camera: [
       // offsets from the mech (x 0, z 177 at the shore), so all nine keys sail in with it

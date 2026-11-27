@@ -34,13 +34,6 @@ export function armSkip(): void {
   });
 }
 
-// Asks to skip without a press: Esc while the pointer is locked is taken by the browser to release it, so no keydown
-// comes, and the release itself is the request (pause.ts). The cutscene's guard is still taken by the update.
-export function requestSkip(): void {
-  requested = true;
-  requestedByPointer = false;
-}
-
 // Whether a skip was asked for since the last call.
 export function takeSkip(): boolean {
   const was = requested;

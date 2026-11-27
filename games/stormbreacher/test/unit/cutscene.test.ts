@@ -3,7 +3,7 @@ import { LANG } from '@engine/core/index.ts';
 import { CUTSCENES, type CutsceneEvent } from '../../src/data/cutscenes.ts';
 import { CRAFT_TUNE, craftSideX, craftZ } from '../../src/data/craft.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
-import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
+import { MECH_TUNE } from '../../src/data/tune.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { LANDING_RIDERS, LANDING_TUNE } from '../../src/data/landing.ts';
 import {
@@ -19,13 +19,15 @@ import {
 } from '../../src/logic/cutscene.ts';
 import { craftRects } from '../../src/logic/craft.ts';
 import { newGame } from '../../src/logic/game.ts';
-import { cameraPose } from '../../src/view/camera.ts';
 import '../../src/i18n/ja.ts';
 import '../../src/i18n/en.ts';
 
 const landing = CUTSCENES.landing;
 if (!landing) throw new Error('no table for landing');
 const keys = landing.camera;
+
+// The cutscene's last key, as offsets from the mech's start (x, y, z): the pose the quarter view takes over from.
+const LANDING_END_FROM_MECH = { pos: [2.15, 4.4, 8.6], look: [2.15, 2.9, 0] };
 
 // The drawn mech at a second: it rides with the craft the landing brings in, and the keys are offsets from it.
 function originAt(second: number) {
@@ -70,17 +72,17 @@ test('after the end, and before the start, the camera keeps the nearest key', ()
   expect(poseAt(-1).pos).toEqual(keys[0].pos.map((value, i) => value + (i === 2 ? originAt(-1).z : 0)));
 });
 
-test('the last key is the third-person camera behind the mech at the start, and the table fits the cutscene', () => {
+test("the last key is the pose the cutscene hands over from, at a fixed offset from the mech's start", () => {
   const mech = newGame(M1B_HAND).mech;
-  const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, 0, CAMERA_TUNE, []);
   const last = keys[keys.length - 1];
   const finalPose = poseAt(last.at);
-  expect(finalPose.pos[0]).toBeCloseTo(pose.pos.x, 2);
-  expect(finalPose.pos[1]).toBeCloseTo(pose.pos.y, 2);
-  expect(finalPose.pos[2]).toBeCloseTo(pose.pos.z, 2);
-  expect(finalPose.look[0]).toBeCloseTo(pose.look.x, 2);
-  expect(finalPose.look[1]).toBeCloseTo(pose.look.y, 2);
-  expect(finalPose.look[2]).toBeCloseTo(pose.look.z, 2);
+  const start = [mech.x, mech.y, mech.z];
+  const pos = LANDING_END_FROM_MECH.pos.map((value, i) => value + start[i]);
+  const look = LANDING_END_FROM_MECH.look.map((value, i) => value + start[i]);
+  for (let i = 0; i < 3; i++) {
+    expect(finalPose.pos[i]).toBeCloseTo(pos[i], 2);
+    expect(finalPose.look[i]).toBeCloseTo(look[i], 2);
+  }
   expect(last.at).toBe(CUTSCENE_SEC.landing);
 });
 

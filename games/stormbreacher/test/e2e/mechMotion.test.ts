@@ -117,7 +117,7 @@ test('the sortie shows the flame while boosting and hides it again, and the main
   window.dispatchEvent(key('keyup', 'KeyJ'));
 });
 
-test('#view-mech acts out walking, boosting, jumping and firing', () => {
+test('#view-mech acts out walking, boosting and firing', () => {
   const before = new Set(mechGroups());
   showMech('#view-mech');
   const group = mechGroups().find(g => !before.has(g))!;
@@ -137,7 +137,7 @@ test('#view-mech acts out walking, boosting, jumping and firing', () => {
   steps(3);
   const rest = legMatrices(group);
   const restBoxes = report().mech.boxes;
-  expect(report().acts).toEqual({ walk: false, boost: false, jump: false, fire: false });
+  expect(report().acts).toEqual({ walk: false, boost: false, fire: false });
 
   buttons('歩く').click();
   expect(report().acts.walk).toBe(true);
@@ -155,14 +155,6 @@ test('#view-mech acts out walking, boosting, jumping and firing', () => {
   buttons('ブースト').click();
   steps(60);
   expect(report().mech.boxes).toBe(restBoxes);
-
-  buttons('跳ぶ').click();
-  expect(report().acts.jump).toBe(true);
-  steps(10);
-  expect(group.position.y).toBeGreaterThan(0);
-  steps(80);
-  expect(report().acts.jump).toBe(false);
-  expect(group.position.y).toBe(0);
 
   buttons('撃つ').click();
   expect(report().acts.fire).toBe(true);

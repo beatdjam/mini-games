@@ -1,4 +1,4 @@
-// The low props that fade instead of pulling the camera in (SB-2048). A blocking prop shorter than CAMERA_TUNE.wallHeight is
+// The low props that fade instead of pulling the camera in (SB-2048). A blocking prop shorter than FADE_TUNE.wallHeight is
 // no wall for the camera: when it stands between the camera and the mech it turns see-through, and the camera stays where
 // it was. Big walls keep pulling the camera in (camera.ts), so a wall's far side is still hidden.
 //
@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import { PROP_SIZE } from '../data/props.ts';
-import type { CameraTune } from '../data/tuneTypes.ts';
+import type { FadeTune } from '../data/tuneTypes.ts';
 import type { MapDef, Prop, PropKind } from '../data/types.ts';
 import { blockingPropIndexes } from '../logic/mapShapes.ts';
 import { findSlot, type PropSlot } from './outdoor.ts';
@@ -25,13 +25,13 @@ function shrunk(matrix: THREE.Matrix4): THREE.Matrix4 {
 }
 
 // Whether a blocking prop is a wall the camera stays in front of: the table's height with the prop's own scale.
-export function isCameraWall(prop: Prop, tune: Pick<CameraTune, 'wallHeight'>): boolean {
+export function isCameraWall(prop: Prop, tune: Pick<FadeTune, 'wallHeight'>): boolean {
   return PROP_SIZE[prop.kind].h * prop.scale >= tune.wallHeight;
 }
 
 // For each of cameraBlockers(map)'s rects, whether it belongs to a low prop (fades, no wall). The props' rects come first, in
 // blockingPropIndexes' order; the targets and the crafts after them are never low.
-export function lowRects(map: MapDef, rectCount: number, tune: Pick<CameraTune, 'wallHeight'>): boolean[] {
+export function lowRects(map: MapDef, rectCount: number, tune: Pick<FadeTune, 'wallHeight'>): boolean[] {
   const owners = blockingPropIndexes(map);
   return Array.from({ length: rectCount }, (_, i) => i < owners.length && !isCameraWall(map.props[owners[i]], tune));
 }
@@ -199,7 +199,7 @@ export function fadeStep(
   from: THREE.Vector3,
   to: THREE.Vector3,
   dt: number,
-  tune: Pick<CameraTune, 'fadeOpacity' | 'fadeIn' | 'fadeOut' | 'fadePad'>,
+  tune: Pick<FadeTune, 'fadeOpacity' | 'fadeIn' | 'fadeOut' | 'fadePad'>,
 ): void {
   const inStep = tune.fadeIn <= 0 ? 1 : dt / tune.fadeIn;
   const outStep = tune.fadeOut <= 0 ? 1 : dt / tune.fadeOut;

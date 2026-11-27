@@ -1,8 +1,7 @@
 // The play input: the touch screen and the keyboard / mouse read together into one MechInput (SB-030 keyboard). The
 // game and the dev views use this instead of either device's reader.
 import { el, isTouch } from '@engine/core/index.ts';
-import { requestLock } from '@engine/ui/index.ts';
-import { cursorAimInput, jumpReading, mergeInput, withoutJump } from '../logic/input.ts';
+import { cursorAimInput, mergeInput } from '../logic/input.ts';
 import type { MechInput } from '../logic/mech.ts';
 import { holdMouseFireUntilRelease, initKeyboard, readKeyboard } from './keyboard.ts';
 import { initTouch, readTouch } from './touch.ts';
@@ -11,7 +10,6 @@ export { cursorAimInput, holdMouseFireUntilRelease };
 
 export interface PlayRead {
   input: MechInput;
-  pitchDelta: number; // the touch drag and the arrow keys added this frame (rad)
   lock: boolean; // the lock display, shared by the touch lock button and the lock key
   sub: boolean; // the touch sub button, the sub key, or the right mouse button
   use: boolean; // the touch use button or the use key
@@ -20,36 +18,18 @@ export interface PlayRead {
   drag: { x: number; y: number } | null; // the right touch finger's move from where it went down (px); null without a touch drag
 }
 
-export interface PlayInputOptions {
-  cursor?: boolean; // the main body and the arena: aim with a free cursor instead of the pointer lock
-  jump?: boolean; // false on the main body and the arena: they take no jump (D-50)
-}
-
 let ready = false; // initPlayInput has run (a second call does nothing)
-let cursorMode = false; // the free cursor is in use (a PC on the main body or the arena)
-let jumpMode = true; // the main body and the arena take no jump (D-50); the dev views keep it
 let cursorAt: { x: number; y: number } | null = null; // the cursor's last place on the canvas, normalized; null until it moves
 
-// Whether the free cursor is in use: the pause menu keeps the pointer lock away then.
-export const cursorPlay = (): boolean => cursorMode;
-
-// Starts both readers. On a PC the touch screen stays hidden and a click on the canvas asks for the pointer lock, so
-// the mouse can look and shoot. With `cursor`, the main body and the arena keep the cursor on the screen instead: the
-// click asks for no lock and a mousemove gives the canvas's normalized point, even over a button above it. With `jump`
-// false, neither reader makes a jump: the main body and the arena take none (D-50).
-export function initPlayInput(options: PlayInputOptions = {}) {
+// Starts both readers. On a PC the touch screen stays hidden and the cursor stays on the screen: a mousemove gives the
+// canvas's normalized point, even over a button above it.
+export function initPlayInput() {
   if (ready) return;
   ready = true;
-  cursorMode = options.cursor === true && !isTouch;
-  jumpMode = jumpReading(options);
-  initKeyboard({ cursor: cursorMode, jump: jumpMode });
-  initTouch({ show: isTouch, jump: jumpMode });
+  initKeyboard();
+  initTouch({ show: isTouch });
   const canvas = el('#gl');
   if (isTouch) return;
-  if (!cursorMode) {
-    canvas.addEventListener('click', () => requestLock());
-    return;
-  }
   // The window, not the canvas: the pause and fullscreen buttons take the events, and the point must keep following there.
   window.addEventListener('mousemove', event => {
     const rect = canvas.getBoundingClientRect();
@@ -67,13 +47,12 @@ export function readInput(dt: number): PlayRead {
   const keyboard = readKeyboard(dt);
   const merged = mergeInput(touch.input, keyboard.input);
   return {
-    input: jumpMode ? merged : withoutJump(merged),
-    pitchDelta: touch.pitchDelta + keyboard.pitchDelta,
+    input: merged,
     lock: keyboard.lock,
     sub: touch.sub || keyboard.sub,
     use: touch.use || keyboard.use,
     melee: touch.melee || keyboard.melee,
-    cursor: cursorMode ? cursorAt : null,
+    cursor: cursorAt,
     drag: isTouch ? touch.drag : null,
   };
 }

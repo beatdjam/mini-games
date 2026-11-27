@@ -1,9 +1,9 @@
 import type { EnemyKind } from './enemies.ts';
 import type { GaitKind } from './mech.ts';
-import type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
+import type { FadeTune, FcsKind, FcsTune, FovTune, MoveTune, QuarterTune } from './tuneTypes.ts';
 import type { TargetKind } from './types.ts';
 
-export type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
+export type { FadeTune, FcsKind, FcsTune, FovTune, MoveTune, QuarterTune } from './tuneTypes.ts';
 
 // Named values for the empty field: the ground, the fog, the camera and the box that shows a mech's size.
 export const FIELD_TUNE = {
@@ -59,36 +59,17 @@ export const ZOOM_ENEMY_KINDS = ['warden'] as const satisfies readonly EnemyKind
 // camera pulled back almost everywhere.
 export const ZOOM_TARGET_KINDS = ['gun', 'fortressGun'] as const satisfies readonly TargetKind[];
 
-// The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.
-export const CAMERA_TUNE: CameraTune = {
-  dist: 8.6, // the camera's horizontal distance from the look point (m)
-  height: 1.5, // how far the camera sits above the look point (m)
-  shoulder: 2.15, // how far the look point moves to the mech's right (m)
-  lookHeight: 2.9, // the look point's height above the mech's feet (m)
-  minDist: 0.5, // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
-  margin: 0.6, // the gap kept in front of a wall (m)
-  pullSpeed: 9, // the fastest a wall may bring the camera in, or hold a swing while it is near (m/s); keeps a corner from snapping
-  pullGap: 1, // the look point's return left after a wall lets go; at or below this the pull speed closes it (m)
-  pullNear: 0.5, // how much nearer than its open distance a wall-held camera counts as near (m)
-  returnSpeed: 4, // the fastest the camera comes back out after a wall that added its share to the look point lets go (m/s)
-  returnLag: 0.35, // the time constant for that return (s)
-  turnLag: 0.12, // the time constant for the camera to swing round behind the mech's facing while a wall holds or releases it (s): the distance is slowed by the wall, the direction is not (SB-2050)
-  returnDelay: 0.5, // a wall's release must last this long before the camera starts back out; a wall that pushes again sooner keeps it near (s); 0 returns at once (SB-2050)
-  releaseGap: 1.2, // a wall lets the camera go when it is this much farther than the camera was (m)
-  rise: 0.9, // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
-  riseRange: 1.5, // how far above minDist the rise has fallen to 0 (m)
-  closeLook: 2, // how far the look point moves toward the mech's front at minDist, so a close camera sees ahead, not down (m)
-  closePitch: 0.1, // the most the camera may look down past its open angle when a wall pulls it in (rad); about 6 degrees
-  fastTurn: 8, // a turn this fast (rad/s) ends a wall's hold near the open place: the lag then cuts the corner (SB-1949)
-  probeDeg: 4, // how far to either side of a wall ray the camera looks, so a corner comes in smoothly (deg)
-  pitchMin: -0.5, // the lowest pitch the camera may look, looking down (rad)
-  pitchMax: 0.8, // the highest pitch the camera may look, looking up (rad)
-  lag: 0.12, // the time constant for the camera to reach its target position (s); 0 means no lag
-  fov: 72, // the vertical field of view (deg)
-  aimDist: 5.1, // the camera's horizontal distance while aiming (m)
-  aimFov: 52, // the vertical field of view while aiming (deg)
-  walk: 7.4, // the model's walking speed in #view-camera (m/s)
-  wallHeight: 6, // a blocking prop at least this tall (seawall, bunker, stairs, ramp, cliff, fortWall) is a wall; a lower one fades (m) (SB-2048)
+// The body's own fields of view (SB-2196). All three are 72, but each is its own value: 72 is not the overview camera's
+// fov (QUARTER_TUNE.fov, 58), and changing one changes the aim circle's size or the cutscene's picture.
+export const FOV_TUNE: FovTune = {
+  feel: 72, // the feel's base field of view (deg)
+  ring: 72, // the field of view that sets the aim circle's size (deg)
+  cutscene: 72, // the cutscene's field of view (deg)
+};
+
+// The low props that fade instead of staying solid (SB-2048).
+export const FADE_TUNE: FadeTune = {
+  wallHeight: 6, // a blocking prop at least this tall does not fade (seawall, bunker, stairs, ramp, cliff, fortWall); a lower one fades (m)
   fadeOpacity: 0.35, // how much of a faded prop is left (0-1)
   fadeIn: 0.12, // the time a prop takes to fade out once it is between the camera and the mech (s)
   fadeOut: 0.25, // the time it takes to come back once it is clear (s)
@@ -505,7 +486,7 @@ export const FX_STAGES: readonly FxTune[] = [
   { ...FX_TUNE, ...FX_STRONG },
 ];
 
-// The moving dummies of #view-fcs (SB-060). `hp` is the hits a dummy takes, `speed` is how fast it moves (m/s), and
+// The moving dummies (SB-060). `hp` is the hits a dummy takes, `speed` is how fast it moves (m/s), and
 // `respawn` is how long a downed dummy stays down (s).
 export const DUMMY_TUNE = {
   hp: 10, // hits needed to down a dummy

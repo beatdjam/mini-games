@@ -458,7 +458,7 @@ const PROPS: Prop[] = [
   { kind: 'wreck', x: -28, z: -64, yaw: -0.18, scale: 1 },
   { kind: 'block', x: 14, z: -58.5, yaw: -0.05, scale: 0.8 },
   { kind: 'wreck', x: 30, z: -64, yaw: 0.08, scale: 1 },
-  // low walls across the beach (z 154): too high to walk onto, low enough to jump, with 14 m between them
+  // low walls across the beach (z 154): too high to walk onto (above the 0.75 m step), so the mech goes around, with 14 m between them
   { kind: 'lowWall', x: -42, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: -18, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: 6, z: 154, yaw: 0, scale: 1 },

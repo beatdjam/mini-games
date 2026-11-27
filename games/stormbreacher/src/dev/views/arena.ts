@@ -7,7 +7,6 @@ import { addSystem, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { cursorAim } from '../../app/play.ts';
-import { playInputOptions } from '../../logic/input.ts';
 import { mixOf } from '../arenaMix.ts';
 import { FCS_QUARTER, FEEL_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../data/tune.ts';
 import type { MapDef, MissionDef } from '../../data/types.ts';
@@ -16,7 +15,6 @@ import { newEnemy } from '../../logic/enemies.ts';
 import { newGame, step, type GameModel } from '../../logic/game.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
 import { newWeapon } from '../../logic/weapons.ts';
-import { cameraBoxesOfRect } from '../../view/camera.ts';
 import { noFade } from '../../view/fade.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { placeReticle } from '../../view/hud.ts';
@@ -127,11 +125,8 @@ function buildArenaWorld(map: MapDef): World {
     targetGroup,
     shutters: new Map(),
     shore: buildShore(map.bounds),
-    cameraBoxes: mapBlockers(map).flatMap(cameraBoxesOfRect),
     fade: noFade(),
-    targetCameraBoxes: new Map(),
     slots: new Map(),
-    propCameraBoxes: new Map(),
     broken: new Set(),
     opened: new Set(),
     breaks: new Map(),
@@ -149,7 +144,7 @@ function addHud(): HTMLDivElement {
   return hud;
 }
 
-// The feel, the movement and the soft lock's main values, the same rows #view-move and #view-fcs turn by URL.
+// The feel, the movement and the soft lock's main values.
 function addTunePanel() {
   // The arena aims with FCS_QUARTER on a PC and a touch screen, so the panel writes that table.
   const fcsLabels = {
@@ -251,10 +246,8 @@ export function showArena(_hash: string) {
     world: buildArenaWorld(ARENA_MAP),
   });
   shownView = view;
-  initPlayInput(playInputOptions());
+  initPlayInput();
   el('#touch').hidden = !isTouch;
-  // the arena takes no jump (D-50), so its touch layer has no jump button
-  el('#btnJump').hidden = true;
   resetSound(arena.radio);
 
   let kills = 0;
@@ -348,7 +341,7 @@ export function showArena(_hash: string) {
       }
 
       soundFrame(arena, dt);
-      drawPlay(view, arena, dt, read.pitchDelta);
+      drawPlay(view, arena, dt);
       placeReticle(view.hud, read.cursor);
 
       const time = arena.time.toFixed(1);

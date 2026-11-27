@@ -75,7 +75,7 @@ async function warnedSortie(): Promise<void> {
   await untilSteps(() => current.pillboxes.some(pillbox => pillbox.warn > 0));
 }
 
-test('P pauses: the menu comes, the clock stops and the pointer lock goes', async () => {
+test('P pauses: the menu comes and the clock stops', async () => {
   await pastCutscene();
   expect(button('#sbPauseBtn').hidden).toBe(false);
   press('KeyP');
@@ -87,7 +87,6 @@ test('P pauses: the menu comes, the clock stops and the pointer lock goes', asyn
   const time = game().time;
   steps(10);
   expect(game().time).toBe(time);
-  expect(document.pointerLockElement).toBeNull();
 });
 
 test('the resume button goes back to the sortie and the clock runs again', async () => {

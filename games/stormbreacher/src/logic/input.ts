@@ -8,36 +8,18 @@ import type { MechInput } from './mech.ts';
 export const STICK_MOVE_MIN = 0.05;
 
 // The touch stick wins while it is pushed; otherwise the keyboard moves the mech. The turn adds, and any held action
-// from either side is on.
+// from either side is on. No input reads a jump (D-50): the jump's logic stays, but both of its fields are always false.
 export function mergeInput(touch: MechInput, keyboard: MechInput): MechInput {
   const stickMoved = Math.hypot(touch.moveX, touch.moveZ) > STICK_MOVE_MIN;
   return {
     moveX: stickMoved ? touch.moveX : keyboard.moveX,
     moveZ: stickMoved ? touch.moveZ : keyboard.moveZ,
     turn: touch.turn + keyboard.turn,
-    jump: touch.jump || keyboard.jump,
-    jumpHeld: touch.jumpHeld || keyboard.jumpHeld,
+    jump: false,
+    jumpHeld: false,
     boost: touch.boost || keyboard.boost,
     fire: touch.fire || keyboard.fire,
   };
-}
-
-// The main body and the arena take no jump (D-50): the mech has no free jump there, so the buttons do nothing. The
-// dev views keep it, and so do the jump's logic and MOVE_TUNE.
-export function withoutJump(input: MechInput): MechInput {
-  return { ...input, jump: false, jumpHeld: false };
-}
-
-// The options the main body and the arena give initPlayInput: a free cursor and no jump (D-50). The dev views keep
-// both, so they call initPlayInput with no options.
-export function playInputOptions(): { cursor: true; jump: false } {
-  return { cursor: true, jump: false };
-}
-
-// Whether the play input reads a jump: only a caller that passes `jump: false` (the main body and the arena) turns it
-// off. A missing value keeps the jump for the dev views.
-export function jumpReading(options: { jump?: boolean }): boolean {
-  return options.jump !== false;
 }
 
 // The aim the cursor gives: with a ground point the mech turns toward it and its shot flies there; with none (the first

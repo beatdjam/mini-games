@@ -605,7 +605,7 @@ function damageTarget(game: GameModel, target: TargetState, damage: number): voi
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp > 0) return;
   // The view draws the wreck at WRECK_SCALE_Y of the target's height, so the wall left on the ground stands at the same
-  // height: the mech may jump over it, the camera looks over it, and the shots still pass through the fallen target.
+  // height: the shots still pass through the fallen target.
   lowerWreckRect(game, target);
   // The enemy's cells are made from the rects and their count does not change with a target, so stepNav would keep the
   // grid made before the fall. Dropping it rebuilds the grid on the next frame that has a walking enemy.
@@ -1690,9 +1690,9 @@ function levelAim(
 // test inputs need no change) and the fist.
 export interface GameInput extends MechInput {
   sub: boolean;
-  // The aim line: the third-person camera's line through the middle of the screen for the dev views. The main body and
-  // the arena pass none and aim with `aimAt`, or with only a movement frame (`frame`) while a touch screen's right drag is
-  // off; with neither, the line is level from the chest along the mech's yaw.
+  // The aim line: a line through the middle of the screen for the views that have one. The main body and the arena pass
+  // none and aim with `aimAt`, or with only a movement frame (`frame`) while a touch screen's right drag is off; with
+  // neither, the line is level from the chest along the mech's yaw.
   aim?: Ray3;
   // The point the player points at, on the mech's feet plane (world, m): the mech turns toward it and the aim line is
   // level from the chest to it.
@@ -1959,7 +1959,7 @@ function stepFrame(game: GameModel, given: GameInput, dt: number): void {
     groundY: 0,
   };
   // A top-down input (the main body and the arena, on a PC or a touch screen) passes a movement frame or an aim point and
-  // gets the wider, level values. An input with neither (bots, tests, the dev views) keeps the third-person soft values.
+  // gets the wider, level values. An input with neither (bots, tests) keeps the soft values.
   const fcsTune = input.frame === undefined && input.aimAt === undefined ? FCS_TUNE.soft : FCS_QUARTER;
   const fcs = stepFcs(game.fcs, 'soft', fcsTune, aim, muzzleOf(game.mech), fcsTargets(game, chest), span, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);

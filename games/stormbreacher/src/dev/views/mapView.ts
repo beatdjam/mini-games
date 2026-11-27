@@ -1,9 +1,8 @@
 // The map walk (#view-map, SB-055): one map (by hand, from a seed, or the editor's saved one) drawn with the beach's
-// builder, the mission's places and the waves' spawn points, and a 4 m mech walked with #view-play's input. The mech
-// cannot walk into the props or the targets. The screen shows what the map holds and what validateMapForMission says
-// about it; window.sbMapReport() returns the same numbers.
-import * as THREE from 'three';
-import { addSystem, clamp, el } from '@engine/core/index.ts';
+// builder, the mission's places and the waves' spawn points, and a 4 m mech walked with #view-touch's input under the
+// overview camera, turning toward the cursor. The mech cannot walk into the props or the targets. The screen shows what
+// the map holds and what validateMapForMission says about it; window.sbMapReport() returns the same numbers.
+import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../data/maps/m1b-rules.ts';
@@ -13,21 +12,21 @@ import { M1 } from '../../data/missions/m1.ts';
 import { DEFENDER_TUNE } from '../../data/defenders.ts';
 import { FRONT_TUNE } from '../../data/front.ts';
 import { PAYOFF_TUNE } from '../../data/payoff.ts';
-import { CAMERA_TUNE } from '../../data/tune.ts';
+import { FOV_TUNE, QUARTER_TUNE } from '../../data/tune.ts';
 import { PROP_KINDS, type MapBounds, type MapDef, type PropKind } from '../../data/types.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { validateMapForMission, type MapViolation } from '../../logic/mapCheck.ts';
 import { generateMap } from '../../logic/mapgen.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
 import { stream } from '../../logic/rng.ts';
-import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
 import { applyAtmosphere } from '../../view/atmosphere.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
 import { buildAreaFrames, buildBlastMarks, buildSpawnMarks, countProps } from '../map/build.ts';
 import { loadDevMap } from '../map/store.ts';
 import { createTunePanel } from '../tunePanel.ts';
-import { buildFlatRange, moveFeelFromParams } from './move.ts';
+import { buildFlatRange, moveFeelFromParams } from '../flatRange.ts';
+import { createQuarterRig } from '../quarterRig.ts';
 
 declare global {
   interface Window {
@@ -60,7 +59,6 @@ export { MAP_FOG } from '../../view/world.ts';
 
 export interface MapScene {
   built: World['built'];
-  cameraBoxes: THREE.Box3[];
 }
 
 interface MapReport {
@@ -137,11 +135,11 @@ export function buildMapScene(map: MapDef, air = true): MapScene {
   const ground = scene.getObjectByName(GROUND_NAME);
   if (ground) ground.visible = false;
 
-  const { built, cameraBoxes } = buildWorld(map, air);
+  const { built } = buildWorld(map, air);
   scene.add(buildAreaFrames(M1.areas, map.bounds));
   scene.add(buildSpawnMarks(map.spawns));
   scene.add(buildBlastMarks(map.blasts));
-  return { built, cameraBoxes };
+  return { built };
 }
 
 export function showMap(_hash: string) {
@@ -152,14 +150,15 @@ export function showMap(_hash: string) {
   const counts = countProps(map.props);
   const violations = validateMapForMission(map, M1, OUT_OF_RANGE);
 
-  const { built, cameraBoxes } = buildMapScene(map);
+  const { built } = buildMapScene(map);
 
   const { moveTune, feelTune } = moveFeelFromParams(params);
-  const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false, rects: mapBlockers(map) });
+  const range = buildFlatRange(FOV_TUNE.feel, { targets: false, rects: mapBlockers(map) });
   const mech = range.mech;
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = map.bounds.maxZ - MECH_MARGIN;
   mech.yaw = 0;
+  const rig = createQuarterRig();
   initPlayInput();
 
   const hud = document.createElement('div');
@@ -169,7 +168,7 @@ export function showMap(_hash: string) {
     'font:12px/1.4 monospace;color:#fff;background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none;z-index:5';
   document.body.appendChild(hud);
 
-  // The feel's values, turned while walking: the movement, the camera's place and the effects that sell a step, a
+  // The feel's values, turned while walking: the movement, the overview camera and the effects that sell a step, a
   // landing and a shot. The walk uses the copies with the URL's values on top (moveFeelFromParams), so the panel starts
   // from what the view actually runs.
   createTunePanel({
@@ -180,59 +179,35 @@ export function showMap(_hash: string) {
         table: moveTune,
         ranges: {
           walk: { min: 0, max: 20, step: 0.1 },
-          jump: { min: 0, max: 20, step: 0.1 },
           gravity: { min: 0, max: 60, step: 0.5 },
           boost: { min: 0, max: 30, step: 0.5 },
         },
         labels: {
           walk: '歩く速さ（m/s）',
-          jump: 'ジャンプ（m/s）',
           gravity: '重力（m/s^2）',
           boost: 'ブースト（m/s）',
         },
       },
       {
-        name: 'CAMERA_TUNE',
-        table: CAMERA_TUNE,
+        name: 'QUARTER_TUNE',
+        table: QUARTER_TUNE,
         ranges: {
-          dist: { min: 1, max: 20, step: 0.1 },
-          height: { min: -5, max: 10, step: 0.1 },
-          minDist: { min: 0, max: 3, step: 0.1 },
-          margin: { min: 0, max: 2, step: 0.05 },
-          pullSpeed: { min: 0, max: 20, step: 0.5 },
-          pullGap: { min: 0, max: 3, step: 0.1 },
-          pullNear: { min: 0, max: 2, step: 0.05 },
-          returnSpeed: { min: 0, max: 10, step: 0.5 },
-          returnLag: { min: 0, max: 1, step: 0.01 },
-          turnLag: { min: 0, max: 1, step: 0.01 },
-          returnDelay: { min: 0, max: 2, step: 0.05 },
-          releaseGap: { min: 0, max: 5, step: 0.1 },
-          rise: { min: 0, max: 3, step: 0.05 },
-          riseRange: { min: 0, max: 5, step: 0.1 },
-          closeLook: { min: 0, max: 5, step: 0.1 },
-          closePitch: { min: 0, max: 0.5, step: 0.01 },
-          fastTurn: { min: 0, max: 20, step: 0.5 },
-          probeDeg: { min: 0, max: 15, step: 0.5 },
+          azimuth: { min: 0, max: 6.28, step: 0.01 },
+          height: { min: 5, max: 60, step: 0.5 },
+          back: { min: 0, max: 60, step: 0.5 },
+          lead: { min: 0, max: 15, step: 0.25 },
+          lookHeight: { min: 0, max: 5, step: 0.1 },
+          fov: { min: 20, max: 100, step: 1 },
+          lag: { min: 0, max: 1, step: 0.01 },
         },
         labels: {
-          dist: '距離（m）',
-          height: '高さ（m）',
-          minDist: '寄れる最短（m）',
-          margin: '壁の前の隙間（m）',
-          pullSpeed: '寄る速さの上限（m/s）',
-          pullGap: '戻りを閉じる残り（m）',
-          pullNear: '寄りとみなす近さ（m）',
-          returnSpeed: '戻る速さ（m/s）',
-          returnLag: '戻る時定数（s）',
-          turnLag: '向きを追う時定数（s）',
-          returnDelay: '戻り始めを待つ時間（s）',
-          releaseGap: '離れたとみなす差（m）',
-          rise: '寄ったときの上げ（m）',
-          riseRange: '上げを戻す距離（m）',
-          closeLook: '寄ったとき前へ出す注視点（m）',
-          closePitch: '見下ろしの上乗せ（rad）',
-          fastTurn: '急旋回とみなす速さ（rad/s）',
-          probeDeg: '角を見る角度（度）',
+          azimuth: '画面の上の向き（rad）',
+          height: 'カメラの高さ（m）',
+          back: 'カメラの後ろ（m）',
+          lead: '注視点を前に出す（m）',
+          lookHeight: '注視点の高さ（m）',
+          fov: '画角（度）',
+          lag: '追従の時定数（s）',
         },
       },
       {
@@ -419,19 +394,12 @@ export function showMap(_hash: string) {
     return JSON.stringify(report);
   };
 
-  let pitch = 0;
-  let cam: CameraState | null = null;
-
   addSystem({
     name: 'sb-map',
     update: dt => {
       const read = readInput(dt);
-      pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
-      const step = range.step(read.input, dt, moveTune, feelTune);
-      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, cameraBoxes);
-      cam = followCamera(cam, pose, dt, CAMERA_TUNE);
-      const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
+      const step = range.step({ ...read.input, ...rig.aim(read, mech) }, dt, moveTune, feelTune);
+      rig.follow(mech, dt, step);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
       hud.textContent = hudText(source, seed, message, map, counts, violations, mech);
     },

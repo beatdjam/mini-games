@@ -37,35 +37,18 @@ export interface QuarterTune {
   zoomLag: number; // the time constant for pulling back and coming in (s); 0 means no lag
 }
 
-export interface CameraTune {
-  dist: number; // the camera's horizontal distance from the look point (m)
-  height: number; // how far the camera sits above the look point (m)
-  shoulder: number; // how far the look point moves to the mech's right (m)
-  lookHeight: number; // the look point's height above the mech's feet (m)
-  minDist: number; // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
-  margin: number; // the gap kept in front of a wall (m)
-  pullSpeed: number; // the fastest a wall may bring the camera in, or hold a swing while it is near (m/s); keeps a corner from snapping
-  pullGap: number; // the look point's return left after a wall lets go; at or below this the pull speed closes it (m)
-  pullNear: number; // how much nearer than its open distance a wall-held camera counts as near (m)
-  returnSpeed: number; // the fastest the camera comes back out after a wall lets it go (m/s)
-  returnLag: number; // the time constant for coming back out (s)
-  turnLag: number; // the time constant for the camera to swing round behind the mech's facing while a wall holds or releases it (s); the distance keeps returnSpeed and returnLag
-  returnDelay: number; // a wall's release must last this long before the camera starts back out; a wall that pushes again sooner keeps it near (s); 0 returns at once
-  releaseGap: number; // a wall lets the camera go when it is this much farther than the camera was (m)
-  rise: number; // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
-  riseRange: number; // how far above minDist the rise has fallen to 0 (m)
-  closeLook: number; // how far the look point moves toward the mech's front at minDist, so a close camera sees ahead, not down (m)
-  closePitch: number; // the most the camera may look down past its open angle when a wall pulls it in (rad)
-  fastTurn: number; // a turn this fast (rad/s) ends a wall's hold near the open place: the lag then cuts the corner (SB-1949)
-  probeDeg: number; // how far to either side of a wall ray the camera looks, so a corner comes in smoothly (deg)
-  pitchMin: number; // the lowest pitch the camera may look, looking down (rad)
-  pitchMax: number; // the highest pitch the camera may look, looking up (rad)
-  lag: number; // the time constant for the camera to reach its target position (s); 0 means no lag
-  fov: number; // the vertical field of view (deg)
-  aimDist: number; // the camera's horizontal distance while aiming (m)
-  aimFov: number; // the vertical field of view while aiming (deg)
-  walk: number; // the model's walking speed in #view-camera (m/s)
-  wallHeight: number; // a blocking prop at least this tall is a wall the camera stays in front of; a lower one never pulls the camera and fades when it is between the camera and the mech (m); 0 makes every prop a wall (SB-2048)
+// The fields of view the body's own systems use (deg): the feel's base, the aim circle's size and the cutscenes. All
+// three are 72, but each is its own value. 72 is not the overview camera's 58, and changing one changes the circle's
+// size or the cutscene's picture.
+export interface FovTune {
+  feel: number; // the feel's base field of view (deg)
+  ring: number; // the field of view that sets the aim circle's size (deg)
+  cutscene: number; // the cutscene's field of view (deg)
+}
+
+// The low props that fade instead of staying solid (SB-2048).
+export interface FadeTune {
+  wallHeight: number; // a blocking prop at least this tall does not fade; a lower one fades when it is between the camera and the mech (m); 0 fades nothing
   fadeOpacity: number; // how much of a faded prop is left (0-1)
   fadeIn: number; // the time a prop takes to fade out once it is between the camera and the mech (s)
   fadeOut: number; // the time it takes to come back once it is clear (s)
