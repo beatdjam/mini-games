@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { ENEMIES } from '../../src/data/enemies.ts';
 import { MINE_TUNE } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { meleeHitSec, MELEE_TUNE } from '../../src/data/melee.ts';
+import { MELEE_DAMAGE_MUL, meleeHitSec, MELEE_TUNE, type MeleeKind } from '../../src/data/melee.ts';
 import { TARGET_HP } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
@@ -82,12 +82,13 @@ function withTargetAhead(id: string): GameModel {
   return game;
 }
 
-test('a blow hits the nearest enemy in the front sector and takes its damage', () => {
+test('a blow downs a grunt in one, taking its health to zero', () => {
   const game = withEnemyAt('grunt', 10, 3);
   const enemy = game.enemies[0];
   const event = runBlow(game);
   expect(event).toMatchObject({ hit: true, enemy: 'target-1' });
-  expect(enemy.hp).toBe(ENEMIES.grunt.hp - MELEE_TUNE.damage);
+  expect(ENEMIES.grunt.hp - MELEE_TUNE.damage).toBeLessThanOrEqual(0); // 40 health, 40 a blow (SB-2170)
+  expect(enemy.hp).toBe(0);
 });
 
 test('an enemy outside the sector is a miss and does not lose health', () => {
@@ -102,7 +103,7 @@ test('the machine-gun nest now takes a blow at its share', () => {
   const event = runBlow(game);
   expect(event).toMatchObject({ hit: true, enemy: 'target-1' });
   expect(game.enemies[0].hp).toBeLessThan(ENEMIES.emplacement.hp);
-  expect(game.enemies[0].hp).toBe(ENEMIES.emplacement.hp - MELEE_TUNE.damage * 0.6);
+  expect(game.enemies[0].hp).toBe(ENEMIES.emplacement.hp - 15);
 });
 
 test('the heavy takes less than a walking machine of the same health', () => {
@@ -110,7 +111,24 @@ test('the heavy takes less than a walking machine of the same health', () => {
   const event = runBlow(game);
   expect(event?.hit).toBe(true);
   expect(game.enemies[0].hp).toBeLessThan(ENEMIES.heavy.hp);
-  expect(game.enemies[0].hp).toBe(ENEMIES.heavy.hp - MELEE_TUNE.damage * 0.5);
+  expect(game.enemies[0].hp).toBe(ENEMIES.heavy.hp - 24);
+});
+
+// SB-2170: the blow's power went up, so the count for each kind is pinned here. The structures and the mid boss keep the
+// same health per blow as before, so a share that lets one of them take more or less fails this test too.
+test('the blow’s count per kind: a grunt falls to one, a heavy to five, the structures as before', () => {
+  const count = (kind: MeleeKind, hp: number): number => Math.ceil(hp / (MELEE_TUNE.damage * MELEE_DAMAGE_MUL[kind]));
+  expect(count('assault', ENEMIES.assault.hp)).toBe(1);
+  expect(count('grunt', ENEMIES.grunt.hp)).toBe(1);
+  expect(count('heavy', ENEMIES.heavy.hp)).toBe(5);
+  expect(count('emplacement', ENEMIES.emplacement.hp)).toBe(10);
+  expect(count('warden', ENEMIES.warden.hp)).toBe(160);
+  expect(MELEE_DAMAGE_MUL.pillbox).toBe(0); // a blow only suppresses it
+  expect(count('depot', TARGET_HP.depot)).toBe(10);
+  expect(count('gun', TARGET_HP.gun)).toBe(80);
+  expect(count('fortressGun', TARGET_HP.fortressGun)).toBe(120);
+  expect(count('magazine', TARGET_HP.magazine)).toBe(22);
+  expect(count('mine', MINE_TUNE.hp)).toBe(1);
 });
 
 test('the blow lands on the frame the swing passes through, not when the key went down', () => {

@@ -10,29 +10,29 @@ export type MeleeKind = EnemyKind | TargetKind | 'mine' | 'prop';
 // The share of MELEE_TUNE.damage each kind takes (provisional). A pillbox takes none: a blow only suppresses it, as a shot
 // does (SB-2015).
 export const MELEE_DAMAGE_MUL: Record<MeleeKind, number> = {
-  // the walking machines: the assault falls to one blow, a grunt to two, a heavy to ten
+  // the walking machines: an assault and a grunt fall to one blow, a heavy to five
   assault: 1,
   grunt: 1,
-  heavy: 0.5,
+  heavy: 0.6,
   // the machine-gun nest is a structure, but its gun and crew are open, so it is not as hard as a pillbox
-  emplacement: 0.6,
+  emplacement: 0.375,
   // the mid boss (SB-1850) is a heavy machine: a fist barely scratches it, so its fight stays with the guns
-  warden: 0.1,
+  warden: 0.0625,
   // the objectives: a pillbox takes no health from a blow (only a charge breaks it), the guns of the battery barely feel a fist
   pillbox: 0,
-  depot: 0.25,
-  gun: 0.1,
+  depot: 0.15625,
+  gun: 0.0625,
   // the fortress's nest sits on the wall's top (12 m), but the fist measures its reach along the ground, so a mech at the
   // wall's foot can still hit it; it takes the same share as the battery's guns (provisional)
-  fortressGun: 0.1,
-  magazine: 0.15,
+  fortressGun: 0.0625,
+  magazine: 0.09375,
   // the other things a shot breaks: a mine is small and a breakable prop is a wall of hedgehogs or a wreck
-  mine: 1,
-  prop: 0.25,
+  mine: 0.625,
+  prop: 0.15625,
 };
 
 export const MELEE_TUNE = {
-  damage: 25, // what one blow takes off a walking enemy (assault 20: 1, grunt 40: 2, heavy 120 with its share: 10)
+  damage: 40, // what one blow takes off a walking enemy (assault 20: 1, grunt 40: 1, heavy 120 with its share: 5)
   range: 6, // how far the sector reaches (m)
   halfArcDeg: 40, // half the sector's width, so +-40 degrees from the front
   interval: 0.8, // the seconds between one blow and the next
