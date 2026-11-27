@@ -41,7 +41,7 @@ def repo_root() -> Path:
 
 def title_of(path: Path) -> str:
     try:
-        first = path.read_text(encoding="utf-8").splitlines()[0]
+        first = path.read_text(encoding="utf-8", errors="replace").splitlines()[0]
     except (OSError, IndexError):
         return ""
     return re.sub(r"^#\s*(タスク:\s*)?", "", first).strip()
@@ -111,7 +111,7 @@ def log_times(log: Path) -> dict[str, datetime.datetime]:
     if not log.exists():
         return times
     now = datetime.datetime.now(JST)
-    for line in log.read_text(encoding="utf-8").splitlines():
+    for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
         m = re.match(r"(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d) 票(\d+):", line)
         if not m:
             continue
@@ -174,7 +174,7 @@ def last_log_lines(log: Path) -> tuple[dict[str, str], dict[str, str]]:
     impl: dict[str, str] = {}
     review: dict[str, str] = {}
     if log.exists():
-        for line in log.read_text(encoding="utf-8").splitlines():
+        for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
             m = re.match(r"\S+ \S+ 票(\d+):\s*(.*)", line)
             if not m:
                 continue
@@ -185,11 +185,69 @@ def last_log_lines(log: Path) -> tuple[dict[str, str], dict[str, str]]:
     return impl, review
 
 
+HOLD = re.compile(r"^#\s*保留（(.+?)）\s*[:：]\s*(\d+)")
+
+
+def queue_order(queue: Path) -> tuple[list[str], dict[str, str], set[str]]:
+    # the order the queue runs the tickets (the 保留 lines too), the reason of each held ticket
+    # ("# 保留（核の体験を先に詰める・2026-11-14）: 1865 1860" -> 1865 is held, 1860 is its base),
+    # and the tickets on active (non-comment) lines
+    order: list[str] = []
+    held: dict[str, str] = {}
+    active: set[str] = set()
+    if queue.exists():
+        for raw in queue.read_text(encoding="utf-8", errors="replace").splitlines():
+            text = raw.strip()
+            if text.startswith("#"):
+                m = HOLD.match(text)
+                if m:
+                    num = m.group(2)
+                    held[num] = m.group(1)
+                    if num not in order:
+                        order.append(num)
+                continue
+            text = text.split("#", 1)[0].strip()
+            if text:
+                num = text.split()[0]
+                active.add(num)
+                if num not in order:
+                    order.append(num)
+    return order, held, active
+
+
+def state_group(state: str) -> int:
+    # the table's blocks, top to bottom: running, queued, to review, open PR (waiting for the merge), stopped,
+    # waiting, held. anything else (merged) goes last
+    if state in ("回している", "Claude が回している", "レビュー中", "差し戻し中") or state.startswith("作業中（"):
+        return 0
+    if state == "キュー待ち":
+        return 1
+    if state == "レビュー待ち":
+        return 2
+    if state.startswith("PR #"):
+        return 3
+    if state == "止まった":
+        return 4
+    if state == "待ち":
+        return 5
+    if state.startswith("保留"):
+        return 6
+    return 7
+
+
+def ticket_sort_key(num: str, state: str, order_index: dict[str, int]) -> tuple[int, int, int]:
+    # in a block, queue.txt's order first; a ticket not in queue.txt goes last, by number
+    group = state_group(state)
+    if num in order_index:
+        return (group, 0, order_index[num])
+    return (group, 1, int(num))
+
+
 def queue_kinds(queue: Path) -> dict[str, list[str]]:
     # the lane of each queued ticket, from the marker at the end of its line (no marker: @browser)
     kinds: dict[str, list[str]] = {}
     if queue.exists():
-        for line in queue.read_text(encoding="utf-8").splitlines():
+        for line in queue.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.split("#", 1)[0].strip()
             if not line:
                 continue
@@ -226,7 +284,7 @@ def stop_line(log: Path) -> str:
     if not log.exists():
         return ""
     last = ""
-    for line in log.read_text(encoding="utf-8").splitlines():
+    for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
         if "---- 開始 ----" in line or "---- 終わり ----" in line:
             last = ""
         elif "止める" in line and "ほかのレーンは続ける" not in line:
@@ -259,7 +317,7 @@ def state_of(
         return label
     tasks = root / ".tasks"
     copies = [tasks / f"{name}.md", root / ".wt" / f"t{num}" / ".tasks" / f"{name}.md"]
-    sent_back = any(p.exists() and "差し戻し" in p.read_text(encoding="utf-8") for p in copies)
+    sent_back = any(p.exists() and "差し戻し" in p.read_text(encoding="utf-8", errors="replace") for p in copies)
     done = (tasks / f"{name}.result.md").exists()
     log = latest.get(num, "")
     # Claude took the ticket over (tools/queue_mark.sh)
@@ -300,13 +358,8 @@ def state_of(
 def build(root: Path) -> str:
     tasks = root / ".tasks"
     queue = tasks / "queue.txt"
-    order: list[str] = []
-    if queue.exists():
-        for line in queue.read_text(encoding="utf-8").splitlines():
-            line = line.split("#", 1)[0].strip()
-            if line:
-                order.append(line.split()[0])
-    queued = set(order)
+    order, held, queued = queue_order(queue)
+    order_index = {num: i for i, num in enumerate(order)}
     kinds = queue_kinds(queue)
     latest, latest_review = last_log_lines(tasks / "queue.log")
     pr_list = open_prs(root)
@@ -341,14 +394,24 @@ def build(root: Path) -> str:
     out += [
         "## 票",
         "",
+        "状態でまとめ（動いている・キュー待ち・レビュー待ち・PR（マージ待ち）・止まった・待ち・保留・済み）、同じ状態の中は queue.txt の順（回す順）。保留は queue.txt で `# 保留（理由）: 番号` と書いた票。",
+        "",
     ]
     if tickets:
         out += ["| 番号 | レーン | 状態 | 内容 |", "| --- | --- | --- | --- |"]
+        rows = []
         for p in tickets:
             name = p.name[:-3]
             num = name.split("-", 1)[0]
             lane = lane_of(latest.get(num, "")) or "/".join(kinds.get(num, [])) or "-"
-            out.append(f"| {num} | {lane} | {state_of(root, num, name, queued, latest, prs, latest_review, times, trees)} | {title_of(p)} |")
+            state = state_of(root, num, name, queued, latest, prs, latest_review, times, trees)
+            # the held marker only fills in for a ticket that has no stronger state (PR / queue.log / worktree)
+            if state == "待ち" and num in held:
+                state = f"保留（{held[num]}）"
+            rows.append((num, lane, state, title_of(p)))
+        rows.sort(key=lambda row: ticket_sort_key(row[0], row[2], order_index))
+        for num, lane, state, title in rows:
+            out.append(f"| {num} | {lane} | {state} | {title} |")
     else:
         out.append("票は無い。")
 
@@ -380,7 +443,7 @@ def build(root: Path) -> str:
     out += ["", "## 下書き（票に上げる前・保留）", ""]
     if drafts:
         for p in drafts:
-            text = p.read_text(encoding="utf-8")
+            text = p.read_text(encoding="utf-8", errors="replace")
             hold = "（保留）" if "## 保留" in text else ""
             out.append(f"- `{p.name}` {title_of(p)}{hold}")
     else:
@@ -388,7 +451,7 @@ def build(root: Path) -> str:
 
     log = tasks / "queue.log"
     if log.exists():
-        tail = log.read_text(encoding="utf-8").splitlines()[-LOG_TAIL:]
+        tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-LOG_TAIL:]
         out += ["", "## キューのログ（最後の数行）", "", "```", *tail, "```"]
     return "\n".join(out) + "\n"
 

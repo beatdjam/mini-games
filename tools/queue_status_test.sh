@@ -105,5 +105,16 @@ ok "gh が PATH に無くても落ちない" "PATH='$D/nogh' '$PY' '$D/tools/que
 # ページの先頭の説明
 ok "先頭に、状態の出し方の説明がある" "page | head -8 | grep -q '実物から推す'"
 
+# 6. 票を状態ごとにまとめ、同じ状態の中は queue.txt の順（回す順）に並べる。保留は queue.txt の # 保留（…）で
+echo "[]" >"$D/gh/open.json"
+printf '# 保留（理由A・2026-11-27）: 400 master\n600\n100\n' >"$T/queue.txt"
+printf '# タスク: がんま\n' >"$T/300-feat-gamma.result.md"
+printf '11-27 10:00:00 票500: 止まった（レーン browser）\n' >"$T/queue.log"
+nums() { page | sed -n 's/^| \([0-9][0-9]*\) |.*/\1/p' | paste -sd, -; }
+ok "状態ごとにまとめ、同じ状態の中は queue.txt の順" "[ \"$(nums)\" = '200,600,100,300,500,400' ]"
+ok "保留は queue.txt の理由つきで出す" "row 400 | grep -q '保留（理由A・2026-11-27）'"
+ok "票の見出しの下に並びの説明がある" "page | grep -q '同じ状態の中は queue.txt の順'"
+rm -f "$T/queue.txt" "$T/queue.log" "$T/300-feat-gamma.result.md"
+
 [ "$fail" = 0 ] && echo "all ok"
 exit "$fail"
