@@ -84,6 +84,7 @@
   - 無線: `queueRadio` が列に積み、`stepRadio` が1フレームに1行だけ `RADIO_TUNE.minSec`（秒）の間ずつ出す
   - 終わり: 出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。`cleared` になったときカットシーンが流れていれば（M1 の `win`）、そのカットシーンが終わる（飛ばしも）まで `step` は動き続け（台本の時間も進む）、結果の画面は閉じのカットシーンのあとに出す（`step` in `src/logic/game.ts`、`update` in `src/app/play.ts`）。機体の装甲が 0 になる（`downed`）と `step` は何もしない（`cleared` のあと、閉じのカットシーンが終わってからも同じ）
   - 壊れる物: `breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる
+  - 入力: `GameInput` は `MechInput` に、サブ射撃 `sub`・画面の狙いの線 `aim`・指した地面の点 `aimAt`・爆薬 `use`・殴り `melee` を足したもの。`aimAt`（世界の座標、m）があると、`step` は機体からその点への yaw を `MechInput.face` に入れ（機体から `AIM_MIN_DIST` 0.9m より近いときは入れない）、`stepMech` は `face` があれば `turn` を使わず、近い回りで `MOVE_TUNE.faceRate × dt` まで向き直る。`MechInput.frame`（yaw）があると、`moveX`・`moveZ` は機体の向きではなくその yaw を基準に回す（画面の上を基準に動く）。照準の線 `aim` が無く `aimAt` があるときは、胸から `aimAt` へ水平（`dy: 0`）の線を照準に使う
 - `src/app/touch.ts`: engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る
 - `src/app/keyboard.ts`: engine のキーの動作とマウスを読み、ジャンプとロックの押した瞬間、右クリックのサブ射撃を `MechInput` の形にする
 - `src/app/input.ts`: タッチとキーボードを1つの `MechInput` にまとめる口。本番のゲームもここから読む
@@ -416,6 +417,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `hoverDrain` | 0.3 | ゲージ/秒。滞空で減るゲージ |
 | `landStop` | 0.12 | s。着地の硬直。この間は歩けない |
 | `turn` | 2.6 | rad/s。キーで向きを変える速さ |
+| `faceRate` | 30 | rad/s。指した点の方へ向き直る速さ（60fps で1コマ 0.5 rad、真後ろへ約6コマ） |
 | `maxStep` | 1/120 | s。1フレームを分ける刻みの最大 |
 
 脚の種類ごとの動きの値（SB-130 の3枚目。値は全部仮）。脚の部品は動きの種類 `gait`（`GaitKind` = `biped`・`reverse`・`multi`）を持ち、種類ごとに `MOVE_TUNE` の変える項目だけを `LEG_MOVE_TUNE` の上書きで持つ。機体の組から実際の値を作るのは `moveTuneOf`（`MOVE_TUNE` に脚の上書きを重ねる。純粋）で、`step` in `src/logic/game.ts` が `M1_MECH` から作った値を `stepMech` に渡す。定義場所は `GaitKind`・`PartDef.gait` in `src/data/mech.ts`、`LEG_MOVE_TUNE` in `src/data/tune.ts`、`moveTuneOf` in `src/logic/mechTune.ts`。

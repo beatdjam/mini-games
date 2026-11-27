@@ -98,6 +98,7 @@ export const MOVE_TUNE: MoveTune = {
   boostLift: 0, // the upward acceleration while boosting in the air (m/s^2); 0 falls while moving forward
   landStop: 0.12, // how long a landing stops the mech from walking (s)
   turn: 2.6, // how fast the turn keys change the yaw (rad/s)
+  faceRate: 30, // how fast the mech turns toward the point it is aimed at (rad/s); 0.5 rad a frame at 60 fps
   maxStep: 1 / 120, // the longest step a frame is split into (s)
 };
 

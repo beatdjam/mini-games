@@ -260,6 +260,39 @@ test('walking off a box falls to the ground', () => {
   expect(m.grounded).toBe(true);
 });
 
+test('a frame turns the movement input without turning the mech', () => {
+  const m = newMech();
+  stepMech(m, input({ moveZ: 1, frame: Math.PI / 4 }), 1 / 60, MOVE_TUNE, 0);
+  expect(m.yaw).toBe(0);
+  const length = Math.hypot(m.vx, m.vz);
+  expect(m.vx / length).toBeCloseTo(-Math.SQRT1_2, 5);
+  expect(m.vz / length).toBeCloseTo(-Math.SQRT1_2, 5);
+});
+
+test('a face ignores turn and turns at most faceRate * dt a step', () => {
+  const m = newMech();
+  stepMech(m, input({ turn: 10, face: Math.PI }), 1 / 60, MOVE_TUNE, 0);
+  expect(m.yaw).toBeCloseTo(MOVE_TUNE.faceRate / 60, 9);
+});
+
+test('a face turns the short way round', () => {
+  const m = newMech();
+  m.yaw = 3;
+  stepMech(m, input({ face: -3 }), 1 / 60, MOVE_TUNE, 0);
+  expect(m.yaw).toBeGreaterThan(3);
+  expect(m.yaw).toBeCloseTo(-3 + Math.PI * 2, 9);
+});
+
+test('without a frame or a face the mech turns and moves as before', () => {
+  const m = newMech();
+  m.yaw = Math.PI / 2;
+  stepMech(m, input({ turn: 0.2, moveZ: 1 }), 1 / 60, MOVE_TUNE, 0);
+  expect(m.yaw).toBeCloseTo(Math.PI / 2 + 0.2, 9);
+  const length = Math.hypot(m.vx, m.vz);
+  expect(m.vx / length).toBeCloseTo(-Math.cos(0.2), 5);
+  expect(m.vz / length).toBeCloseTo(Math.sin(0.2), 5);
+});
+
 test('without a world nothing changes', () => {
   const inputs: MechInput[] = [];
   for (let i = 0; i < 90; i++) {

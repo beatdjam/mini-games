@@ -10,6 +10,8 @@ export interface MechInput {
   moveX: number; // the mech's right/left input (-1 to 1, right is +)
   moveZ: number; // the mech's forward/back input (-1 to 1, forward is +)
   turn: number; // the yaw this frame adds (rad); the view already multiplied the rate by the frame time
+  frame?: number; // the yaw the movement input is taken from (rad); the mech's own yaw when left out
+  face?: number; // the yaw to turn toward (rad); when set, `turn` is not used and the mech turns at most faceRate * dt
   jump: boolean; // true only on the frame the jump key goes down, so holding it does not jump again
   jumpHeld: boolean; // true while the jump key is held
   boost: boolean; // true while the boost key is held
@@ -65,6 +67,14 @@ export function newMech(): MechState {
   };
 }
 
+// The angle turned from `yaw` toward `face`, the short way round: in (-pi, pi].
+function turnToward(yaw: number, face: number): number {
+  let delta = (face - yaw) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  else if (delta <= -Math.PI) delta += Math.PI * 2;
+  return delta;
+}
+
 // Moves the speed (vx, vz) toward (tx, tz) by at most `max` (m/s). A zero or negative max leaves it alone.
 function approach(vx: number, vz: number, tx: number, tz: number, max: number): [number, number] {
   if (max <= 0) return [vx, vz];
@@ -106,7 +116,7 @@ function stepOnce(
   if (m.landT > 0) m.landT = Math.max(0, m.landT - h);
 
   // The boost takes the input's direction, or straight forward with no input.
-  const dir = inputDirection(input, m.yaw);
+  const dir = inputDirection(input, input.frame ?? m.yaw);
   const forwardX = -Math.sin(m.yaw);
   const forwardZ = -Math.cos(m.yaw);
   let boosting = m.boosting;
@@ -259,7 +269,14 @@ export function stepMech(
 ): MechEvent[] {
   const events: MechEvent[] = [];
   if (!(dt > 0)) return events;
-  m.yaw += input.turn;
+  // A face turns the mech toward a point once a frame, not once a step: the steps split the frame, so turning in each
+  // would make the turn faster than faceRate.
+  if (input.face === undefined) m.yaw += input.turn;
+  else {
+    const delta = turnToward(m.yaw, input.face);
+    const most = tune.faceRate * dt;
+    m.yaw += Math.max(-most, Math.min(most, delta));
+  }
   let remaining = dt;
   let first = true;
   while (remaining > 1e-9) {

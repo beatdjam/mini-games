@@ -1574,11 +1574,41 @@ function stepAssist(game: GameModel, dt: number): void {
   damageEnemy(game, enemy, enemy.hp);
 }
 
+// How near the mech an aim point is too close to turn toward (m): a point under its feet would spin it every frame.
+const AIM_MIN_DIST = 0.9;
+
+// The yaw that faces from the mech toward `aim` (0 faces -z), or undefined with no point or one too near to turn toward.
+function faceTo(mech: { x: number; z: number }, aim: { x: number; z: number } | undefined): number | undefined {
+  if (aim === undefined || distXZ(mech, aim) < AIM_MIN_DIST) return undefined;
+  return Math.atan2(-(aim.x - mech.x), -(aim.z - mech.z));
+}
+
+// The chest's level aim toward the point, or along the mech's yaw when there is no point or it is too near to turn
+// toward.
+function levelAim(
+  mech: { x: number; z: number; yaw: number },
+  chest: { x: number; y: number; z: number },
+  aim: { x: number; z: number } | undefined,
+): Ray3 {
+  let dx = -Math.sin(mech.yaw);
+  let dz = -Math.cos(mech.yaw);
+  if (aim !== undefined && distXZ(mech, aim) >= AIM_MIN_DIST) {
+    const length = Math.hypot(aim.x - chest.x, aim.z - chest.z);
+    if (length > 1e-9) {
+      dx = (aim.x - chest.x) / length;
+      dz = (aim.z - chest.z) / length;
+    }
+  }
+  return { ox: chest.x, oy: chest.y, oz: chest.z, dx, dy: 0, dz };
+}
+
 // A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the camera's aim,
-// the use key (planting a charge; left out where there is none, so the old test inputs need no change) and the fist.
+// the point on the ground the player points at, the use key (planting a charge; left out where there is none, so the old
+// test inputs need no change) and the fist.
 export interface GameInput extends MechInput {
   sub: boolean;
   aim?: Ray3; // the camera's line through the middle of the screen; without it, level from the chest along the mech's yaw
+  aimAt?: { x: number; z: number }; // the ground point the player points at (world, m): the mech turns toward it and the aim line is level from the chest to it
   use?: boolean;
   melee?: boolean;
 }
@@ -1623,7 +1653,10 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   // Use plants a charge: while it is held the mech does not shoot, so a charge and a shot cannot be asked for together.
   const use = input.use === true && game.script.cutscene === null;
-  const held = use ? { ...input, fire: false, sub: false, melee: false } : input;
+  // A point the player aims at turns the mech toward it (a face already given wins), and the held input keeps it too.
+  const face = input.face ?? faceTo(game.mech, input.aimAt);
+  const faced = face === undefined ? input : { ...input, face };
+  const held = use ? { ...faced, fire: false, sub: false, melee: false } : faced;
   game.time += span;
   const moveTune = moveTuneOf(M1_MECH);
   const radius = MECH_TUNE.radius;
@@ -1673,14 +1706,7 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   }
   for (const event of events) game.events.push({ kind: 'mech', event });
   const chest = { x: game.mech.x, y: game.mech.y + MECH_TUNE.chestHeight, z: game.mech.z };
-  const aim: Ray3 = input.aim ?? {
-    ox: chest.x,
-    oy: chest.y,
-    oz: chest.z,
-    dx: -Math.sin(game.mech.yaw),
-    dy: 0,
-    dz: -Math.cos(game.mech.yaw),
-  };
+  const aim: Ray3 = input.aim ?? levelAim(game.mech, chest, input.aimAt);
   // The aim line stops at the first prop, standing target, live enemy or the ground; a shot goes there from the muzzle.
   const world: FcsWorld = {
     boxes: [

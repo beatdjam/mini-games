@@ -18,6 +18,7 @@ export type MoveTune = {
   boostLift: number; // the upward acceleration while boosting in the air (m/s^2); 0 falls while moving forward
   landStop: number; // how long a landing stops the mech from walking (s)
   turn: number; // how fast the turn keys change the yaw (rad/s)
+  faceRate: number; // how fast the mech turns toward the point it is aimed at (rad/s)
   maxStep: number; // the longest step a frame is split into (s)
 };
 
