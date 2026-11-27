@@ -70,7 +70,7 @@ test('after the end, and before the start, the camera keeps the nearest key', ()
   expect(poseAt(-1).pos).toEqual(keys[0].pos.map((value, i) => value + (i === 2 ? originAt(-1).z : 0)));
 });
 
-test('the last key is the game camera behind the mech at the start, and the table fits the cutscene', () => {
+test('the last key is the third-person camera behind the mech at the start, and the table fits the cutscene', () => {
   const mech = newGame(M1B_HAND).mech;
   const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, 0, CAMERA_TUNE, []);
   const last = keys[keys.length - 1];

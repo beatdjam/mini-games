@@ -2,7 +2,7 @@
 // the props that break, the enemies, the weapons, the mech's fist, the shots in flight, the mission script and the
 // frame's events.
 // Nothing here reads three or the DOM, so a test runs it in node without a page. The mech's shot is a bullet that flies
-// at its weapon's speed (data/weapons.ts) from the mech's chest toward the camera's aim, drawn toward a target or an
+// at its weapon's speed (data/weapons.ts) from the mech's chest toward the aim line, drawn toward a target or an
 // enemy in the aim circle by the soft FCS (fcs.ts) and spread a little by a random draw. It stops at the first prop it
 // meets, at the first target or living enemy along its path or at the ground, whichever is nearest, and vanishes at its
 // range; a breakable prop takes the damage and breaks at 0. An enemy's shot (logic/enemies.ts) flies at its kind's
@@ -1604,13 +1604,17 @@ function levelAim(
   return { ox: chest.x, oy: chest.y, oz: chest.z, dx, dy: 0, dz };
 }
 
-// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the camera's aim,
+// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the aim line,
 // the point on the ground the player points at, the use key (planting a charge; left out where there is none, so the old
 // test inputs need no change) and the fist.
 export interface GameInput extends MechInput {
   sub: boolean;
-  aim?: Ray3; // the camera's line through the middle of the screen; without it, level from the chest along the mech's yaw
-  aimAt?: { x: number; z: number }; // the ground point the player points at (world, m): the mech turns toward it and the aim line is level from the chest to it
+  // The aim line: the third-person camera's line through the middle of the screen for the dev views. The main body and
+  // the arena pass none and aim with `aimAt`; with neither, the line is level from the chest along the mech's yaw.
+  aim?: Ray3;
+  // The point the player points at, on the mech's feet plane (world, m): the mech turns toward it and the aim line is
+  // level from the chest to it.
+  aimAt?: { x: number; z: number };
   use?: boolean;
   melee?: boolean;
 }
@@ -1707,6 +1711,8 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     if (game.mech.vz > 0) game.mech.vz = 0;
   }
   for (const event of events) game.events.push({ kind: 'mech', event });
+  // The face comes from the mech before the step and this line from the chest after it, so a fast move shifts the aim by
+  // one frame.
   const chest = { x: game.mech.x, y: game.mech.y + MECH_TUNE.chestHeight, z: game.mech.z };
   const aim: Ray3 = input.aim ?? levelAim(game.mech, chest, input.aimAt);
   // The aim line stops at the first prop, standing target, live enemy or the ground; a shot goes there from the muzzle.

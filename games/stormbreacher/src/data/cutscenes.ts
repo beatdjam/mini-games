@@ -64,7 +64,7 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
   // before the camera moves at 5.4 s. It then comes over the stern, above the wheelhouse (x +-1.5, z 182.5-185.5,
   // y 1.7-4.3; unit test) and the stern wall (top 4.7 m), and into the deck behind the mech without a cut. Inside it
   // looks at the ramp the whole time. The keys inside stay 4 m or more from the mech's chest so the model is not drawn
-  // see-through. The last key is the game's own camera. Values are provisional.
+  // see-through. The last key is the third-person pose the quarter view eases from. Values are provisional.
   landing: {
     camera: [
       // offsets from the mech (x 0, z 177 at the shore), so all nine keys sail in with it
@@ -161,10 +161,11 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
   },
   // The fortress's charge blows (SB-1860): the walls come down under the camera, then the view rises to the battery past
   // them, cuts out to the sea where a craft goes down, and ends behind the mech outside the sea gate. Every key is relative
-  // to the mech (the run may end anywhere outside the gate); the last one is the game's own camera. The sea keys are
-  // written for a mech at about z -58, just outside the sea gate: they then stand at z 100-150, inside camera.far 260 of
-  // the craft they watch (the crafts' `sink` z are absolute). The wall's fall is drawn by syncWorld from `brokenProps`,
-  // not by a `collapse` event; the bursts here are the shells of the charge going off.
+  // to the mech (the run may end anywhere outside the gate); the last one is the third-person pose the quarter view
+  // eases from. The sea keys are written for a mech at about z -58, just outside the sea gate: they then stand at
+  // z 100-150, inside camera.far 260 of the craft they watch (the crafts' `sink` z are absolute). The wall's fall is
+  // drawn by syncWorld from `brokenProps`, not by a `collapse` event; the bursts here are the shells of the charge going
+  // off.
   'fortress-blast': {
     camera: [
       { at: 0, pos: [0, 18, -8], look: [0, 8, -128], rel: true }, // outside the sea gate, over the fortress

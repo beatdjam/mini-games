@@ -205,7 +205,8 @@ function rollShutter(
 
 // Lowers and darkens every target whose health is gone, lowers its camera box to the wreck's height, hides every shutter
 // that is open, and every prop the game has broken or a blast has opened: its copy becomes a low, dark wreck and its box
-// leaves cameraBoxes in place (play.ts hands that same array to the camera every frame). A blasted line is drawn open
+// leaves cameraBoxes in place (the third-person dev views hand that same array to the camera every frame). A blasted
+// line is drawn open
 // from the first frame after a checkpoint or a suspend brings it back. A pillbox goes down over PILLBOX_BREAK.sec instead, so its fall reads as the road opening: the
 // seconds live here, in the view, and a save or a checkpoint needs nothing new. Called every frame: a pillbox keeps
 // sinking until PILLBOX_BREAK.sec, while every other broken target is left as it is once it is down, and a blast point's

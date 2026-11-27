@@ -39,6 +39,16 @@ test('an aim point too near the mech leaves the yaw alone', () => {
   expect(game.mech.yaw).toBe(0);
 });
 
+test('a held use keeps the aim point turning the mech', () => {
+  seed(7);
+  const game = newPlayGame({ ...M1B_HAND, targets: [], mines: [] });
+  game.mech.x = 0;
+  game.mech.z = 166;
+  const aimAt = { x: game.mech.x + 20, z: game.mech.z };
+  for (let i = 0; i < 30; i++) step(game, { ...idle, use: true, aimAt }, DT);
+  expect(game.mech.yaw).toBeCloseTo(-Math.PI / 2, 2);
+});
+
 test('with no aim point, a held face keeps the yaw and the shot along it', () => {
   seed(7);
   const game = newPlayGame({ ...M1B_HAND, targets: [], mines: [] });

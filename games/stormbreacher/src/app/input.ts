@@ -2,7 +2,7 @@
 // game and the dev views use this instead of either device's reader.
 import { el, isTouch } from '@engine/core/index.ts';
 import { requestLock } from '@engine/ui/index.ts';
-import { mergeInput, withoutJump } from '../logic/input.ts';
+import { jumpReading, mergeInput, withoutJump } from '../logic/input.ts';
 import type { MechInput } from '../logic/mech.ts';
 import { holdMouseFireUntilRelease, initKeyboard, readKeyboard } from './keyboard.ts';
 import { initTouch, readTouch } from './touch.ts';
@@ -40,7 +40,7 @@ export function initPlayInput(options: PlayInputOptions = {}) {
   if (ready) return;
   ready = true;
   cursorMode = options.cursor === true && !isTouch;
-  jumpMode = options.jump !== false;
+  jumpMode = jumpReading(options);
   initKeyboard({ cursor: cursorMode, jump: jumpMode });
   initTouch({ show: isTouch, jump: jumpMode });
   const canvas = el('#gl');

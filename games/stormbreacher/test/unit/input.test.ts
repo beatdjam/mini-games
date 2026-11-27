@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { mergeInput, withoutJump } from '../../src/logic/input.ts';
+import { jumpReading, mergeInput, playInputOptions, withoutJump } from '../../src/logic/input.ts';
 import type { MechInput } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -44,4 +44,13 @@ test('withoutJump drops the jump and leaves the rest of the input alone', () => 
   expect(noJump.jumpHeld).toBe(false);
   expect(noJump.moveZ).toBe(1);
   expect(noJump.boost).toBe(true);
+});
+
+test('the main body and the arena start the play input with no jump', () => {
+  const options = playInputOptions();
+  expect(options).toEqual({ cursor: true, jump: false });
+  expect(jumpReading(options)).toBe(false);
+  // the dev views call initPlayInput with no options and keep the jump
+  expect(jumpReading({})).toBe(true);
+  expect(jumpReading({ jump: true })).toBe(true);
 });

@@ -37,6 +37,21 @@ test('the screen shows inland up-right and +x right-down', () => {
   expect(right.y).toBeLessThan(mech.y);
 });
 
+test('quarterPose puts the look point and the camera where the tune asks', () => {
+  const target = { x: 3, y: 2, z: -4 };
+  const pose = quarterPose(target, QUARTER_TUNE);
+  const upX = -Math.sin(QUARTER_TUNE.azimuth);
+  const upZ = -Math.cos(QUARTER_TUNE.azimuth);
+  // the look point leads the mech by `lead` toward the screen's top and sits `lookHeight` above its feet
+  expect(pose.look.x).toBeCloseTo(target.x + upX * QUARTER_TUNE.lead, 9);
+  expect(pose.look.y).toBeCloseTo(target.y + QUARTER_TUNE.lookHeight, 9);
+  expect(pose.look.z).toBeCloseTo(target.z + upZ * QUARTER_TUNE.lead, 9);
+  // the camera sits `height` above the look point and `back` toward the screen's bottom
+  expect(pose.pos.y).toBeCloseTo(pose.look.y + QUARTER_TUNE.height, 9);
+  expect(pose.pos.x).toBeCloseTo(pose.look.x - upX * QUARTER_TUNE.back, 9);
+  expect(pose.pos.z).toBeCloseTo(pose.look.z - upZ * QUARTER_TUNE.back, 9);
+});
+
 test('followQuarter takes the pose whole with no previous frame', () => {
   const pose = quarterPose(MECH, QUARTER_TUNE);
   const next = followQuarter(null, pose, 1 / 60, QUARTER_TUNE);
@@ -100,6 +115,21 @@ test('quarterTuneFrom overrides a value and ignores a bad one or an unknown name
   expect(ignored).toEqual(QUARTER_TUNE);
 });
 
+test('quarterTuneFrom ignores values outside their range', () => {
+  const ignored = quarterTuneFrom(new URLSearchParams('q.fov=0&q.height=-1&q.back=-2&q.lag=-3'), QUARTER_TUNE);
+  expect(ignored).toEqual(QUARTER_TUNE);
+  const wide = quarterTuneFrom(new URLSearchParams('q.fov=180'), QUARTER_TUNE);
+  expect(wide).toEqual(QUARTER_TUNE);
+  // the edges themselves are kept
+  expect(quarterTuneFrom(new URLSearchParams('q.fov=1&q.height=0&q.back=0&q.lag=0'), QUARTER_TUNE)).toEqual({
+    ...QUARTER_TUNE,
+    fov: 1,
+    height: 0,
+    back: 0,
+    lag: 0,
+  });
+});
+
 test('groundPoint finds the look point under the middle of the screen', () => {
   const pose = quarterPose(MECH, QUARTER_TUNE);
   const at = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 0, y: 0 }, pose.look.y);
@@ -115,6 +145,14 @@ test('the top of the screen is more inland than its middle', () => {
   // azimuth pi/4: the screen's top runs toward -x and -z, so the top point lies farther inland (smaller z)
   expect(top.z).toBeLessThan(middle.z);
   expect(top.x).toBeLessThan(middle.x);
+});
+
+test("the right of the screen finds a point to the mech's right", () => {
+  const pose = quarterPose(MECH, QUARTER_TUNE);
+  const middle = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 0, y: 0 }, pose.look.y)!;
+  const right = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 1, y: 0 }, pose.look.y)!;
+  // +x is the mech's right at yaw 0, and it is right and down the screen at azimuth pi/4
+  expect(right.x).toBeGreaterThan(middle.x);
 });
 
 test('groundPoint gives null when the top of the screen looks above the horizon', () => {

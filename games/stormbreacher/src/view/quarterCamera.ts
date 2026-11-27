@@ -73,15 +73,19 @@ export function groundPoint(
   return { x: pose.pos.x + dx * t, z: pose.pos.z + dz * t };
 }
 
-// `base` with the values the URL asks for: `?q.height=30` sets `height`. Numbers that cannot be read and names that are
-// not in the tune are ignored, so a plain sortie keeps the table's values and a typo changes nothing.
+// `base` with the values the URL asks for: `?q.height=30` sets `height`. Numbers that cannot be read, values outside
+// their range (the fov must stay in view, and the height, back and lag cannot be negative) and names that are not in
+// the tune are ignored, so a plain sortie keeps the table's values and a typo changes nothing.
 export function quarterTuneFrom(params: URLSearchParams, base: QuarterTune): QuarterTune {
   const tune: QuarterTune = { ...base };
   for (const key of Object.keys(base) as (keyof QuarterTune)[]) {
     const raw = params.get(`q.${key}`);
     if (raw === null || raw.trim() === '') continue;
     const value = Number(raw);
-    if (Number.isFinite(value)) tune[key] = value;
+    if (!Number.isFinite(value)) continue;
+    if (key === 'fov' && (value < 1 || value > 179)) continue;
+    if ((key === 'height' || key === 'back' || key === 'lag') && value < 0) continue;
+    tune[key] = value;
   }
   return tune;
 }
