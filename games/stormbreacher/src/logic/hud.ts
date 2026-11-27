@@ -23,7 +23,8 @@ export interface HudAmmo {
   max: number; // WEAPONS[id].ammo
 }
 
-// angle: deg from the mech's front, + to the right; dist: 0 at the centre, 1 at the edge
+// angle: deg from the mech's front, or from the screen's top when the view passes its azimuth, + to the right; dist: 0
+// at the centre, 1 at the edge
 export interface HudRadarMark {
   kind: TargetKind | EnemyKind | 'blast'; // `blast` is a pillbox's blast point (SB-2017)
   angle: number;
@@ -64,15 +65,16 @@ export interface HudModel {
 
 const DEG = 180 / Math.PI;
 
-// How the place (x, z) sits from the mech: the angle from the mech's front in degrees (+ to the right) and the distance
-// (m). The mech's front is (-sin yaw, -cos yaw) and its right is (cos yaw, -sin yaw) on the ground plane; a target's
-// place is the middle of its box.
-function bearing(game: GameModel, x: number, z: number): { angle: number; dist: number } {
+// How the place (x, z) sits from the mech: the angle from `yaw`'s front in degrees (+ to the right) and the distance
+// (m). The front is (-sin yaw, -cos yaw) and its right is (cos yaw, -sin yaw) on the ground plane; a target's place is
+// the middle of its box. `yaw` is the mech's own unless the view passes the screen's azimuth (a fixed-azimuth camera),
+// so the radar turns with the screen there.
+function bearing(game: GameModel, x: number, z: number, yaw = game.mech.yaw): { angle: number; dist: number } {
   const mech = game.mech;
   const dx = x - mech.x;
   const dz = z - mech.z;
-  const sin = Math.sin(mech.yaw);
-  const cos = Math.cos(mech.yaw);
+  const sin = Math.sin(yaw);
+  const cos = Math.cos(yaw);
   const ahead = dx * -sin + dz * -cos;
   const side = dx * cos - dz * sin;
   return { angle: Math.atan2(side, ahead) * DEG, dist: Math.hypot(dx, dz) };
@@ -97,10 +99,10 @@ function headlineOf(game: GameModel): string | null {
 
 // The front line as two points on the radar: the ends of the line across the map's width. The view clips the stretch to
 // the radar's circle, so a line behind the mech or past the edge shows only where it crosses the dial.
-function radarFront(game: GameModel): HudFront {
+function radarFront(game: GameModel, yaw: number): HudFront {
   const front = frontOf(game.script.flags);
-  const a = bearing(game, game.map.bounds.minX, front.z);
-  const b = bearing(game, game.map.bounds.maxX, front.z);
+  const a = bearing(game, game.map.bounds.minX, front.z, yaw);
+  const b = bearing(game, game.map.bounds.maxX, front.z, yaw);
   const range = HUD_TUNE.radarRange;
   return {
     a: { angle: a.angle, dist: a.dist / range },
@@ -108,7 +110,8 @@ function radarFront(game: GameModel): HudFront {
   };
 }
 
-export function hudModel(game: GameModel): HudModel {
+export function hudModel(game: GameModel, viewYaw?: number): HudModel {
+  const yaw = viewYaw ?? game.mech.yaw;
   const living = game.targets.filter(target => target.hp > 0);
 
   const aimed = game.targets.find(target => target.id === game.aimTarget);
@@ -148,7 +151,7 @@ export function hudModel(game: GameModel): HudModel {
       .map(blast => ({ kind: 'blast' as const, x: blast.x, z: blast.z })),
   ];
   for (const mark of marks) {
-    const { angle, dist } = bearing(game, mark.x, mark.z);
+    const { angle, dist } = bearing(game, mark.x, mark.z, yaw);
     if (dist > HUD_TUNE.radarRange) continue;
     radar.push({ kind: mark.kind, angle, dist: dist / HUD_TUNE.radarRange });
   }
@@ -206,7 +209,7 @@ export function hudModel(game: GameModel): HudModel {
     enemy,
     lock,
     radar,
-    front: radarFront(game),
+    front: radarFront(game, yaw),
     headline: headlineOf(game),
     warning,
     callout,

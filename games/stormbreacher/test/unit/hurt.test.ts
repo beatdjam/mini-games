@@ -52,6 +52,17 @@ test('the edge direction turns with the mech’s yaw', () => {
   expect(hurtAngle(0, 1, yaw)).toBeCloseTo(270);
 });
 
+test('the edge can be measured from the screen’s azimuth instead of the mech’s front', () => {
+  const view = viewStub();
+  // the mech faces -x (yaw pi/2) but the screen's top is pi/4: a shot from -z comes from the screen's up-right (45°)
+  hurtDamage(view, 0, -1, Math.PI / 2, Math.PI / 4);
+  expect(view.edgeLeft[1]).toBe(HURT_TUNE.edgeFade);
+  // with no screen yaw the mech's own front is used, as before: the same shot is from the mech's right (90°)
+  const mech = viewStub();
+  hurtDamage(mech, 0, -1, Math.PI / 2);
+  expect(mech.edgeLeft[2]).toBe(HURT_TUNE.edgeFade);
+});
+
 test('the eight edges are centred on the front, the right, the back and the left', () => {
   expect(hurtEdge(0)).toBe(0);
   expect(hurtEdge(45)).toBe(1);

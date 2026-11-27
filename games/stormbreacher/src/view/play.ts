@@ -561,7 +561,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       spawnDust(event.toX, event.toZ, HIT_DUST * YARD_TUNE.assistDust, FEEL_TUNE);
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
-      hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);
+      hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw, view.quarter.tune.azimuth);
     }
   }
   // The fortress's charge blew (SB-1860): a large blast at the magazine and dust along each wall that comes down. The
@@ -689,7 +689,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   hurtStep(view.hurt, dt, game.armor / MECH_TUNE.armor);
   // the red edge and the flash are the player's damage readout, as the HUD is: a cutscene hides them with the HUD
   view.hurt.root.hidden = game.script.cutscene !== null;
-  const hud = hudModel(game);
+  const hud = hudModel(game, view.quarter.tune.azimuth);
   view.useNear = hud.use !== null;
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   drawHud(view.hud, hud, lock);

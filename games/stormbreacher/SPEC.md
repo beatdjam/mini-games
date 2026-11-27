@@ -129,7 +129,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）を出す。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。左上に目標、下の真ん中に今出している1行の無線（`RADIO_TUNE.minSec` の間だけ。ラベルは `hud.radio`）を出す。ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。色と主張は仮。
 
 - 枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）
-- 値: `hudModel` in `src/logic/hud.ts`（純粋）が、HUD に出す値（ブースト・装甲・メインとサブの弾数・台本の今の目標と数えている数 `objective`・今出している1行の無線 `radio`・ソフトロックが狙いを寄せている目標か敵の体力 `enemy` とその箱 `lock`・レーダーの点・着弾予告の警告 `warning`）を `GameModel` から作る。装甲は `armor / MECH_TUNE.armor`。熱は持たない
+- 値: `hudModel` in `src/logic/hud.ts`（純粋）が、HUD に出す値（ブースト・装甲・メインとサブの弾数・台本の今の目標と数えている数 `objective`・今出している1行の無線 `radio`・ソフトロックが狙いを寄せている目標か敵の体力 `enemy` とその箱 `lock`・レーダーの点・着弾予告の警告 `warning`）を `GameModel` から作る。装甲は `armor / MECH_TUNE.armor`。熱は持たない。レーダーの角度は、呼び元が画面の向き `viewYaw` を渡したときは画面の上（本体と広場は `QUARTER_TUNE.azimuth`）を 0 度にし、渡さないときは機体の正面を 0 度にする
 - HUD の目標: `objective` は台本の今の目標 `game.script.objective` の言語キー `obj.<id>`。台本がまだ目標を出していないときは null で、何も出さない。数える目標だけ `count: { done, total }` を持ち、画面は「目標 トーチカを2基破壊 1/2」のように数を足して書く。どの目標が何を数えるかは `OBJECTIVE_COUNT` in `src/data/script.ts`（目標 id → 数える目標 id の列。`break-pillboxes` は `pillbox-1`・`pillbox-2`、`silence-battery` は `main-gun-1`・`main-gun-2`）。表に無い目標（`reach-pillboxes`・`stop-fortress-gun`・`bomb-fortress`・`hit-magazine`）は数を出さない。`total` はマップにある目標だけ、`done` はその中で体力 0 のもの。数える目標がマップに1つも無いときも数を出さない
 - HUD の爆薬: `use` は爆破点の近くで `hud.use`（「使う」）と長押しの割合を出し、`charge` は仕掛けた爆薬の `hud.charge`（「爆破まで」）と残り秒・棒を出す。棒の割合は `left / total` で、`total` はその爆薬を仕掛けたときの導火線（`ChargeState.total`。線の爆薬は `CHARGE_TUNE.fuse` の 3 秒、要塞の爆薬は `FORT_BLAST_TUNE.countdownSec` の 20 秒）。新しい行やキーは足さない（SB-1860）
 - HUD の敵の体力: ソフトロックが寄せている目標か敵の `hp / TARGET_HP[kind]` か `hp / ENEMIES[kind].hp`。トーチカは爆薬でしか壊れず（6章「トーチカ」）ソフトロックの候補にならない（SB-2043）ので、体力のバーも制圧の残りも出さない。`hudModel` は、`aimTarget` に `TARGET_CHARGE_ONLY` の目標の id が入っていても、`enemy` と `lock` を null にする（旗で開くシャッターの奥の目標、起動の前の要塞の機関砲も同じ。SB-2051）。制圧が効いていることは、銃眼の予兆の光が止まることと、銃眼の灰色の煙（`sb-pillbox-smoke`）で見える
@@ -139,14 +139,14 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - ロック枠: `lock` は `enemy` と同じ相手の箱（目標は `box`、敵は `enemyBox` in `src/logic/game.ts`）。`enemy` が null のときは null
 - 照準: PC の本体と広場では、点をマウスカーソルの位置（`PlayRead.cursor` の正規化座標。動かすまでは画面の真ん中）に描き、三人称の円錐を表す円は出さない。タッチでは画面の真ん中に点と円を出す。位置は照準の箱に対する割合（`reticleAt` in `src/view/hudParts.ts`）で書き、HUD を作り直しても最後の位置に戻す（`placeReticle` in `src/view/hud.ts`）
 - 描く: `src/view/hud.ts` が本体の出撃中の HUD を `HudModel` から描き、`src/view/hudParts.ts` は弧・丸いレーダー・点と円・照準の円の半径を持ち、`#view-hud` の見本と本体が同じものを使う。`src/data/colors.ts` は HUD の色（`HUD_COLOR`）も名前で持つ
-- 前線: 丸いレーダーに、味方が押さえている地面の端（前線）を破線で描く（SB-2010）。`HudModel.front` が前線の両端をレーダーの角度と距離で持ち、`roundRadar` が円で切り抜いて線を引く。位置は台本の旗から `frontOf` が決める（6章「節目」）
+- 前線: 丸いレーダーに、味方が押さえている地面の端（前線）を破線で描く（SB-2010）。`HudModel.front` が前線の両端をレーダーの角度と距離で持ち、`roundRadar` が円で切り抜いて線を引く。位置は台本の旗から `frontOf` が決める（6章「節目」）。角度はレーダーの点と同じく、本体と広場では画面の上を 0 度にする
 - 短い見出し: 節目の間だけ、画面の上の方に「突破」「第二線突破」「トーチカ沈黙」のような短い見出しを出す（`HudModel.headline`。言語キーは `m1.breach`・`m1.breach2`・`m1.bunker-down`）。出るのはその cue が発火してから `PAYOFF_TUNE.headlineSec` の間で、時刻は台本の `fired` から読む
 
 ### 撃たれている感
 
 撃たれている感（SB-1380）は `src/view/hurt.ts` が画面の縁に出す。要素 `#sbPlayHurt`（`z-index: 4`。キャンバスの上、HUD とカットシーンの帯の下）は出撃を作るときに1度だけ作り、カットシーンの間は HUD と同じく隠す。毎フレームは縁と白みの `opacity`、色を抜く層の `backdrop-filter` を書き換えるだけ（変わるまで書かない）。値は `HURT_TUNE` in `src/data/tune.ts`（すべて仮。`#view-hurt` の調整パネルで決める）。
 
-- 被弾の方向: 出来事 `damaged` の `fromX`・`fromZ`（機体から撃った側への向き）と機体の `yaw` から、機体の正面を 0 度とする角度を `hurtAngle` で出す。画面の縁を8方向（正面・右前・右・右後ろ・後ろ・左後ろ・左・左前。`hurtEdge`）に分け、その方向の縁を `HURT_TUNE.edgeFade` 秒かけて赤く光らせる。同じ方向に重ねて受けたら消えるまでの時間を戻し、別の方向は同時に出る
+- 被弾の方向: 出来事 `damaged` の `fromX`・`fromZ`（機体から撃った側への向き）と、画面の向き（本体と広場は画面の上 `QUARTER_TUNE.azimuth`。渡さないときは機体の `yaw`）から、その向きを 0 度とする角度を `hurtAngle` で出す。画面の縁を8方向（正面・右前・右・右後ろ・後ろ・左後ろ・左・左前。`hurtEdge`）に分け、その方向の縁を `HURT_TUNE.edgeFade` 秒かけて赤く光らせる。同じ方向に重ねて受けたら消えるまでの時間を戻し、別の方向は同時に出る
 - 近い着弾: 爆発が機体から `HURT_TUNE.flashNear` m 以内で起きたら、`HURT_TUNE.flashFade` 秒かけて画面を白ませる。強さは近いほど強く、0m で `flashAlpha`、`flashNear` で 0。爆発は迫撃砲・地雷のほか、自分が壊した目標・敵・物の爆発も同じに扱い（どれも「爆発」）、カットシーン中に着弾した砲弾でも白む。揺れは6章の爆発の `boomShakeAt` が近いほど強くする（ここでは足さない）
 - 装甲の減り: 装甲が `HURT_TUNE.armorDarkFrom`（0.5 = 50%）を下回ると、画面の縁を暗くし、`backdrop-filter` の `saturate()` で色を抜く。強さは減るほど強く、装甲 0 で `armorDarkMax`・`armorDrain`。暗くする層と色を抜く層は分け、色を抜く層の `opacity` は 1 のままにする（同じ層に置くと暗さの `opacity` が抜けも弱めるため）。色を抜くのは縁だけで、画面の真ん中は残す。出撃を作り直す（やり直し）と戻る
 
