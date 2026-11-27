@@ -16,7 +16,6 @@ import { newEnemy } from '../../logic/enemies.ts';
 import { newGame, step, type GameModel } from '../../logic/game.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
 import { newWeapon } from '../../logic/weapons.ts';
-import { cameraBoxesOfRect } from '../../view/camera.ts';
 import { noFade } from '../../view/fade.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { placeReticle } from '../../view/hud.ts';
@@ -127,11 +126,8 @@ function buildArenaWorld(map: MapDef): World {
     targetGroup,
     shutters: new Map(),
     shore: buildShore(map.bounds),
-    cameraBoxes: mapBlockers(map).flatMap(cameraBoxesOfRect),
     fade: noFade(),
-    targetCameraBoxes: new Map(),
     slots: new Map(),
-    propCameraBoxes: new Map(),
     broken: new Set(),
     opened: new Set(),
     breaks: new Map(),

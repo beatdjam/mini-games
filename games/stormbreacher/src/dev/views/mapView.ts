@@ -2,7 +2,6 @@
 // builder, the mission's places and the waves' spawn points, and a 4 m mech walked with #view-touch's input under the
 // overview camera, turning toward the cursor. The mech cannot walk into the props or the targets. The screen shows what
 // the map holds and what validateMapForMission says about it; window.sbMapReport() returns the same numbers.
-import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
@@ -61,7 +60,6 @@ export { MAP_FOG } from '../../view/world.ts';
 
 export interface MapScene {
   built: World['built'];
-  cameraBoxes: THREE.Box3[];
 }
 
 interface MapReport {
@@ -138,11 +136,11 @@ export function buildMapScene(map: MapDef, air = true): MapScene {
   const ground = scene.getObjectByName(GROUND_NAME);
   if (ground) ground.visible = false;
 
-  const { built, cameraBoxes } = buildWorld(map, air);
+  const { built } = buildWorld(map, air);
   scene.add(buildAreaFrames(M1.areas, map.bounds));
   scene.add(buildSpawnMarks(map.spawns));
   scene.add(buildBlastMarks(map.blasts));
-  return { built, cameraBoxes };
+  return { built };
 }
 
 export function showMap(_hash: string) {
