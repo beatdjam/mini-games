@@ -5,18 +5,7 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CAMERA_TUNE, FCS_TUNE, type HudRingTune } from '../data/tune.ts';
 import type { ScreenPoint } from './hudPlace.ts';
 import { keepInside } from './hudPlace.ts';
-import {
-  ammoCells,
-  ammoColor,
-  ammoFilled,
-  ammoShare,
-  armorColor,
-  armorStage,
-  boostOpacity,
-  gaugeSweep,
-  reticleColor,
-  type AmmoTier,
-} from './hudRing.ts';
+import { gaugeReading, gaugeSweep, reticleColor, type AmmoTier, type GaugeKind, type GaugeReading } from './hudRing.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const DOT_RADIUS = 2.5; // px
@@ -300,10 +289,11 @@ export function reticleAt(cursor: { x: number; y: number } | null): { left: stri
   return { left: `${((x + 1) / 2) * 100}%`, top: `${((1 - y) / 2) * 100}%` };
 }
 
-// Layout D's aim mark (SB-2155, revised SB-2157 and SB-2158): the centre dot and small circle, the armour's short arc on
-// the left, the boost's on the right, the main ammo as a short bar over it and the sub ammo as a row of cells under it.
-// It follows the cursor's point; `setPosition` pulls the mark inward near an edge so neither the arcs nor the bars leave
-// the screen. `set` writes the marks' values, so a frame only touches what changed.
+// The aim mark of layouts D, E and F (SB-2155, revised SB-2157 and SB-2158, shared in SB-2159): the centre dot and small
+// circle, two short arcs at its sides and up to two short bars over or under it. The layout says which gauge goes in each
+// place (`ReticleMarkSpec`); the drawing here is the same for all of them, so an armour arc and an armour bar read alike.
+// The mark follows the cursor's point; `setPosition` pulls it inward near an edge so neither the arcs nor the bars leave
+// the screen. `set` writes the gauges' values, so a frame only touches what changed.
 export interface ReticleMarkState {
   armor: number; // 0-1
   boost: number; // 0-1
@@ -315,18 +305,267 @@ export interface ReticleMarkState {
   subTier: AmmoTier;
   locked: boolean;
   glow: number; // the armour's flash, 0-1
-  blink: number; // an empty bar's brightness, 0-1
+  blink: number; // an empty gauge's brightness, 0-1
+}
+
+// Which gauge a layout sets in each place: the left and right arcs, the bar over the mark, and the bars under it from the
+// top down. A slot is the same whether it is an arc or a bar, so one gauge keeps its look in any place.
+export interface ReticleMarkSpec {
+  left: GaugeKind;
+  right: GaugeKind;
+  above: GaugeKind | null;
+  below: readonly GaugeKind[];
 }
 
 export interface ReticleMarks {
   root: HTMLElement;
-  main: HTMLElement; // the main ammo bar (data-hud `main` in hud.ts)
-  sub: HTMLElement; // the sub ammo bar (data-hud `sub` in hud.ts)
+  main: HTMLElement | SVGElement; // the main ammo gauge (data-hud `main` in hud.ts)
+  sub: HTMLElement | SVGElement; // the sub ammo gauge (data-hud `sub` in hud.ts)
   setPosition(at: ScreenPoint): void;
   set(state: ReticleMarkState): void;
 }
 
-export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
+interface GaugeVisual {
+  node: HTMLElement | SVGElement;
+  set(reading: GaugeReading, blink: number): void;
+}
+
+interface BarVisual extends GaugeVisual {
+  node: HTMLElement;
+  position(cx: number, cy: number): void;
+}
+
+// An arc or a bar's line: round ends, and a butt end for one cell of a segmented gauge, so neighbouring cells keep their
+// gap. A cell's butt end is inside the gauge, so the gauge's own ends are still round.
+function gaugeStroke(d: string, width: number, color: string, linecap: 'round' | 'butt' = 'round'): SVGPathElement {
+  return svg('path', {
+    d,
+    fill: 'none',
+    stroke: color,
+    'stroke-width': width,
+    'stroke-linecap': linecap,
+  }) as SVGPathElement;
+}
+
+// One arc of the mark. It opens from its own middle as the gauge goes down. A sub gauge can be drawn as cells instead: one
+// arc a round, with a dark backing that keeps the divisions visible.
+function buildArc(group: SVGGElement, mid: number, tune: HudRingTune['reticle']): GaugeVisual {
+  const radius = tune.arc.radius;
+  const open = tune.arc.openDeg;
+  const start = mid - open / 2;
+  const holder = svg('g', {}) as SVGGElement;
+  group.appendChild(holder);
+  // the thin dark edge behind the whole opening, so the track and the cells read over bright sand
+  holder.appendChild(
+    gaugeStroke(arcPath(0, 0, radius, start, open), tune.stroke + tune.shadow * 2, HUD_COLOR.markShadow),
+  );
+
+  let mode = -1; // -1 before the first frame, 0 for one length, >0 for cells
+  let track: SVGPathElement | null = null;
+  let fill: SVGPathElement | null = null;
+  let cells: SVGPathElement[] = [];
+  let lastSweep = Number.NaN;
+  let lastColor = '';
+  let lastOpacity = Number.NaN;
+  let lastFilled = -1;
+  let lastEmpty: boolean | null = null;
+  let lastBlink = Number.NaN;
+  let lastTrack = '';
+
+  const rebuild = (count: number): void => {
+    track?.remove();
+    fill?.remove();
+    for (const cell of cells) cell.remove();
+    track = null;
+    fill = null;
+    cells = [];
+    if (count > 0) {
+      const gapDeg = (tune.bar.segmentGap / radius) * (180 / Math.PI);
+      const cellDeg = Math.max(0, (open - gapDeg * (count - 1)) / count);
+      for (let i = 0; i < count; i++) {
+        const cell = gaugeStroke(
+          arcPath(0, 0, radius, start + i * (cellDeg + gapDeg), cellDeg),
+          tune.stroke,
+          HUD_COLOR.track,
+          'butt',
+        );
+        holder.appendChild(cell);
+        cells.push(cell);
+      }
+    } else {
+      track = gaugeStroke(arcPath(0, 0, radius, start, open), tune.stroke, HUD_COLOR.track);
+      fill = gaugeStroke(arcPath(0, 0, radius, start, 0), tune.stroke, HUD_COLOR.track);
+      holder.append(track, fill);
+    }
+    lastSweep = Number.NaN;
+    lastColor = '';
+    lastOpacity = Number.NaN;
+    lastFilled = -1;
+    lastEmpty = null;
+    lastBlink = Number.NaN;
+    lastTrack = '';
+  };
+
+  return {
+    node: holder,
+    set(reading, blink) {
+      if (reading.cells !== mode) {
+        mode = reading.cells;
+        rebuild(mode);
+      }
+      if (mode > 0) {
+        if (reading.filled !== lastFilled || reading.color !== lastColor || reading.empty !== lastEmpty) {
+          lastFilled = reading.filled;
+          lastColor = reading.color;
+          lastEmpty = reading.empty;
+          for (let i = 0; i < cells.length; i++) {
+            cells[i].setAttribute(
+              'stroke',
+              reading.empty ? HUD_COLOR.warn : i < reading.filled ? reading.color : HUD_COLOR.track,
+            );
+          }
+        }
+      } else if (track !== null && fill !== null) {
+        const trackColor = reading.empty ? HUD_COLOR.warn : HUD_COLOR.track;
+        if (trackColor !== lastTrack) {
+          lastTrack = trackColor;
+          track.setAttribute('stroke', trackColor);
+        }
+        if (reading.color !== lastColor) {
+          lastColor = reading.color;
+          fill.setAttribute('stroke', reading.color);
+        }
+        if (reading.opacity !== lastOpacity) {
+          lastOpacity = reading.opacity;
+          fill.setAttribute('stroke-opacity', String(reading.opacity));
+        }
+        const sweep = gaugeSweep(reading.ratio, open);
+        if (sweep !== lastSweep) {
+          lastSweep = sweep;
+          if (sweep <= 0) {
+            fill.style.display = 'none';
+          } else {
+            fill.style.display = '';
+            fill.setAttribute('d', arcPath(0, 0, radius, start, sweep));
+          }
+        }
+      }
+      const alpha = reading.empty ? blink : 1;
+      if (alpha !== lastBlink) {
+        lastBlink = alpha;
+        holder.style.opacity = String(alpha);
+      }
+    },
+  };
+}
+
+// One bar of the mark. Like an arc, it shows a share or, for a sub gauge, one cell a round. The caller places it relative
+// to the mark's centre with `position`.
+function buildBar(parent: HTMLElement, top: number, tune: HudRingTune['reticle']): BarVisual {
+  const width = tune.bar.width;
+  const thickness = tune.stroke;
+  const end = thickness / 2;
+  const bar = document.createElement('div');
+  bar.style.cssText =
+    `position:absolute;box-sizing:border-box;width:${width}px;height:${thickness}px;` +
+    `border-radius:${end}px;background:${HUD_COLOR.track};` +
+    `box-shadow:0 0 0 ${tune.shadow}px ${HUD_COLOR.markShadow};`;
+  const fill = document.createElement('div');
+  fill.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:0%;border-radius:${end}px;background:${HUD_COLOR.track};`;
+  bar.appendChild(fill);
+  parent.appendChild(bar);
+
+  let mode = -1;
+  let cells: HTMLDivElement[] = [];
+  let lastShare = Number.NaN;
+  let lastColor = '';
+  let lastOpacity = Number.NaN;
+  let lastFilled = -1;
+  let lastEmpty: boolean | null = null;
+  let lastBlink = Number.NaN;
+
+  const rebuild = (count: number): void => {
+    bar.replaceChildren();
+    cells = [];
+    if (count > 0) {
+      bar.style.background = 'transparent';
+      bar.style.boxShadow = 'none';
+      bar.style.gap = `${tune.bar.segmentGap}px`;
+      bar.style.display = 'flex';
+      for (let i = 0; i < count; i++) {
+        const cell = document.createElement('div');
+        cell.style.cssText =
+          `flex:1 1 0;height:100%;border-radius:${end}px;background:${HUD_COLOR.track};` +
+          `box-shadow:0 0 0 ${tune.shadow}px ${HUD_COLOR.markShadow};`;
+        bar.appendChild(cell);
+        cells.push(cell);
+      }
+    } else {
+      bar.style.background = HUD_COLOR.track;
+      bar.style.boxShadow = `0 0 0 ${tune.shadow}px ${HUD_COLOR.markShadow}`;
+      bar.style.gap = '';
+      bar.style.display = '';
+      bar.appendChild(fill);
+    }
+    lastShare = Number.NaN;
+    lastColor = '';
+    lastOpacity = Number.NaN;
+    lastFilled = -1;
+    lastEmpty = null;
+    lastBlink = Number.NaN;
+  };
+
+  return {
+    node: bar,
+    position(cx, cy) {
+      bar.style.left = `${cx - width / 2}px`;
+      bar.style.top = `${cy + top}px`;
+    },
+    set(reading, blink) {
+      if (reading.cells !== mode) {
+        mode = reading.cells;
+        rebuild(mode);
+      }
+      if (mode > 0) {
+        if (reading.filled !== lastFilled || reading.color !== lastColor || reading.empty !== lastEmpty) {
+          lastFilled = reading.filled;
+          lastColor = reading.color;
+          lastEmpty = reading.empty;
+          for (let i = 0; i < cells.length; i++) {
+            cells[i].style.background = reading.empty
+              ? HUD_COLOR.warn
+              : i < reading.filled
+                ? reading.color
+                : HUD_COLOR.track;
+          }
+        }
+      } else {
+        if (reading.color !== lastColor) {
+          lastColor = reading.color;
+          fill.style.background = reading.color;
+        }
+        if (reading.opacity !== lastOpacity) {
+          lastOpacity = reading.opacity;
+          fill.style.opacity = String(reading.opacity);
+        }
+        if (reading.ratio !== lastShare || reading.empty !== lastEmpty) {
+          lastShare = reading.ratio;
+          lastEmpty = reading.empty;
+          fill.style.width = `${reading.ratio * 100}%`;
+          fill.style.display = reading.ratio > 0 && !reading.empty ? '' : 'none';
+          bar.style.background = reading.empty ? HUD_COLOR.warn : HUD_COLOR.track;
+        }
+      }
+      const alpha = reading.empty ? blink : 1;
+      if (alpha !== lastBlink) {
+        lastBlink = alpha;
+        bar.style.opacity = String(alpha);
+      }
+    },
+  };
+}
+
+export function reticleMarks(tune: HudRingTune['reticle'], spec: ReticleMarkSpec): ReticleMarks {
   const root = document.createElement('div');
   root.style.cssText = 'position:absolute;inset:0;pointer-events:none';
   const rootSvg = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
@@ -336,24 +575,27 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
   const group = svg('g', {}) as SVGGElement;
   rootSvg.appendChild(group);
 
-  // The left arc is the armour, the right the boost: each opens from its own middle as the gauge goes down.
-  const arc = (mid: number, color: string): SVGPathElement => {
-    const node = svg('path', {
-      d: arcPath(0, 0, tune.arc.radius, mid - tune.arc.openDeg / 2, tune.arc.openDeg),
-      fill: 'none',
-      stroke: color,
-      'stroke-width': tune.arc.thickness,
-      'stroke-linecap': 'butt',
-    }) as SVGPathElement;
-    group.appendChild(node);
-    return node;
+  const gauges: { kind: GaugeKind; visual: GaugeVisual }[] = [];
+  const bars: BarVisual[] = [];
+  const addArc = (kind: GaugeKind, mid: number): void => {
+    gauges.push({ kind, visual: buildArc(group, mid, tune) });
   };
-  arc(180, HUD_COLOR.track);
-  const armorArc = arc(180, HUD_COLOR.armorHigh);
-  arc(0, HUD_COLOR.track);
-  const boostArc = arc(0, HUD_COLOR.bar);
-  armorArc.style.display = 'none';
-  boostArc.style.display = 'none';
+  addArc(spec.left, 180);
+  addArc(spec.right, 0);
+
+  // The bars sit one `gap` beyond the arcs, and each further bar one `gap` beyond the last.
+  const arcOuter = tune.arc.radius + tune.stroke / 2;
+  const addBar = (kind: GaugeKind, top: number): void => {
+    const visual = buildBar(root, top, tune);
+    bars.push(visual);
+    gauges.push({ kind, visual });
+  };
+  if (spec.above !== null) addBar(spec.above, -(arcOuter + tune.gap + tune.stroke));
+  let belowTop = arcOuter + tune.gap;
+  for (const kind of spec.below) {
+    addBar(kind, belowTop);
+    belowTop += tune.stroke + tune.gap;
+  }
 
   const circle = svg('circle', {
     cx: 0,
@@ -367,73 +609,38 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
   const dot = svg('circle', { cx: 0, cy: 0, r: tune.dotRadius, fill: HUD_COLOR.dot });
   group.appendChild(dot);
 
-  // The main ammo over the mark: one track whose fill is the share of the magazine left.
-  const mainBar = document.createElement('div');
-  mainBar.style.cssText =
-    `position:absolute;box-sizing:border-box;width:${tune.ammo.main.width}px;` +
-    `height:${tune.ammo.main.thickness}px;background:${HUD_COLOR.track}`;
-  const mainFill = document.createElement('div');
-  mainFill.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:0%;background:${HUD_COLOR.bar}`;
-  mainBar.appendChild(mainFill);
-  root.appendChild(mainBar);
+  const style = {
+    armorMid: tune.armorMid,
+    armorLow: tune.armorLow,
+    armorOpacity: tune.arc.armorOpacity,
+    boostFullOpacity: tune.arc.boostFullOpacity,
+    boostLowOpacity: tune.arc.boostLowOpacity,
+    maxSegments: tune.bar.maxSegments,
+  };
 
-  // The sub ammo under the mark: one cell a round up to `maxSegments`; a fuller magazine is one length like the main
-  // bar. The cells are built in `set`, once the full count is known.
-  const subBar = document.createElement('div');
-  subBar.style.cssText =
-    `position:absolute;box-sizing:border-box;width:${tune.ammo.sub.width}px;` +
-    `height:${tune.ammo.sub.thickness}px;display:flex;gap:${tune.ammo.sub.segmentGap}px;`;
-  const subFill = document.createElement('div');
-  subFill.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:0%;background:${HUD_COLOR.bar}`;
-  root.appendChild(subBar);
+  const nodeOf = (kind: GaugeKind): HTMLElement | SVGElement => {
+    const found = gauges.find(gauge => gauge.kind === kind);
+    if (found === undefined) throw new Error(`the aim mark has no ${kind} gauge`);
+    return found.visual.node;
+  };
 
   let lastCenter: ScreenPoint | null = null;
   let lastLocked: boolean | null = null;
-  let lastArmorSweep = -1;
-  let lastArmorColor = '';
-  let lastArmorOpacity = -1;
-  let lastBoostSweep = -1;
-  let lastBoostOpacity = -1;
-  let lastMainShare = -1;
-  let lastMainColor = '';
-  let lastMainEmpty: boolean | null = null;
-  let lastMainBlink = -1;
-  let lastSubCells = -1;
-  let lastSubFilled = -1;
-  let lastSubShare = -1;
-  let lastSubColor = '';
-  let lastSubEmpty: boolean | null = null;
-  let lastSubBlink = -1;
-  let cells: HTMLDivElement[] = [];
-
-  const buildCells = (count: number): void => {
-    subBar.replaceChildren();
-    cells = [];
-    if (count <= 0) {
-      subBar.style.background = HUD_COLOR.track;
-      subBar.appendChild(subFill);
-      return;
-    }
-    subBar.style.background = 'transparent';
-    for (let i = 0; i < count; i++) {
-      const cell = document.createElement('div');
-      cell.style.cssText = `flex:1 1 0;height:100%;background:${HUD_COLOR.track}`;
-      subBar.appendChild(cell);
-      cells.push(cell);
-    }
-  };
 
   return {
     root,
-    main: mainBar,
-    sub: subBar,
+    main: nodeOf('main'),
+    sub: nodeOf('sub'),
     setPosition(at) {
       const screen = { width: window.innerWidth, height: window.innerHeight };
-      const reach = tune.arc.radius + tune.arc.thickness / 2;
-      const halfWidth = Math.max(reach, tune.ammo.main.width / 2, tune.ammo.sub.width / 2);
-      const above = reach + tune.ammo.main.gap + tune.ammo.main.thickness;
-      const below = reach + tune.ammo.sub.gap + tune.ammo.sub.thickness;
-      // the whole mark is pulled inward, so the arcs and both bars stay on the screen
+      const arcReach = arcOuter + tune.shadow;
+      const halfWidth = Math.max(arcReach, tune.bar.width / 2 + tune.shadow);
+      const above = spec.above === null ? arcReach : arcOuter + tune.gap + tune.stroke + tune.shadow;
+      const below =
+        spec.below.length === 0
+          ? arcReach
+          : arcOuter + tune.gap + spec.below.length * tune.stroke + (spec.below.length - 1) * tune.gap + tune.shadow;
+      // the whole mark is pulled inward, so the arcs and every bar stay on the screen
       const box = keepInside(
         { x: at.x - halfWidth, y: at.y - above },
         halfWidth * 2,
@@ -445,10 +652,7 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
       if (lastCenter !== null && lastCenter.x === center.x && lastCenter.y === center.y) return;
       lastCenter = center;
       group.setAttribute('transform', `translate(${center.x} ${center.y})`);
-      mainBar.style.left = `${center.x - tune.ammo.main.width / 2}px`;
-      mainBar.style.top = `${center.y - above}px`;
-      subBar.style.left = `${center.x - tune.ammo.sub.width / 2}px`;
-      subBar.style.top = `${center.y + below - tune.ammo.sub.thickness}px`;
+      for (const bar of bars) bar.position(center.x, center.y);
     },
     set(state) {
       const locked = reticleColor(state.locked);
@@ -457,105 +661,7 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
         circle.setAttribute('stroke', locked);
         dot.setAttribute('fill', state.locked ? HUD_COLOR.lock : HUD_COLOR.dot);
       }
-      const armorSweep = gaugeSweep(state.armor, tune.arc.openDeg);
-      const color = armorColor(armorStage(state.armor, tune.armorMid, tune.armorLow));
-      const armorOpacity = Math.min(1, tune.arc.armorOpacity + (1 - tune.arc.armorOpacity) * Math.max(0, state.glow));
-      if (armorSweep !== lastArmorSweep) {
-        lastArmorSweep = armorSweep;
-        if (armorSweep <= 0) {
-          armorArc.style.display = 'none';
-        } else {
-          armorArc.style.display = '';
-          armorArc.setAttribute('d', arcPath(0, 0, tune.arc.radius, 180 - armorSweep / 2, armorSweep));
-        }
-      }
-      if (color !== lastArmorColor) {
-        lastArmorColor = color;
-        armorArc.setAttribute('stroke', color);
-      }
-      if (armorOpacity !== lastArmorOpacity) {
-        lastArmorOpacity = armorOpacity;
-        armorArc.setAttribute('stroke-opacity', String(armorOpacity));
-      }
-      const boostSweep = gaugeSweep(state.boost, tune.arc.openDeg);
-      if (boostSweep !== lastBoostSweep) {
-        lastBoostSweep = boostSweep;
-        if (boostSweep <= 0) {
-          boostArc.style.display = 'none';
-        } else {
-          boostArc.style.display = '';
-          boostArc.setAttribute('d', arcPath(0, 0, tune.arc.radius, -boostSweep / 2, boostSweep));
-        }
-      }
-      const boostAlpha = boostOpacity(state.boost, tune.arc.boostFullOpacity, tune.arc.boostLowOpacity);
-      if (boostAlpha !== lastBoostOpacity) {
-        lastBoostOpacity = boostAlpha;
-        boostArc.setAttribute('stroke-opacity', String(boostAlpha));
-      }
-
-      // The main bar: the share left as the fill's width; when empty the whole track turns red and blinks.
-      const mainEmpty = state.mainTier === 'empty';
-      const mainColor = ammoColor(state.mainTier);
-      if (mainColor !== lastMainColor || mainEmpty !== lastMainEmpty) {
-        lastMainColor = mainColor;
-        lastMainEmpty = mainEmpty;
-        mainBar.style.background = mainEmpty ? HUD_COLOR.warn : HUD_COLOR.track;
-        mainFill.style.background = mainColor;
-      }
-      const mainShare = ammoShare(state.main, state.mainMax);
-      if (mainShare !== lastMainShare) {
-        lastMainShare = mainShare;
-        mainFill.style.width = `${mainShare * 100}%`;
-        mainFill.style.display = mainShare > 0 ? '' : 'none';
-      }
-      const mainBlink = mainEmpty ? state.blink : 1;
-      if (mainBlink !== lastMainBlink) {
-        lastMainBlink = mainBlink;
-        mainBar.style.opacity = String(mainBlink);
-      }
-
-      // The sub bar: one cell a round, or the share as one length when the magazine is too full for cells.
-      const subEmpty = state.subTier === 'empty';
-      const subColor = ammoColor(state.subTier);
-      const subCells = ammoCells(state.subMax, tune.ammo.sub.maxSegments);
-      if (subCells !== lastSubCells) {
-        lastSubCells = subCells;
-        buildCells(subCells);
-        lastSubFilled = -1;
-        lastSubShare = -1;
-        lastSubColor = '';
-      }
-      if (subCells > 0) {
-        const filled = ammoFilled(state.sub, state.subMax, tune.ammo.sub.maxSegments);
-        if (filled !== lastSubFilled || subColor !== lastSubColor || subEmpty !== lastSubEmpty) {
-          lastSubFilled = filled;
-          lastSubColor = subColor;
-          lastSubEmpty = subEmpty;
-          for (let i = 0; i < cells.length; i++) {
-            cells[i].style.background = subEmpty ? HUD_COLOR.warn : i < filled ? subColor : HUD_COLOR.track;
-          }
-        }
-      } else {
-        if (subColor !== lastSubColor) {
-          lastSubColor = subColor;
-          subFill.style.background = subColor;
-        }
-        const subShare = ammoShare(state.sub, state.subMax);
-        if (subShare !== lastSubShare) {
-          lastSubShare = subShare;
-          subFill.style.width = `${subShare * 100}%`;
-          subFill.style.display = subShare > 0 ? '' : 'none';
-        }
-        if (subEmpty !== lastSubEmpty) {
-          lastSubEmpty = subEmpty;
-          subBar.style.background = subEmpty ? HUD_COLOR.warn : HUD_COLOR.track;
-        }
-      }
-      const subBlink = subEmpty ? state.blink : 1;
-      if (subBlink !== lastSubBlink) {
-        lastSubBlink = subBlink;
-        subBar.style.opacity = String(subBlink);
-      }
+      for (const gauge of gauges) gauge.visual.set(gaugeReading(gauge.kind, state, style), state.blink);
     },
   };
 }

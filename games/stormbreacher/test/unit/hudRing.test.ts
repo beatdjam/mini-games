@@ -1,6 +1,7 @@
-// Layout D's pure values (SB-2155, revised SB-2157 and SB-2158): the arcs' sweep, the ammo bars' shares and cells, the
-// bars' tier and colour, the empty blink, the aim mark's lock colour, the armour's shades, the boost's opacity and the
-// hit's flash. Every boundary is fixed here.
+// The aim marks' pure values (SB-2155, revised SB-2157 and SB-2158, shared by D-F in SB-2159): the arcs' sweep, the ammo
+// bars' shares and cells, the bars' tier and colour, the empty blink, the aim mark's lock colour, the armour's shades, the
+// boost's opacity, the hit's flash, and the reading each gauge keeps wherever a layout puts it. Every boundary is fixed
+// here.
 import { expect, test } from 'vitest';
 import { HUD_COLOR } from '../../src/data/colors.ts';
 import {
@@ -12,9 +13,12 @@ import {
   ammoTier,
   armorStage,
   boostOpacity,
+  gaugeReading,
   gaugeSweep,
   hitGlow,
   reticleColor,
+  type GaugeStyle,
+  type GaugeValues,
 } from '../../src/view/hudRing.ts';
 
 test('gaugeSweep opens from nothing to the full arc and cuts the ends', () => {
@@ -110,4 +114,89 @@ test('hitGlow is full at the hit, gone at the end, and full for a negative time'
   expect(hitGlow(0.35, 0.35)).toBe(0);
   expect(hitGlow(1, 0.35)).toBe(0);
   expect(hitGlow(0, 0)).toBe(0);
+});
+
+const STYLE: GaugeStyle = {
+  armorMid: 0.6,
+  armorLow: 0.28,
+  armorOpacity: 0.7,
+  boostFullOpacity: 0.22,
+  boostLowOpacity: 0.85,
+  maxSegments: 16,
+};
+const VALUES: GaugeValues = {
+  armor: 0.5,
+  boost: 1,
+  main: 100,
+  mainMax: 400,
+  sub: 8,
+  subMax: 12,
+  mainTier: 'warn',
+  subTier: 'quiet',
+  glow: 0,
+};
+
+test('gaugeReading gives a gauge the same look as an arc, a bar or cells', () => {
+  expect(gaugeReading('armor', VALUES, STYLE)).toEqual({
+    ratio: 0.5,
+    color: HUD_COLOR.armorMid,
+    opacity: 0.7,
+    cells: 0,
+    filled: 0,
+    empty: false,
+  });
+  expect(gaugeReading('armor', { ...VALUES, glow: 0.5 }, STYLE).opacity).toBeCloseTo(0.85, 10);
+  expect(gaugeReading('boost', VALUES, STYLE)).toEqual({
+    ratio: 1,
+    color: HUD_COLOR.bar,
+    opacity: 0.22,
+    cells: 0,
+    filled: 0,
+    empty: false,
+  });
+  expect(gaugeReading('main', VALUES, STYLE)).toEqual({
+    ratio: 0.25,
+    color: HUD_COLOR.amber,
+    opacity: 1,
+    cells: 0,
+    filled: 0,
+    empty: false,
+  });
+  expect(gaugeReading('sub', VALUES, STYLE)).toEqual({
+    ratio: 8 / 12,
+    color: HUD_COLOR.bar,
+    opacity: 1,
+    cells: 12,
+    filled: 8,
+    empty: false,
+  });
+});
+
+test('gaugeReading keeps the ammo rules in the E arcs and the F bars', () => {
+  // E: the main ammo is the left arc, so its share sets the sweep; red at empty.
+  expect(gaugeReading('main', { ...VALUES, main: 0, mainTier: 'empty' }, STYLE)).toMatchObject({
+    ratio: 0,
+    color: HUD_COLOR.warn,
+    empty: true,
+    cells: 0,
+  });
+  // E: the sub ammo is the right arc, one cell a round up to 16 and a share past it.
+  expect(gaugeReading('sub', { ...VALUES, sub: 12, subMax: 12 }, STYLE)).toMatchObject({ cells: 12, filled: 12 });
+  expect(gaugeReading('sub', { ...VALUES, sub: 0, subMax: 12, subTier: 'empty' }, STYLE)).toMatchObject({
+    cells: 12,
+    filled: 0,
+    color: HUD_COLOR.warn,
+    empty: true,
+  });
+  expect(gaugeReading('sub', { ...VALUES, sub: 8, subMax: 17 }, STYLE)).toMatchObject({
+    cells: 0,
+    filled: 0,
+    ratio: 8 / 17,
+  });
+  // F: both ammo bars take the same reading they would in D's bar and cells.
+  expect(gaugeReading('main', VALUES, STYLE)).toMatchObject({ ratio: 0.25, color: HUD_COLOR.amber });
+  expect(gaugeReading('sub', VALUES, STYLE)).toMatchObject({ cells: 12, filled: 8, color: HUD_COLOR.bar });
+  // E: the armour bar keeps the shades and glow of D's arc, and the boost bar its thin full gauge.
+  expect(gaugeReading('armor', { ...VALUES, armor: 0.28, glow: 0 }, STYLE).color).toBe(HUD_COLOR.armorLow);
+  expect(gaugeReading('boost', { ...VALUES, boost: 0.999 }, STYLE).opacity).toBe(0.85);
 });

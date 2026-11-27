@@ -1,6 +1,6 @@
-// The pure side of layout D (SB-2155, revised SB-2157 and SB-2158): the shares, shades, angles and blink that the aim
-// mark at the cursor shows, without the DOM or three. The sizes come from data/tune.ts's HUD_RING_TUNE; the colours from
-// HUD_COLOR. A test can fix every boundary here without a page.
+// The pure side of the aim marks (SB-2155, revised SB-2157 and SB-2158, shared by layouts D-F in SB-2159): the shares,
+// shades, cells, angles and blink that the mark at the cursor shows, without the DOM or three. The sizes come from
+// data/tune.ts's HUD_RING_TUNE; the colours from HUD_COLOR. A test can fix every boundary here without a page.
 import { HUD_COLOR } from '../data/colors.ts';
 
 export type AmmoTier = 'quiet' | 'warn' | 'empty';
@@ -83,4 +83,84 @@ export function hitGlow(elapsed: number, seconds: number): number {
   if (elapsed <= 0) return 1;
   if (elapsed >= seconds) return 0;
   return 1 - elapsed / seconds;
+}
+
+// The gauges that can stand in any of the mark's places (SB-2159): an arc at the aim mark's side or a bar over or under
+// it. Which gauge goes where is the layout's business; how a gauge reads stays with its kind.
+export type GaugeKind = 'armor' | 'boost' | 'main' | 'sub';
+
+export interface GaugeValues {
+  armor: number; // 0-1
+  boost: number; // 0-1
+  main: number; // rounds left
+  mainMax: number; // a full magazine
+  sub: number; // rounds left
+  subMax: number; // a full magazine
+  mainTier: AmmoTier;
+  subTier: AmmoTier;
+  glow: number; // the armour's flash, 0-1
+}
+
+export interface GaugeStyle {
+  armorMid: number;
+  armorLow: number;
+  armorOpacity: number;
+  boostFullOpacity: number;
+  boostLowOpacity: number;
+  maxSegments: number;
+}
+
+// How one gauge should read, whatever shape it takes: its share of the whole, its colour, its opacity, and (for a sub
+// gauge) how many cells make a full magazine and how many of them are lit. The rules belong to the kind, so the armour's
+// shades and glow, the boost's thin full gauge, and the ammo's warn and empty colours do not change with the place.
+export interface GaugeReading {
+  ratio: number; // 0-1, the length a one-length gauge fills
+  color: string;
+  opacity: number; // 0-1
+  cells: number; // 0 for one length, otherwise how many cells a full magazine has
+  filled: number; // the lit cells; 0 when there are no cells
+  empty: boolean; // an empty ammo gauge reddens its track and blinks
+}
+
+export function gaugeReading(kind: GaugeKind, values: GaugeValues, style: GaugeStyle): GaugeReading {
+  if (kind === 'armor') {
+    const ratio = Math.max(0, Math.min(1, values.armor));
+    return {
+      ratio,
+      color: armorColor(armorStage(ratio, style.armorMid, style.armorLow)),
+      opacity: Math.min(1, style.armorOpacity + (1 - style.armorOpacity) * Math.max(0, values.glow)),
+      cells: 0,
+      filled: 0,
+      empty: false,
+    };
+  }
+  if (kind === 'boost') {
+    const ratio = Math.max(0, Math.min(1, values.boost));
+    return {
+      ratio,
+      color: HUD_COLOR.bar,
+      opacity: boostOpacity(ratio, style.boostFullOpacity, style.boostLowOpacity),
+      cells: 0,
+      filled: 0,
+      empty: false,
+    };
+  }
+  if (kind === 'main') {
+    return {
+      ratio: ammoShare(values.main, values.mainMax),
+      color: ammoColor(values.mainTier),
+      opacity: 1,
+      cells: 0,
+      filled: 0,
+      empty: values.mainTier === 'empty',
+    };
+  }
+  return {
+    ratio: ammoShare(values.sub, values.subMax),
+    color: ammoColor(values.subTier),
+    opacity: 1,
+    cells: ammoCells(values.subMax, style.maxSegments),
+    filled: ammoFilled(values.sub, values.subMax, style.maxSegments),
+    empty: values.subTier === 'empty',
+  };
 }

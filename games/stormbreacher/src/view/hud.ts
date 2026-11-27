@@ -3,9 +3,9 @@
 // right), the main and sub ammo under the circle, the last radio line at the bottom centre and a lock frame round the
 // target the aim is pulled toward. B (SB-2150) puts the ammo at the cursor and short gauge bars at the mech's feet; C puts
 // the gauges and the ammo in a row along the bottom. D (SB-2155, revised SB-2157 and SB-2158) keeps B's other parts and
-// draws the armour and boost as short arcs at the cursor's left and right, the main ammo as a short bar above it and the
-// sub ammo as a row of cells below it. It reads HudModel (logic/hud.ts) and draws it; it never writes the model. Heat is
-// not drawn; the only warning is the shell's. The shades and the emphasis are 仮.
+// draws the gauges as an aim mark at the cursor; E and F (SB-2159) use the same mark with the gauges in other places. It
+// reads HudModel (logic/hud.ts) and draws it; it never writes the model. Heat is not drawn; the only warning is the
+// shell's. The shades and the emphasis are 仮.
 import { isTouch, t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
@@ -29,6 +29,7 @@ import {
   type RadarFront,
   type RadarKey,
   type RadarMarkKind,
+  type ReticleMarkSpec,
   type ReticleMarks,
 } from './hudParts.ts';
 
@@ -69,10 +70,19 @@ const HUD_B_BAR_GAP = 4; // px, between the two gauges at the mech's feet
 const HUD_B_FEET_GAP = 8; // px, from the feet down to the first gauge
 const HUD_EDGE = 8; // px, kept from the screen's edge by a part that follows a point
 
-// The three placements (SB-2150). A is the D plan the game has used, unchanged. B follows the eye: the ammo at the
+// The six placements (SB-2150, SB-2159). A is the D plan the game has used, unchanged. B follows the eye: the ammo at the
 // cursor and short gauges at the mech's feet; the other parts stay where A puts them. C gathers the gauges and the ammo
-// in a row along the bottom edge and moves the radio line above it. In B and C the parts that hang off `--ring` (use,
-// melee, warning, callout) stay at the middle of the screen, as in A.
+// in a row along the bottom edge and moves the radio line above it. D, E and F give their gauges to the aim mark at the
+// cursor; the other parts stay where A puts them. In B-F the parts that hang off `--ring` (use, melee, warning, callout)
+// stay at the middle of the screen, as in A.
+const PLAY_HUD_LAYOUT_MARK = {
+  ...PLAY_HUD_LAYOUT_A,
+  armor: { css: '' },
+  boost: { css: '' },
+  main: { css: '' },
+  sub: { css: '' },
+} as const;
+
 const PLAY_HUD_LAYOUTS = {
   a: PLAY_HUD_LAYOUT_A,
   b: {
@@ -90,16 +100,26 @@ const PLAY_HUD_LAYOUTS = {
     sub: { css: 'left:calc(50% + 170px);bottom:16px;width:150px;text-align:left' },
     radio: { css: 'left:50%;transform:translateX(-50%);bottom:64px;width:560px;padding:2px 6px' },
   },
-  // D (SB-2155, revised SB-2157) keeps B's other parts and moves the armour, boost and ammo to the aim mark at the
-  // cursor. The armour and boost boxes stay as empty slots for the e2e ids.
-  d: {
-    ...PLAY_HUD_LAYOUT_A,
-    armor: { css: '' },
-    boost: { css: '' },
-    main: { css: '' },
-    sub: { css: '' },
-  },
+  // D, E and F put the gauges in the aim mark at the cursor (SB-2155, 2157, 2158, 2159). Their empty boxes keep the e2e
+  // ids; the mark's own gauges are the ones that show.
+  d: PLAY_HUD_LAYOUT_MARK,
+  e: PLAY_HUD_LAYOUT_MARK,
+  f: PLAY_HUD_LAYOUT_MARK,
 } as const;
+
+// Which gauge each mark layout puts where (SB-2159): its two arcs, the bar over the mark and the bars under it, top down.
+// D is the armour and boost as arcs with the ammo as a bar and cells; E puts the ammo in the arcs and the armour and boost
+// in the bars; F keeps D's arcs and sets both ammo bars under the mark.
+const HUD_RETICLE_MARKS: Record<'d' | 'e' | 'f', ReticleMarkSpec> = {
+  d: { left: 'armor', right: 'boost', above: 'main', below: ['sub'] },
+  e: { left: 'main', right: 'sub', above: 'armor', below: ['boost'] },
+  f: { left: 'armor', right: 'boost', above: null, below: ['main', 'sub'] },
+};
+
+// The layouts that show their gauges in the aim mark at the cursor.
+function isMarkLayout(layout: HudLayout): layout is 'd' | 'e' | 'f' {
+  return layout === 'd' || layout === 'e' || layout === 'f';
+}
 
 const PLAY_HUD_TEXT = {
   armor: { name: 10, value: 13, arc: 4 }, // px
@@ -180,9 +200,9 @@ export interface PlayHud {
   boost: ArcGauge;
   armorNode: HTMLElement; // the gauge's box: layout B puts it at the mech's feet
   boostNode: HTMLElement;
-  mainValue: HTMLElement;
+  mainValue: HTMLElement | SVGElement;
   mainBox: HTMLElement; // the ammo's box: layout B puts it at the cursor
-  subValue: HTMLElement;
+  subValue: HTMLElement | SVGElement;
   subBox: HTMLElement;
   feet: ScreenPoint | null; // the mech's feet on the screen (px), null while the camera is in front of them
   objective: HTMLElement;
@@ -211,7 +231,7 @@ export interface PlayHud {
   melee: HTMLElement;
   radar: RadarGauge;
   reticle: Reticle;
-  marks: ReticleMarks | null; // layout D's aim mark: the ring, dots and numbers at the cursor
+  marks: ReticleMarks | null; // layouts D-F's aim mark: the arcs and bars at the cursor
   last: HudLast;
 }
 
@@ -337,7 +357,7 @@ function layOut(
       thickness: spec.armor.bar.thickness,
     });
   } else {
-    // layout D draws the armour as the aim mark's left arc; the empty box keeps the e2e id
+    // the mark layouts make the armour one of the aim mark's gauges; the empty box keeps the e2e id
     armor = { set: () => {} };
   }
   const boostNode = place(root, spec.boost.css, 'boost');
@@ -359,22 +379,22 @@ function layOut(
       thickness: spec.boost.bar.thickness,
     });
   } else {
-    // layout D draws the boost as the aim mark's right arc; the empty box keeps the e2e id
+    // the mark layouts make the boost one of the aim mark's gauges; the empty box keeps the e2e id
     boost = { set: () => {} };
   }
-  // B's gauges wait for the first frame to put them at the mech's feet; D's slots stay empty.
-  if (layout === 'b' || layout === 'd') {
+  // B's gauges wait for the first frame to put them at the mech's feet; the mark layouts' slots stay empty.
+  if (layout === 'b' || isMarkLayout(layout)) {
     armorNode.hidden = true;
     boostNode.hidden = true;
   }
 
-  let mainValue: HTMLSpanElement;
+  let mainValue: HTMLElement | SVGElement;
   let mainBox: HTMLElement;
-  let subValue: HTMLSpanElement;
+  let subValue: HTMLElement | SVGElement;
   let subBox: HTMLElement;
   let marks: ReticleMarks | null = null;
-  if (layout === 'd') {
-    marks = reticleMarks(HUD_RING_TUNE.reticle);
+  if (isMarkLayout(layout)) {
+    marks = reticleMarks(HUD_RING_TUNE.reticle, HUD_RETICLE_MARKS[layout]);
     marks.main.dataset.hud = 'main';
     marks.sub.dataset.hud = 'sub';
     mainValue = marks.main;
@@ -462,7 +482,7 @@ function layOut(
   const reticleBox = place(root, spec.reticle.css, 'reticle');
   reticleBox.appendChild(aim.root);
   if (marks !== null) {
-    // D's own mark takes the place; the A dot and ring stay in the page but are hidden.
+    // the mark layouts' own mark takes the place; the A dot and ring stay in the page but are hidden.
     aim.root.style.display = 'none';
     reticleBox.appendChild(marks.root);
   }
@@ -515,11 +535,10 @@ function layOut(
 }
 
 // Puts the parts that follow a point where that point now is: layout B's ammo at the cursor and its gauges under the
-// mech's feet; layout D's ring and numbers at the cursor. The fixed placements do nothing. A rebuild calls this again
+// mech's feet; the mark layouts' arcs and bars at the cursor. The fixed placements do nothing. A rebuild calls this again
 // with the kept points.
 function positionMoving(hud: PlayHud): void {
-  if (hud.layout === 'd') {
-    if (hud.marks === null) return;
+  if (hud.marks) {
     hud.marks.setPosition(ndcToScreen(hud.reticle.cursor ?? { x: 0, y: 0 }, window.innerWidth, window.innerHeight));
     return;
   }
@@ -562,7 +581,7 @@ function positionMoving(hud: PlayHud): void {
   hud.boostNode.style.top = `${barsAt.y + BAR_GAUGE_HEIGHT + HUD_B_BAR_GAP}px`;
 }
 
-// Puts the HUD on another placement (the arena's A/B/C buttons). The same placement does nothing.
+// Puts the HUD on another placement (the arena's A-F buttons). The same placement does nothing.
 export function setHudLayout(hud: PlayHud, layout: HudLayout): void {
   if (hud.layout === layout) return;
   const feet = hud.feet;
@@ -598,7 +617,7 @@ function countText(count: { done: number; total: number } | null): string {
 // Writes one frame of the HUD. Only the values that changed are written; the radar's marks and the lock frame are put
 // down every frame. `lock` is the lock target's rectangle on the screen (view/camera.ts screenRect), null for none.
 // `feet` is the mech's feet on the screen (px) for layout B's gauges, null while the camera is in front of them. `glow`
-// is layout D's armour flash after a hit (0-1) and `time` the game's clock, which drives an empty ammo bar's blink.
+// is the mark layouts' armour flash after a hit (0-1) and `time` the game's clock, which drives an empty gauge's blink.
 export function drawHud(
   hud: PlayHud,
   model: HudModel,
@@ -624,7 +643,7 @@ export function drawHud(
     last.boost = model.boost;
   }
 
-  if (hud.layout === 'd' && hud.marks !== null) {
+  if (hud.marks !== null) {
     const reticle = HUD_RING_TUNE.reticle;
     hud.marks.set({
       armor: model.armor,

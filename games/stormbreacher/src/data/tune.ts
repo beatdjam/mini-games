@@ -223,42 +223,38 @@ export const HUD_TUNE = {
   radarRange: 200, // how far the radar sees (m); a target farther than this is not drawn
 };
 
-// Layout D's sizes (SB-2155, revised SB-2157 and SB-2158, 仮): the small aim mark at the cursor (px, for 1280x720), its
-// armour and boost arcs, and the two ammo bars over and under it. `gap` is the distance from the aim mark's outer edge
-// (the arcs' outside) to a bar; the main bar is above the mark, the sub bar below. The shares fix where the bars stop
-// being quiet and where the armour's shades change; view/hudRing.ts is the pure side that turns these into lengths and
-// shades.
+// The aim marks' sizes for layouts D, E and F (SB-2155, revised SB-2157 and SB-2158, shared in SB-2159, 仮): the small
+// aim mark at the cursor (px, for 1280x720), the arcs and the bars that show the gauges round it. `gap` is one distance,
+// from the aim circle to the arcs and from the arcs to the bars, and `stroke` is one thickness for both the arcs and the
+// bars. A bar is as long as a full arc opens, so an arc and a bar read the same length. `shadow` is the thin dark edge
+// each side of an arc or bar that keeps it readable over the bright sand. The shares fix where the ammo stops being quiet
+// and where the armour's shades change; view/hudRing.ts is the pure side that turns these into lengths, cells and shades.
 export const HUD_RING_TUNE = {
   reticle: {
     radius: 12, // px; the small circle round the centre dot
     thickness: 1.4, // px; the circle's line
     dotRadius: 2.2, // px; the centre dot
+    gap: 12, // px; from the aim circle to the arcs, and from the arcs to the bars
+    stroke: 3, // px; the arcs' and bars' line, one thickness for both
+    shadow: 1, // px; the dark edge each side of an arc or bar
     arc: {
-      radius: 28, // px; the armour (left) and boost (right) arcs' middle line
-      thickness: 3, // px
-      openDeg: 88, // degrees; the widest each arc opens at a full gauge
+      radius: 26, // px; the arcs' middle line (radius + gap + stroke / 2, rounded)
+      openDeg: 96, // degrees; the widest each arc opens at a full gauge (about 44px of arc)
       armorOpacity: 0.7, // the armour arc's opacity at rest (0-1)
       boostFullOpacity: 0.22, // the boost arc's opacity while the gauge is full
       boostLowOpacity: 0.85, // the boost arc's opacity while any of it is spent
     },
+    bar: {
+      width: 44, // px; a full arc's length at radius 26 over 96 degrees, so the bars and the arcs match
+      segmentGap: 1, // px, between one round's cell and the next on a sub bar or arc
+      maxSegments: 16, // a fuller magazine than this shows its share as one length instead of cells
+    },
     armorMid: 0.6, // share above which the armour stays the high shade; at the value it is the mid one
     armorLow: 0.28, // share above which it is the mid shade; at the value it is the low one
-    glowSec: 0.35, // s; how long the armour arc stays lit after a hit
+    glowSec: 0.35, // s; how long the armour stays lit after a hit
     ammo: {
-      warnShare: 0.25, // the share of a magazine at or below which a bar takes the warn colour (0 is empty)
-      blinkHz: 2.5, // the red blink of an empty bar (cycles a second)
-      main: {
-        width: 56, // px; the bar over the aim mark
-        thickness: 3, // px
-        gap: 8, // px, from the aim mark's outer edge to the bar
-      },
-      sub: {
-        width: 72, // px; the bar under the aim mark
-        thickness: 5, // px
-        gap: 8, // px, from the aim mark's outer edge to the bar
-        segmentGap: 2, // px, between one round's cell and the next
-        maxSegments: 16, // a fuller magazine than this shows its share as one length instead of cells
-      },
+      warnShare: 0.25, // the share of a magazine at or below which a gauge takes the warn colour (0 is empty)
+      blinkHz: 2.5, // the red blink of an empty gauge (cycles a second)
     },
     margin: 8, // px, kept from the screen's edge by the arcs and the bars
   },
