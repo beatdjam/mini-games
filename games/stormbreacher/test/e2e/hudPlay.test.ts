@@ -1,14 +1,10 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { el, runSystems, t } from '@engine/core/index.ts';
-import { WEAPONS } from '../../src/data/weapons.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { currentGame, currentPlayView, startSortie, showResult } from '../../src/app/play.ts';
 import { aimPointOf } from '../../src/view/play.ts';
-import { HUD_LAYOUTS } from '../../src/data/hudLayout.ts';
-import { buildPlayHud, makeReticle, removeHud } from '../../src/view/hud.ts';
-import { reticleAt } from '../../src/view/hudParts.ts';
 import { boot } from '../../src/app/boot.ts';
 import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
@@ -25,7 +21,7 @@ const key = (type: string, code: string): KeyboardEvent => new KeyboardEvent(typ
 test('a sortie shows the HUD', () => {
   startSortie();
   const hud = el('#sbPlayHud');
-  for (const id of ['armor', 'boost', 'main', 'sub', 'objective', 'radio', 'radar', 'reticle', 'warning'])
+  for (const id of ['main', 'sub', 'objective', 'radio', 'radar', 'reticle', 'warning'])
     expect(hud.querySelector(`[data-hud="${id}"]`), `the HUD is missing ${id}`).not.toBeNull();
   expect(hud.querySelector('[data-hud="warning"]')?.hasAttribute('hidden'), 'no warning at the start').toBe(true);
   expect(hud.querySelector('[data-hud="radio"]')?.hasAttribute('hidden'), 'no radio line at the start').toBe(true);
@@ -33,44 +29,28 @@ test('a sortie shows the HUD', () => {
   expect(document.querySelector('#sbHud')).toBeNull();
 });
 
-test('every placement keeps the HUD parts', () => {
-  for (const layout of HUD_LAYOUTS) {
-    const hud = buildPlayHud(document.body, layout);
-    try {
-      for (const id of ['armor', 'boost', 'main', 'sub', 'objective', 'radio', 'radar', 'reticle', 'warning'])
-        expect(hud.root.querySelector(`[data-hud="${id}"]`), `${layout} is missing ${id}`).not.toBeNull();
-    } finally {
-      removeHud(hud);
-    }
-  }
-});
-
-test('a built reticle keeps the place it is given', () => {
-  const { reticle } = makeReticle(reticleAt({ x: 0.5, y: -0.5 }));
-  expect(reticle.dot.getAttribute('cx')).toBe('75%');
-  expect(reticle.dot.getAttribute('cy')).toBe('75%');
-});
-
-test('the ammo count follows the shots', async () => {
+test('the ammo gauges follow the shots', async () => {
   startSortie();
-  const text = (): string => el('#sbPlayHud [data-hud="main"]').textContent ?? '';
-  const shotsLeft = (): number => {
-    const hit = /(\d+)\s*\/\s*(\d+)/.exec(text());
-    if (!hit) throw new Error(`the main ammo is not in the HUD: "${text()}"`);
-    return Number(hit[1]);
+  // E's main ammo is the aim mark's left arc: its fill's path is the gauge's remaining share
+  const mainArc = (): string => {
+    const main = el('#sbPlayHud [data-hud="main"]');
+    const paths = main.querySelectorAll('path');
+    const fill = paths[paths.length - 1];
+    if (!fill) throw new Error('the main gauge has no arc');
+    return fill.getAttribute('d') ?? '';
   };
   // the HUD is filled on the first frame of the sortie
   steps(1);
   const current = currentGame();
   if (!current) throw new Error('the sortie has not started');
   sendToScript(current, { kind: 'skip' }); // the mech takes no input during the landing
-  expect(shotsLeft()).toBe(WEAPONS.autocannon.ammo);
+  const before = mainArc();
   window.dispatchEvent(key('keydown', 'KeyJ'));
   // the systems run by hand, a 60th of a second each: drawn frames are slow on CI (software GL, seconds each)
   for (let i = 0; i < 30; i++) runSystems(1 / 60);
   steps(1);
   window.dispatchEvent(key('keyup', 'KeyJ'));
-  expect(shotsLeft()).toBeLessThan(WEAPONS.autocannon.ammo);
+  expect(mainArc()).not.toBe(before);
 });
 
 test('starting again leaves one HUD', () => {

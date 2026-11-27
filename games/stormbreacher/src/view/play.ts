@@ -25,7 +25,6 @@ import { CAMERA_TUNE, FEEL_TUNE, HUD_RING_TUNE, MECH_TUNE, QUARTER_TUNE } from '
 import type { QuarterTune } from '../data/tuneTypes.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import type { WeaponId } from '../data/weapons.ts';
-import { hudLayoutFrom, type HudLayout } from '../data/hudLayout.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { blastFaceHeight, type GameModel } from '../logic/game.ts';
 import { cutsceneElapsed, cutsceneMech, cutscenePose } from '../logic/cutscene.ts';
@@ -51,7 +50,6 @@ import { buildGunfireView, drawGunfire, spawnImpact, spawnMuzzleFlash, type Gunf
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { hitGlow } from './hudRing.ts';
-import { ndcToScreen } from './hudPlace.ts';
 import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
@@ -69,8 +67,6 @@ import {
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const fadeChest = new THREE.Vector3(); // the mech's chest, the far end of the line a low prop fades on
-const feetWorld = new THREE.Vector3(); // the mech's feet, projected for layout B's gauges (SB-2150)
-const feetView = new THREE.Vector3();
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
 const DEFLECT_SPARKS = 6; // the sparks a shot off a pillbox's front throws
 const DEFLECT_SPEED = 5; // how fast a spark flies out (m/s)
@@ -132,7 +128,7 @@ export interface PlayView {
   battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; the game moves it, the view draws it (SB-170)
   allies: AllyView; // the script's allied mech
   hud: PlayHud; // the sortie's HUD, in the page
-  hudGlowFrom: number | null; // layout D's armour flash start (game time), null when dark
+  hudGlowFrom: number | null; // the aim mark's armour flash start (game time), null when dark
   useNear: boolean; // whether the mech is in reach of a blast point, so the touch use button lights (SB-2017)
   hurt: HurtView; // the red edge, the white flash and the dark edge while the armour is low
   cutscene: CutsceneView; // the bars, the line and the pictures only a cutscene shows
@@ -144,7 +140,6 @@ export interface PlayView {
 // caller sets when it makes the game (the arena asks for a thinner one).
 export interface PlayViewOptions {
   world?: World;
-  hudLayout?: HudLayout;
 }
 
 // The ground point at height `y` that the screen's point (`ndc`) looks at, from the quarter camera's pose before the
@@ -172,8 +167,8 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     stage.setShadow(shadow);
     stage.setEnv(env);
   }
-  // The page picks the placement with ?hud=a|b|c|d (the arena passes its own hash query); A stays the sortie's default.
-  const hud = buildPlayHud(document.body, options.hudLayout ?? hudLayoutFrom(location.search));
+  // The sortie's HUD: the aim mark at the cursor and the fixed parts round the screen.
+  const hud = buildPlayHud(document.body);
   // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
   // events before it (already played) are not all played again in the first frame.
   const startSecond = cutsceneElapsed(game.script.cutscene);
@@ -430,17 +425,6 @@ function drawCoverFire(view: PlayView, game: GameModel, dt: number): void {
     );
     spawnDust(hit.x, hit.z, COVER_DUST, FEEL_TUNE, hit.y);
   }
-}
-
-// The mech's feet on the screen (px), or null when the camera is in front of them (the same test screenRect uses).
-// Nothing is clamped here: layout B's bars keep themselves in view (view/hudPlace.ts).
-function mechFeetOnScreen(game: GameModel): { x: number; y: number } | null {
-  camera.updateMatrixWorld();
-  feetWorld.set(game.mech.x, game.mech.y, game.mech.z);
-  feetView.copy(feetWorld).applyMatrix4(camera.matrixWorldInverse);
-  if (feetView.z >= 0) return null;
-  feetWorld.project(camera);
-  return ndcToScreen({ x: feetWorld.x, y: feetWorld.y }, window.innerWidth, window.innerHeight);
 }
 
 // One frame of the sortie: the frame's events become dust, sparks and the camera's shake, the bullets in flight become
@@ -744,11 +728,9 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   view.hurt.root.hidden = game.script.cutscene !== null;
   const hud = hudModel(game, view.quarter.tune.azimuth);
   view.useNear = hud.use !== null;
-  // layout D's armour arc flashes for a moment after a hit; the fade is the pure hitGlow, as the ground ring's was
+  // the aim mark's armour flashes for a moment after a hit; the fade is the pure hitGlow
   const glow = view.hudGlowFrom === null ? 0 : hitGlow(game.time - view.hudGlowFrom, HUD_RING_TUNE.reticle.glowSec);
   if (view.hudGlowFrom !== null && glow <= 0) view.hudGlowFrom = null;
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
-  // a cutscene hides the HUD's root, so its feet are not needed
-  const feet = game.script.cutscene === null ? mechFeetOnScreen(game) : null;
-  drawHud(view.hud, hud, lock, feet, glow, game.time);
+  drawHud(view.hud, hud, lock, glow, game.time);
 }

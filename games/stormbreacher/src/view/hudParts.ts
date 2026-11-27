@@ -22,7 +22,6 @@ const ARC_GAP = 14; // px, from the aim circle to the arc; the arc's radius is r
 const ARC_HALF = 50; // degrees, half the arc's opening: 50 above and below the horizontal, 100 in all
 const ARC_TEXT_W = 44; // px, the text column outside the arc
 const ARC_TEXT_GAP = 6; // px, between the arc and the text column
-export const BAR_GAUGE_HEIGHT = 24; // px, a short bar's name/value line plus the bar (SB-2150)
 
 // The aim circle's radius (px) for a screen of this height: the soft-lock cone's half-angle at the camera's field of
 // view. 720 gives about 70.
@@ -225,52 +224,6 @@ export function fillArcGauge(node: HTMLElement, options: ArcGaugeOptions): { set
   };
 }
 
-// A short bar with the name and the number over it (SB-2150): the gauges of layouts B and C, where the arc along the aim
-// circle would sit nowhere near the eye. The caller makes `node` (already placed); this puts its width down and fills it.
-export interface BarGaugeOptions {
-  width: number; // px
-  thickness: number; // px
-  ratio: number; // 0-1
-  color: string;
-  name: string;
-  nameSize: number; // px
-  value: string;
-  valueSize: number; // px
-}
-
-export function fillBarGauge(node: HTMLElement, options: BarGaugeOptions): { set(ratio: number, value: string): void } {
-  const { width, thickness, color, name, nameSize, valueSize } = options;
-  node.style.width = `${width}px`;
-  const head = document.createElement('div');
-  head.style.cssText = 'display:flex;justify-content:space-between;gap:6px;align-items:baseline';
-  const nameNode = document.createElement('span');
-  nameNode.textContent = name;
-  nameNode.style.fontSize = `${nameSize}px`;
-  nameNode.style.color = HUD_COLOR.text;
-  const valueNode = document.createElement('span');
-  valueNode.textContent = options.value;
-  valueNode.style.fontSize = `${valueSize}px`;
-  valueNode.style.color = HUD_COLOR.text;
-  head.append(nameNode, valueNode);
-
-  const track = document.createElement('div');
-  track.style.cssText =
-    `position:relative;width:100%;height:${thickness}px;margin-top:2px;` + `background:${HUD_COLOR.track}`;
-  const fill = document.createElement('div');
-  fill.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:0%;background:${color}`;
-  track.appendChild(fill);
-  node.append(head, track);
-
-  const draw = (ratio: number, value: string) => {
-    const shown = Math.max(0, Math.min(1, ratio));
-    fill.style.width = `${shown * 100}%`;
-    fill.style.display = shown > 0 ? '' : 'none';
-    valueNode.textContent = value;
-  };
-  draw(options.ratio, options.value);
-  return { set: draw };
-}
-
 // The dot at the screen's centre and the aim circle around it. The classes let the game move the dot and hide the ring.
 export function reticleSvg(): SVGSVGElement {
   const root = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
@@ -289,15 +242,7 @@ export function reticleSvg(): SVGSVGElement {
   return root;
 }
 
-// The reticle's dot as percentages of its box, from the cursor's normalized point (-1 to 1, + up): the box's centre is
-// 0. null puts the dot at the centre.
-export function reticleAt(cursor: { x: number; y: number } | null): { left: string; top: string } {
-  const x = cursor?.x ?? 0;
-  const y = cursor?.y ?? 0;
-  return { left: `${((x + 1) / 2) * 100}%`, top: `${((1 - y) / 2) * 100}%` };
-}
-
-// The aim mark of layouts D, E and F (SB-2155, revised SB-2157 and SB-2158, shared in SB-2159): the centre dot and small
+// The aim mark at the cursor (SB-2155, revised SB-2157 and SB-2158, shared in SB-2159): the centre dot and small
 // circle, two short arcs at its sides and up to two short bars over or under it. The layout says which gauge goes in each
 // place (`ReticleMarkSpec`); the drawing here is the same for all of them, so an armour arc and an armour bar read alike.
 // The mark follows the cursor's point; `setPosition` pulls it inward near an edge so neither the arcs nor the bars leave

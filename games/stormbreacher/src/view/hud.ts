@@ -1,29 +1,20 @@
-// The HUD of the game's sortie (SB-160). Placement A is the D plan: the objective at the top left, the enemy's health at
-// the top centre, the round radar at the top right, an arc along the aim circle (the armour on the left, the boost on the
-// right), the main and sub ammo under the circle, the last radio line at the bottom centre and a lock frame round the
-// target the aim is pulled toward. B (SB-2150) puts the ammo at the cursor and short gauge bars at the mech's feet; C puts
-// the gauges and the ammo in a row along the bottom. D (SB-2155, revised SB-2157 and SB-2158) keeps B's other parts and
-// draws the gauges as an aim mark at the cursor; E and F (SB-2159) use the same mark with the gauges in other places. It
-// reads HudModel (logic/hud.ts) and draws it; it never writes the model. Heat is not drawn; the only warning is the
-// shell's. The shades and the emphasis are 仮.
+// The HUD of the game's sortie (SB-160). The aim mark sits at the cursor (SB-2159): the main ammo on its left arc, the
+// sub ammo on its right one, the armour as the bar above it and the boost as the bar below it. The objective is at the
+// top left, the enemy's health at the top centre, the round radar at the top right, the last radio line at the bottom
+// centre and a lock frame round the target the aim is pulled toward. It reads HudModel (logic/hud.ts) and draws it; it
+// never writes the model. Heat is not drawn; the only warning is the shell's. The shades and the emphasis are 仮.
 import { isTouch, t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
-import { DEFAULT_HUD_LAYOUT, type HudLayout } from '../data/hudLayout.ts';
 import { HUD_RING_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
-import type { HudAmmo, HudModel } from '../logic/hud.ts';
+import type { HudModel } from '../logic/hud.ts';
 import type { ScreenRect } from './camera.ts';
-import { keepInside, ndcToScreen, type ScreenPoint } from './hudPlace.ts';
+import { ndcToScreen } from './hudPlace.ts';
 import { ammoBlink, ammoTier } from './hudRing.ts';
 import {
-  BAR_GAUGE_HEIGHT,
-  fillArcGauge,
-  fillBarGauge,
   lockFrame,
-  reticleAt,
   reticleMarks,
-  reticleSvg,
   ringRadius,
   roundRadar,
   type RadarFront,
@@ -33,15 +24,10 @@ import {
   type ReticleMarks,
 } from './hudParts.ts';
 
-// The D plan's placement and text sizes, copied from dev/hud/plans.ts (HUD_PLANS.d) and dev/hud/build.ts
-// (TEXT_STYLES.d). view/ cannot read dev/, and the mock compares four plans while the game has settled on D, so the two
-// copies are meant. The values are for 1280x720; `--ring` is the aim circle's radius (px), set on the root. 仮: the
-// shades and these sizes are not settled yet.
-const PLAY_HUD_LAYOUT_A = {
-  armor: { css: '', side: 'left' },
-  boost: { css: '', side: 'right' },
-  main: { css: 'right:50%;margin-right:8px;top:calc(50% + var(--ring) + 36px);width:150px;text-align:right' },
-  sub: { css: 'left:50%;margin-left:8px;top:calc(50% + var(--ring) + 36px);width:150px' },
+// The fixed parts' placement and text sizes, copied from dev/hud/plans.ts (HUD_PLANS.d) and dev/hud/build.ts
+// (TEXT_STYLES.d). view/ cannot read dev/, so the two copies are meant. The values are for 1280x720; `--ring` is the aim
+// circle's radius (px), set on the root. 仮: the shades and these sizes are not settled yet.
+const PLAY_HUD_PLACES = {
   radar: { css: 'right:24px;top:48px;width:150px;height:150px' },
   objective: { css: 'left:24px;top:48px;width:340px' },
   optional: { css: 'left:24px;top:calc(48px + 96px);width:340px' },
@@ -62,70 +48,11 @@ const PLAY_HUD_LAYOUT_A = {
   reticle: { css: 'inset:0;pointer-events:none' },
 } as const;
 
-// B's ammo: a block just under the cursor's dot, the main line over the sub line, so the eye reads both where it already
-// is. The heights are for the same 1280x720 and keep the block from leaving the screen (hudPlace.keepInside).
-const HUD_B_AMMO = { width: 150, height: 24, gapY: 14 } as const;
-const HUD_B_AMMO_GAP = 2; // px, between the main and sub lines
-const HUD_B_BAR_GAP = 4; // px, between the two gauges at the mech's feet
-const HUD_B_FEET_GAP = 8; // px, from the feet down to the first gauge
-const HUD_EDGE = 8; // px, kept from the screen's edge by a part that follows a point
-
-// The six placements (SB-2150, SB-2159). A is the D plan the game has used, unchanged. B follows the eye: the ammo at the
-// cursor and short gauges at the mech's feet; the other parts stay where A puts them. C gathers the gauges and the ammo
-// in a row along the bottom edge and moves the radio line above it. D, E and F give their gauges to the aim mark at the
-// cursor; the other parts stay where A puts them. In B-F the parts that hang off `--ring` (use, melee, warning, callout)
-// stay at the middle of the screen, as in A.
-const PLAY_HUD_LAYOUT_MARK = {
-  ...PLAY_HUD_LAYOUT_A,
-  armor: { css: '' },
-  boost: { css: '' },
-  main: { css: '' },
-  sub: { css: '' },
-} as const;
-
-const PLAY_HUD_LAYOUTS = {
-  a: PLAY_HUD_LAYOUT_A,
-  b: {
-    ...PLAY_HUD_LAYOUT_A,
-    armor: { css: '', bar: { width: 120, thickness: 4 } },
-    boost: { css: '', bar: { width: 120, thickness: 4 } },
-    main: { css: `width:${HUD_B_AMMO.width}px;text-align:center`, follow: HUD_B_AMMO },
-    sub: { css: `width:${HUD_B_AMMO.width}px;text-align:center`, follow: HUD_B_AMMO },
-  },
-  c: {
-    ...PLAY_HUD_LAYOUT_A,
-    armor: { css: 'left:calc(50% - 320px);bottom:16px', bar: { width: 150, thickness: 4 } },
-    boost: { css: 'left:calc(50% - 160px);bottom:16px', bar: { width: 150, thickness: 4 } },
-    main: { css: 'left:calc(50% + 10px);bottom:16px;width:150px;text-align:left' },
-    sub: { css: 'left:calc(50% + 170px);bottom:16px;width:150px;text-align:left' },
-    radio: { css: 'left:50%;transform:translateX(-50%);bottom:64px;width:560px;padding:2px 6px' },
-  },
-  // D, E and F put the gauges in the aim mark at the cursor (SB-2155, 2157, 2158, 2159). Their empty boxes keep the e2e
-  // ids; the mark's own gauges are the ones that show.
-  d: PLAY_HUD_LAYOUT_MARK,
-  e: PLAY_HUD_LAYOUT_MARK,
-  f: PLAY_HUD_LAYOUT_MARK,
-} as const;
-
-// Which gauge each mark layout puts where (SB-2159): its two arcs, the bar over the mark and the bars under it, top down.
-// D is the armour and boost as arcs with the ammo as a bar and cells; E puts the ammo in the arcs and the armour and boost
-// in the bars; F keeps D's arcs and sets both ammo bars under the mark.
-const HUD_RETICLE_MARKS: Record<'d' | 'e' | 'f', ReticleMarkSpec> = {
-  d: { left: 'armor', right: 'boost', above: 'main', below: ['sub'] },
-  e: { left: 'main', right: 'sub', above: 'armor', below: ['boost'] },
-  f: { left: 'armor', right: 'boost', above: null, below: ['main', 'sub'] },
-};
-
-// The layouts that show their gauges in the aim mark at the cursor.
-function isMarkLayout(layout: HudLayout): layout is 'd' | 'e' | 'f' {
-  return layout === 'd' || layout === 'e' || layout === 'f';
-}
+// Which gauge goes where in the aim mark (SB-2159): the main ammo on the left arc, the sub ammo on the right one, the
+// armour as the bar above and the boost as the bar below.
+const HUD_RETICLE_MARK: ReticleMarkSpec = { left: 'main', right: 'sub', above: 'armor', below: ['boost'] };
 
 const PLAY_HUD_TEXT = {
-  armor: { name: 10, value: 13, arc: 4 }, // px
-  boost: { name: 10, value: 13, arc: 4 }, // px
-  main: { name: 11, value: 16 }, // px
-  sub: { name: 11, value: 13 }, // px
   objective: { label: 16, value: 16 }, // px
   optional: { label: 13, value: 13 }, // px
   radio: { label: 16, value: 16 }, // px
@@ -155,29 +82,12 @@ const RADAR_MARK: Record<TargetKind | EnemyKind, RadarMarkKind> = {
 // The radar's size (px): the mock's D plan.
 const RADAR_SIZE = 150; // px
 
-interface ArcGauge {
-  set(ratio: number, value: string): void;
-}
-
 interface RadarGauge {
   set(marks: readonly RadarKey[], front?: RadarFront | null): void;
 }
 
-// The reticle's dot and ring, the place the dot was last put, and the cursor's point it was put for: a rebuilt HUD puts
-// both back (SB-2150; layout B also puts the ammo block on the point).
-interface Reticle {
-  dot: SVGCircleElement;
-  ring: SVGCircleElement;
-  at: ReturnType<typeof reticleAt>;
-  cursor: { x: number; y: number } | null;
-}
-
 // The values written last, so a frame writes only what changed. null means "not written yet".
 interface HudLast {
-  armor: number | null;
-  boost: number | null;
-  main: string | null;
-  sub: string | null;
   objective: string | null;
   optional: string | null;
   radio: string | null;
@@ -195,16 +105,8 @@ interface HudLast {
 export interface PlayHud {
   root: HTMLElement;
   height: number; // window.innerHeight the parts were laid out for (px)
-  layout: HudLayout;
-  armor: ArcGauge;
-  boost: ArcGauge;
-  armorNode: HTMLElement; // the gauge's box: layout B puts it at the mech's feet
-  boostNode: HTMLElement;
-  mainValue: HTMLElement | SVGElement;
-  mainBox: HTMLElement; // the ammo's box: layout B puts it at the cursor
-  subValue: HTMLElement | SVGElement;
-  subBox: HTMLElement;
-  feet: ScreenPoint | null; // the mech's feet on the screen (px), null while the camera is in front of them
+  marks: ReticleMarks; // the aim mark at the cursor: the arcs and bars
+  cursor: { x: number; y: number } | null; // the last point the mark was put for
   objective: HTMLElement;
   objectiveValue: HTMLSpanElement;
   optional: HTMLElement;
@@ -230,8 +132,6 @@ export interface PlayHud {
   chargeFill: HTMLElement;
   melee: HTMLElement;
   radar: RadarGauge;
-  reticle: Reticle;
-  marks: ReticleMarks | null; // layouts D-F's aim mark: the arcs and bars at the cursor
   last: HudLast;
 }
 
@@ -273,43 +173,18 @@ function useBar(color: string): { box: HTMLElement; fill: HTMLElement } {
   return { box, fill };
 }
 
-// The reticle with its parts pulled out, and its dot put at `at`. On a touch screen the aim circle shows; on a PC the
-// dot alone marks the cursor, so the cone's ring is hidden.
-export function makeReticle(
-  at: ReturnType<typeof reticleAt>,
-  cursor: { x: number; y: number } | null = null,
-): { root: SVGSVGElement; reticle: Reticle } {
-  const root = reticleSvg();
-  const reticle: Reticle = {
-    dot: root.querySelector('.sb-ret-dot') as SVGCircleElement,
-    ring: root.querySelector('.sb-ret-ring') as SVGCircleElement,
-    at,
-    cursor,
-  };
-  placeReticleDot(reticle);
-  return { root, reticle };
-}
-
-function placeReticleDot(reticle: Reticle): void {
-  reticle.dot.setAttribute('cx', reticle.at.left);
-  reticle.dot.setAttribute('cy', reticle.at.top);
-  reticle.ring.style.display = isTouch ? '' : 'none';
-}
-
-// Puts the reticle's dot at the cursor's normalized point (null at the centre) and remembers it for the next lay-out.
+// Puts the aim mark at the cursor's normalized point (null at the centre).
 export function placeReticle(hud: PlayHud, cursor: { x: number; y: number } | null): void {
-  hud.reticle.cursor = cursor;
-  hud.reticle.at = reticleAt(cursor);
-  placeReticleDot(hud.reticle);
-  positionMoving(hud);
+  hud.cursor = cursor;
+  positionMarks(hud);
+}
+
+function positionMarks(hud: PlayHud): void {
+  hud.marks.setPosition(ndcToScreen(hud.cursor ?? { x: 0, y: 0 }, window.innerWidth, window.innerHeight));
 }
 
 function freshLast(): HudLast {
   return {
-    armor: null,
-    boost: null,
-    main: null,
-    sub: null,
     objective: null,
     optional: null,
     radio: null,
@@ -325,95 +200,16 @@ function freshLast(): HudLast {
   };
 }
 
-// Lays the HUD's parts out for the window's size and placement and returns what drawHud writes into. Called again when
-// the window's height changes or the arena picks another placement; the root stays. `reticlePosition` is the dot's last
-// place and `cursor` the point it was put for, both put back after the rebuild.
-function layOut(
-  root: HTMLElement,
-  reticlePosition = reticleAt(null),
-  layout: HudLayout = DEFAULT_HUD_LAYOUT,
-  cursor: { x: number; y: number } | null = null,
-): PlayHud {
+// Lays the HUD's parts out for the window's size and returns what drawHud writes into. Called again when the window's
+// height changes; the root stays and the cursor's point is put back after the rebuild.
+function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = null): PlayHud {
   root.replaceChildren();
   root.style.setProperty('--ring', `${ringRadius(window.innerHeight)}px`);
-  const spec = PLAY_HUD_LAYOUTS[layout];
+  const spec = PLAY_HUD_PLACES;
 
-  const armorNode = place(root, spec.armor.css, 'armor');
-  const armorGauge = {
-    ratio: 1,
-    color: HUD_COLOR.bar,
-    name: t('hud.armor'),
-    nameSize: PLAY_HUD_TEXT.armor.name,
-    value: '',
-    valueSize: PLAY_HUD_TEXT.armor.value,
-  };
-  let armor: ArcGauge;
-  if ('side' in spec.armor) {
-    armor = fillArcGauge(armorNode, { ...armorGauge, side: spec.armor.side, thickness: PLAY_HUD_TEXT.armor.arc });
-  } else if ('bar' in spec.armor) {
-    armor = fillBarGauge(armorNode, {
-      ...armorGauge,
-      width: spec.armor.bar.width,
-      thickness: spec.armor.bar.thickness,
-    });
-  } else {
-    // the mark layouts make the armour one of the aim mark's gauges; the empty box keeps the e2e id
-    armor = { set: () => {} };
-  }
-  const boostNode = place(root, spec.boost.css, 'boost');
-  const boostGauge = {
-    ratio: 0,
-    color: HUD_COLOR.bar,
-    name: t('hud.boost'),
-    nameSize: PLAY_HUD_TEXT.boost.name,
-    value: '',
-    valueSize: PLAY_HUD_TEXT.boost.value,
-  };
-  let boost: ArcGauge;
-  if ('side' in spec.boost) {
-    boost = fillArcGauge(boostNode, { ...boostGauge, side: spec.boost.side, thickness: PLAY_HUD_TEXT.boost.arc });
-  } else if ('bar' in spec.boost) {
-    boost = fillBarGauge(boostNode, {
-      ...boostGauge,
-      width: spec.boost.bar.width,
-      thickness: spec.boost.bar.thickness,
-    });
-  } else {
-    // the mark layouts make the boost one of the aim mark's gauges; the empty box keeps the e2e id
-    boost = { set: () => {} };
-  }
-  // B's gauges wait for the first frame to put them at the mech's feet; the mark layouts' slots stay empty.
-  if (layout === 'b' || isMarkLayout(layout)) {
-    armorNode.hidden = true;
-    boostNode.hidden = true;
-  }
-
-  let mainValue: HTMLElement | SVGElement;
-  let mainBox: HTMLElement;
-  let subValue: HTMLElement | SVGElement;
-  let subBox: HTMLElement;
-  let marks: ReticleMarks | null = null;
-  if (isMarkLayout(layout)) {
-    marks = reticleMarks(HUD_RING_TUNE.reticle, HUD_RETICLE_MARKS[layout]);
-    marks.main.dataset.hud = 'main';
-    marks.sub.dataset.hud = 'sub';
-    mainValue = marks.main;
-    subValue = marks.sub;
-    mainBox = marks.root;
-    subBox = marks.root;
-  } else {
-    const main = place(root, spec.main.css, 'main');
-    main.appendChild(span(t('hud.main'), PLAY_HUD_TEXT.main.name));
-    mainValue = span('', PLAY_HUD_TEXT.main.value);
-    main.appendChild(mainValue);
-
-    const sub = place(root, spec.sub.css, 'sub');
-    sub.appendChild(span(t('hud.sub'), PLAY_HUD_TEXT.sub.name));
-    subValue = span('', PLAY_HUD_TEXT.sub.value);
-    sub.appendChild(subValue);
-    mainBox = main;
-    subBox = sub;
-  }
+  const marks = reticleMarks(HUD_RING_TUNE.reticle, HUD_RETICLE_MARK);
+  marks.main.dataset.hud = 'main';
+  marks.sub.dataset.hud = 'sub';
 
   const objective = place(root, spec.objective.css, 'objective');
   const objectiveValue = span('', PLAY_HUD_TEXT.objective.value);
@@ -478,14 +274,8 @@ function layOut(
   const radar = roundRadar(RADAR_SIZE, RADAR_SIZE);
   radarNode.appendChild(radar.root);
 
-  const aim = makeReticle(reticlePosition, cursor);
   const reticleBox = place(root, spec.reticle.css, 'reticle');
-  reticleBox.appendChild(aim.root);
-  if (marks !== null) {
-    // the mark layouts' own mark takes the place; the A dot and ring stay in the page but are hidden.
-    aim.root.style.display = 'none';
-    reticleBox.appendChild(marks.root);
-  }
+  reticleBox.appendChild(marks.root);
 
   const lock = lockFrame();
   root.appendChild(lock.root);
@@ -493,16 +283,8 @@ function layOut(
   return {
     root,
     height: window.innerHeight,
-    layout,
-    armor,
-    boost,
-    armorNode,
-    boostNode,
-    mainValue,
-    mainBox,
-    subValue,
-    subBox,
-    feet: null,
+    marks,
+    cursor,
     objective,
     objectiveValue,
     optional,
@@ -528,85 +310,22 @@ function layOut(
     chargeFill: chargeMeter.fill,
     melee,
     radar,
-    reticle: aim.reticle,
-    marks,
     last: freshLast(),
   };
 }
 
-// Puts the parts that follow a point where that point now is: layout B's ammo at the cursor and its gauges under the
-// mech's feet; the mark layouts' arcs and bars at the cursor. The fixed placements do nothing. A rebuild calls this again
-// with the kept points.
-function positionMoving(hud: PlayHud): void {
-  if (hud.marks) {
-    hud.marks.setPosition(ndcToScreen(hud.reticle.cursor ?? { x: 0, y: 0 }, window.innerWidth, window.innerHeight));
-    return;
-  }
-  if (hud.layout !== 'b') return;
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const screen = { width, height };
-  const b = PLAY_HUD_LAYOUTS.b;
-  const at = ndcToScreen(hud.reticle.cursor ?? { x: 0, y: 0 }, width, height);
-  const ammo = b.main.follow;
-  const ammoHeight = ammo.height * 2 + HUD_B_AMMO_GAP;
-  // below the dot, or above it when the bottom edge leaves no room, so the block never covers the dot
-  const below = at.y + ammo.gapY;
-  const ammoTop = below + ammoHeight > height - HUD_EDGE ? at.y - ammo.gapY - ammoHeight : below;
-  const ammoAt = keepInside({ x: at.x - ammo.width / 2, y: ammoTop }, ammo.width, ammoHeight, screen, HUD_EDGE);
-  hud.mainBox.style.left = `${ammoAt.x}px`;
-  hud.mainBox.style.top = `${ammoAt.y}px`;
-  hud.subBox.style.left = `${ammoAt.x}px`;
-  hud.subBox.style.top = `${ammoAt.y + ammo.height + HUD_B_AMMO_GAP}px`;
-
-  const feet = hud.feet;
-  if (feet === null) {
-    hud.armorNode.hidden = true;
-    hud.boostNode.hidden = true;
-    return;
-  }
-  hud.armorNode.hidden = false;
-  hud.boostNode.hidden = false;
-  const bar = b.armor.bar;
-  const barsAt = keepInside(
-    { x: feet.x - bar.width / 2, y: feet.y + HUD_B_FEET_GAP },
-    bar.width,
-    BAR_GAUGE_HEIGHT * 2 + HUD_B_BAR_GAP,
-    screen,
-    HUD_EDGE,
-  );
-  hud.armorNode.style.left = `${barsAt.x}px`;
-  hud.armorNode.style.top = `${barsAt.y}px`;
-  hud.boostNode.style.left = `${barsAt.x}px`;
-  hud.boostNode.style.top = `${barsAt.y + BAR_GAUGE_HEIGHT + HUD_B_BAR_GAP}px`;
-}
-
-// Puts the HUD on another placement (the arena's A-F buttons). The same placement does nothing.
-export function setHudLayout(hud: PlayHud, layout: HudLayout): void {
-  if (hud.layout === layout) return;
-  const feet = hud.feet;
-  Object.assign(hud, layOut(hud.root, hud.reticle.at, layout, hud.reticle.cursor));
-  hud.feet = feet;
-  positionMoving(hud);
-}
-
 // Builds the sortie's HUD into `parent` (the page's body) and returns it. The root's id is #sbPlayHud: the mock's #sbHud
 // is a different element.
-export function buildPlayHud(parent: HTMLElement, layout: HudLayout = DEFAULT_HUD_LAYOUT): PlayHud {
+export function buildPlayHud(parent: HTMLElement): PlayHud {
   const root = document.createElement('div');
   root.id = 'sbPlayHud';
   root.style.cssText =
     'position:fixed;inset:0;pointer-events:none;z-index:5;line-height:1.2;box-sizing:border-box;' +
     'white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,.8)';
   parent.appendChild(root);
-  const hud = layOut(root, reticleAt(null), layout);
-  positionMoving(hud);
+  const hud = layOut(root);
+  positionMarks(hud);
   return hud;
-}
-
-// The main and sub ammo: the shots left and the most a sortie loads.
-function ammoText(ammo: HudAmmo): string {
-  return ` ${ammo.ammo} / ${ammo.max}`;
 }
 
 // " 1/2" for a counted objective, nothing for one that is not counted.
@@ -616,60 +335,30 @@ function countText(count: { done: number; total: number } | null): string {
 
 // Writes one frame of the HUD. Only the values that changed are written; the radar's marks and the lock frame are put
 // down every frame. `lock` is the lock target's rectangle on the screen (view/camera.ts screenRect), null for none.
-// `feet` is the mech's feet on the screen (px) for layout B's gauges, null while the camera is in front of them. `glow`
-// is the mark layouts' armour flash after a hit (0-1) and `time` the game's clock, which drives an empty gauge's blink.
-export function drawHud(
-  hud: PlayHud,
-  model: HudModel,
-  lock: ScreenRect | null,
-  feet: ScreenPoint | null = null,
-  glow = 0,
-  time = 0,
-): void {
-  // the arcs and the aims sit on the window's size, so a new height lays the parts out again
+// `glow` is the aim mark's armour flash after a hit (0-1) and `time` the game's clock, which drives an empty gauge's
+// blink.
+export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null, glow = 0, time = 0): void {
+  // the aim mark sits on the window's size, so a new height lays the parts out again
   if (window.innerHeight !== hud.height) {
-    Object.assign(hud, layOut(hud.root, hud.reticle.at, hud.layout, hud.reticle.cursor));
+    Object.assign(hud, layOut(hud.root, hud.cursor));
   }
-  hud.feet = feet;
-  positionMoving(hud);
+  positionMarks(hud);
   const last = hud.last;
 
-  if (last.armor !== model.armor) {
-    hud.armor.set(model.armor, '');
-    last.armor = model.armor;
-  }
-  if (last.boost !== model.boost) {
-    hud.boost.set(model.boost, `${Math.round(model.boost * 100)}%`);
-    last.boost = model.boost;
-  }
-
-  if (hud.marks !== null) {
-    const reticle = HUD_RING_TUNE.reticle;
-    hud.marks.set({
-      armor: model.armor,
-      boost: model.boost,
-      main: model.main.ammo,
-      mainMax: model.main.max,
-      sub: model.sub.ammo,
-      subMax: model.sub.max,
-      mainTier: ammoTier(model.main.ammo, model.main.max, reticle.ammo.warnShare),
-      subTier: ammoTier(model.sub.ammo, model.sub.max, reticle.ammo.warnShare),
-      locked: lock !== null,
-      glow,
-      blink: ammoBlink(time, reticle.ammo.blinkHz, reticle.ammo.blinkMin),
-    });
-  } else {
-    const main = ammoText(model.main);
-    if (last.main !== main) {
-      hud.mainValue.textContent = main;
-      last.main = main;
-    }
-    const sub = ammoText(model.sub);
-    if (last.sub !== sub) {
-      hud.subValue.textContent = sub;
-      last.sub = sub;
-    }
-  }
+  const reticle = HUD_RING_TUNE.reticle;
+  hud.marks.set({
+    armor: model.armor,
+    boost: model.boost,
+    main: model.main.ammo,
+    mainMax: model.main.max,
+    sub: model.sub.ammo,
+    subMax: model.sub.max,
+    mainTier: ammoTier(model.main.ammo, model.main.max, reticle.ammo.warnShare),
+    subTier: ammoTier(model.sub.ammo, model.sub.max, reticle.ammo.warnShare),
+    locked: lock !== null,
+    glow,
+    blink: ammoBlink(time, reticle.ammo.blinkHz, reticle.ammo.blinkMin),
+  });
 
   const objective = model.objective === null ? '' : ` ${t(model.objective.key)}${countText(model.objective.count)}`;
   if (last.objective !== objective) {
