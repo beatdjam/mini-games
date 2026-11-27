@@ -505,7 +505,7 @@ export const FX_STAGES: readonly FxTune[] = [
   { ...FX_TUNE, ...FX_STRONG },
 ];
 
-// The moving dummies of #view-fcs (SB-060). `hp` is the hits a dummy takes, `speed` is how fast it moves (m/s), and
+// The moving dummies (SB-060). `hp` is the hits a dummy takes, `speed` is how fast it moves (m/s), and
 // `respawn` is how long a downed dummy stays down (s).
 export const DUMMY_TUNE = {
   hp: 10, // hits needed to down a dummy

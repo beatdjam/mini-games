@@ -4,7 +4,6 @@ import { showScale } from './scale.ts';
 import { showCamera } from './camera.ts';
 import { showMove } from './move.ts';
 import { showTouch } from './touch.ts';
-import { showFcs } from './fcs.ts';
 import { showArena } from './arena.ts';
 import { showOutdoor } from './outdoor.ts';
 import { showProps } from './propsView.ts';
@@ -60,12 +59,6 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'touch controls on flat ground, with the layout editor',
     run: showTouch,
-  },
-  {
-    hash: '#view-fcs',
-    match: 'is',
-    name: 'the three FCS types against moving dummies',
-    run: showFcs,
   },
   {
     hash: '#view-arena',

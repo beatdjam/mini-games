@@ -149,7 +149,7 @@ function addHud(): HTMLDivElement {
   return hud;
 }
 
-// The feel, the movement and the soft lock's main values, the same rows #view-move and #view-fcs turn by URL.
+// The feel, the movement and the soft lock's main values, the same rows #view-move turns by URL.
 function addTunePanel() {
   // The arena aims with FCS_QUARTER on a PC and a touch screen, so the panel writes that table.
   const fcsLabels = {

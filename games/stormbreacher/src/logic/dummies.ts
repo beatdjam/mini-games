@@ -1,4 +1,4 @@
-// The moving dummies of #view-fcs (SB-060): eight boxes that stand, strafe, circle or charge, take a number of hits
+// The moving dummies (SB-060): eight boxes that stand, strafe, circle or charge, take a number of hits
 // and come back after a while. Pure functions over a list, no three and no DOM, so a node test can run them.
 import type { Rng } from '@engine/core/index.ts';
 import { DUMMY_TUNE, type DummyTune } from '../data/tune.ts';
