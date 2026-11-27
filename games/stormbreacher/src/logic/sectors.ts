@@ -53,6 +53,12 @@ export interface SectorHold {
   held: boolean; // whether it waits there instead of walking on
 }
 
+// What a sector needs to know of a blast point: the line it belongs to (null for the pillbox and fortress points).
+export interface BlastLine {
+  id: string;
+  line: number | null;
+}
+
 export function newSectors(): SectorsState {
   const none = () => M1_SECTORS.map(() => 0);
   return {
@@ -156,15 +162,42 @@ export function stepSectors(state: SectorsState, world: SectorWorld, dt: number)
   return [];
 }
 
-// Where the infantry waits now: the last sector that is advancing or further on, or the water's edge before the
-// first. It waits until the pillbox line is secured and then walks on, as it did once `pillboxes-down` raised.
-export function sectorHold(state: SectorsState | null): SectorHold {
+// The hold a still-closed defence line puts on the infantry: the seaward-most of the closed lines, 6m before it. A line
+// is open once any of its points is among `blasts` (the script's record of what the game has blown). Null when every
+// line is open or the map has none.
+function closedLineHoldZ(blasts: readonly string[], blastPoints: readonly BlastLine[]): number | null {
+  let holdZ: number | null = null;
+  const opened = new Set<number>();
+  for (const point of blastPoints) {
+    if (point.line !== null && blasts.includes(point.id)) opened.add(point.line);
+  }
+  const seen = new Set<number>();
+  for (const point of blastPoints) {
+    if (point.line === null || opened.has(point.line) || seen.has(point.line)) continue;
+    seen.add(point.line);
+    const lineHoldZ = point.line + SECTOR_TUNE.lineMargin;
+    if (holdZ === null || lineHoldZ > holdZ) holdZ = lineHoldZ;
+  }
+  return holdZ;
+}
+
+// Where the infantry waits now: the last sector that is advancing or further on, or the water's edge before the first.
+// A sector hold that stands inland of a defence line the mech has not opened yet is pulled back to 6m seaward of that
+// line, so the infantry waits before it and pours through the hole once a blast opens it. It waits until the pillbox
+// line is secured and then walks on, as it did once `pillboxes-down` raised.
+export function sectorHold(
+  state: SectorsState | null,
+  blasts: readonly string[],
+  blastPoints: readonly BlastLine[],
+): SectorHold {
   let holdZ = SECTOR_TUNE.startHoldZ;
   for (let i = 0; i < M1_SECTORS.length; i++) {
     const phase = state?.phase[i];
     if (phase === 'idle' || phase === undefined) continue;
     holdZ = M1_SECTORS[i].holdZ;
   }
+  const closed = closedLineHoldZ(blasts, blastPoints);
+  if (closed !== null && closed > holdZ) holdZ = closed;
   const last = state?.phase[M1_SECTORS.length - 1];
   const holding = last !== 'secured' && last !== 'counter' && last !== 'stable';
   return { holdZ, held: holding };

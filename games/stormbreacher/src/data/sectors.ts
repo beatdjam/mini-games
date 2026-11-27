@@ -19,6 +19,7 @@ export interface Sector {
 // The values the sectors run on. Provisional, to be settled by eye in the sortie.
 export const SECTOR_TUNE = {
   startHoldZ: 160, // where the infantry waits before the first sector (m), at the water's edge
+  lineMargin: 6, // how far seaward of a still-closed defence line the infantry waits (m)
   enterDepth: 6, // how far past a sector's sea-side edge the mech has to go to count as in it (m)
   seaMargin: 10, // how far seaward of a sector's seaZ its enemies still count (m)
   arriveBand: 8, // a soldier this near its hold line has arrived (m)

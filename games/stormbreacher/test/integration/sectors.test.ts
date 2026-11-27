@@ -40,23 +40,53 @@ function enterSector(game: GameModel, id: SectorId): void {
   game.mech.z = sector.seaZ - SECTOR_TUNE.enterDepth - 1;
 }
 
+// Blows a line's point as the game does when its charge goes off: the script's record is what the hold reads.
+function blowLine(game: GameModel, id: string): void {
+  sendToScript(game, { kind: 'blast', id });
+}
+
+function said(game: GameModel, line: string): boolean {
+  return game.radio?.line === line || game.radioQueue.some(item => item.line === line);
+}
+
 describe('the sectors of M1', () => {
-  test('a cleared sector moves the infantry up and they dig in', () => {
+  test('the infantry waits before a closed line and pours in once the mech blows it open', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
     const beach = M1_SECTORS[0];
+    const line1 = M1B_HAND.blasts?.find(point => point.id === 'l1-a')?.line ?? 0;
+    const waitZ = line1 + SECTOR_TUNE.lineMargin;
     enterSector(game, 'beach');
     const before = game.battle.crowd.soldiers.length;
     step(game, idle, DT);
     expect(game.sectors?.phase[0]).toBe('advancing');
     expect(game.events.some(event => event.kind === 'sectorCleared')).toBe(true);
-    expect(game.battle.crowd.holdZ).toBe(beach.holdZ);
+    // line 1 is still closed: the hold is 6m seaward of it, and the radio says so after "move up".
+    expect(game.battle.crowd.holdZ).toBe(waitZ);
     expect(game.battle.crowd.soldiers.length).toBe(before + SECTOR_TUNE.surge);
+    expect(said(game, 'm1.sector-cleared')).toBe(true);
+    expect(said(game, 'm1.sector-line-closed')).toBe(true);
 
-    // the infantry walks in and enough of it reaches the line to secure the beach (armour set aside: this is about
-    // the walk). Word that it is secured brings the counterattack, so the sector goes straight on to `counter`.
+    // The infantry walks to the closed line and waits there: it is not at the beach's hold, so the beach is not secured.
+    // Armour set aside and the held line's loss off, so the test is about the walk and the wait.
     game.armor = Number.MAX_SAFE_INTEGER;
+    game.battleTune = { ...game.battleTune, holdLossRate: 0, holdLossRamp: 0 };
     let secured = false;
+    for (let frame = 0; frame < 60 * 20 && !secured; frame++) {
+      step(game, idle, DT);
+      secured = game.events.some(event => event.kind === 'sectorSecured');
+    }
+    expect(secured).toBe(false);
+    expect(
+      game.battle.crowd.soldiers.filter(soldier => soldier.alive).every(soldier => soldier.z >= waitZ - 1e-9),
+    ).toBe(true);
+    expect(game.sectors?.phase[0]).toBe('advancing');
+
+    // A blast on line 1 opens it: the hold moves to the beach's own line, the infantry pours through, and the sector is
+    // secured and counterattacked.
+    blowLine(game, 'l1-a');
+    step(game, idle, DT);
+    expect(game.battle.crowd.holdZ).toBe(beach.holdZ);
     for (let frame = 0; frame < 60 * 60 && !secured; frame++) {
       step(game, idle, DT);
       secured = game.events.some(event => event.kind === 'sectorSecured');
@@ -71,6 +101,7 @@ describe('the sectors of M1', () => {
     const game = newPlayGame(M1B_HAND);
     enterSector(game, 'beach');
     step(game, idle, DT);
+    blowLine(game, 'l1-a');
     game.armor = Number.MAX_SAFE_INTEGER;
     let secured = false;
     for (let frame = 0; frame < 60 * 60 && !secured; frame++) {
@@ -105,6 +136,7 @@ describe('the sectors of M1', () => {
     const beach = M1_SECTORS[0];
     enterSector(game, 'beach');
     step(game, idle, DT);
+    blowLine(game, 'l1-a');
     game.armor = Number.MAX_SAFE_INTEGER;
     let countered = false;
     for (let frame = 0; frame < 60 * 60 && !countered; frame++) {
@@ -174,8 +206,9 @@ describe('the sectors of M1', () => {
     step(game, idle, DT);
     const back = restoreSuspend(JSON.parse(JSON.stringify(suspendOf(game))));
     if (back === null) throw new Error('the suspend was not read');
+    const line1 = M1B_HAND.blasts?.find(point => point.id === 'l1-a')?.line ?? 0;
     expect(back.sectors).toEqual(game.sectors);
-    expect(back.battle.crowd.holdZ).toBe(M1_SECTORS[0].holdZ);
+    expect(back.battle.crowd.holdZ).toBe(line1 + SECTOR_TUNE.lineMargin);
   });
 
   test('a wiped-out crowd is made up from behind while the line is held', () => {

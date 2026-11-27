@@ -623,7 +623,12 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const cutscene = game.script.cutscene;
   const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
   if (!holdsBattle) {
-    const shellShake = view.battle.draw(dt, game.mech, sectorHold(game.sectors).held, game.events);
+    const shellShake = view.battle.draw(
+      dt,
+      game.mech,
+      sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []).held,
+      game.events,
+    );
     // The battlefield's shells shake the camera within the same cap as the blasts: a shell landing in the same frame as
     // a blast near the mech must not add the two past shakeMax and throw the camera off.
     if (shellShake > 0) feelBoom(view.feel, shellShake, FEEL_TUNE);

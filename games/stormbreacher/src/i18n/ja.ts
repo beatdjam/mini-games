@@ -106,6 +106,7 @@ LANG.ja = {
     'm1.line2-hold': '迎撃が来る。障害物の手前で片付けてから進め',
     'm1.pillboxes-down': 'トーチカ沈黙！押し上げろ！',
     'm1.sector-cleared': '区画掃討。歩兵、前へ！',
+    'm1.sector-line-closed': '防御線が閉じている。爆破で穴を開けろ',
     'm1.sector-secured': '歩兵が陣地に入った。反撃に備えろ',
     'm1.sector-counter': '敵の反撃！ 戦線を守れ',
     'm1.sector-stable': '区画安定。ここはもう味方の土地だ',

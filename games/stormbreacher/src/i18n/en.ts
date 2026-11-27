@@ -107,6 +107,7 @@ LANG.en = {
     'm1.line2-hold': 'Counterattack coming. Clear them at the cover, then push.',
     'm1.pillboxes-down': 'Bunkers silent! Push up!',
     'm1.sector-cleared': 'Sector clear. Infantry, move up!',
+    'm1.sector-line-closed': 'The line ahead is closed. Blow it open.',
     'm1.sector-secured': 'Infantry dug in. Brace for a counterattack.',
     'm1.sector-counter': 'Counterattack! Hold the line!',
     'm1.sector-stable': 'Sector holding. This ground is ours.',

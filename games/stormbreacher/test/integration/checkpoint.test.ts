@@ -331,7 +331,7 @@ describe('restart', () => {
     // ... but it is a new one, waiting at the first sector's line like a new game's
     expect(again.battle).not.toBe(game.battle);
     expect(again.battle.crowd.holdZ).toBe(fresh.battle.crowd.holdZ);
-    expect(again.battle.crowd.holdZ).toBe(sectorHold(again.sectors).holdZ);
+    expect(again.battle.crowd.holdZ).toBe(sectorHold(again.sectors, again.script.blasts, M1B_HAND.blasts ?? []).holdZ);
     expect(again.checkpoint).toBeNull();
   });
 

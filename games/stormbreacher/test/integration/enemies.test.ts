@@ -423,6 +423,9 @@ test(
   () => {
     seed(1);
     const game = newPlayGame({ ...M1B_HAND, mines: [] });
+    // The beach stays `advancing` while line 1 is unopened, so its trickle would keep putting walkers inland of the mech.
+    // This test reads b-squad alone, so the trickle is stopped.
+    game.trickle = null;
     game.mech.x = 0;
     game.mech.z = 88;
     game.mech.yaw = 0;

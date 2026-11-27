@@ -54,7 +54,7 @@ describe('suspend', () => {
     const { battle: _backBattle, ...rest } = back;
     expect(rest).toEqual({ ...expected, bullets: [], shells: [], events: [] });
     expect(back.battle).not.toBe(game.battle);
-    expect(back.battle.crowd.holdZ).toBe(sectorHold(game.sectors).holdZ);
+    expect(back.battle.crowd.holdZ).toBe(sectorHold(game.sectors, game.script.blasts, M1B_HAND.blasts ?? []).holdZ);
     expect(back.map).toBe(M1B_HAND);
     expect(back.mission).toBe(M1);
   });

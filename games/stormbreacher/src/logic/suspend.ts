@@ -165,7 +165,7 @@ export function restoreSuspend(data: unknown): GameModel | null {
   const kept = structuredClone(data.game) as SuspendedGame;
   const checkpoint = saved === null ? null : { ...(structuredClone(saved) as SuspendedCheckpoint), map, mission };
   // An old save kept a broken target's rect at the wall's height; the wreck the view draws is low, so the rect is too.
-  const hold = sectorHold(kept.sectors);
+  const hold = sectorHold(kept.sectors, kept.script.blasts, map.blasts ?? []);
   const game = {
     ...kept,
     map,

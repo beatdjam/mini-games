@@ -1385,7 +1385,7 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   const checkpoint = game.checkpoint;
   if (checkpoint === null) throw new Error('no checkpoint to retry from');
   const { id, map, mission, ...rest } = checkpoint;
-  const hold = sectorHold(rest.sectors);
+  const hold = sectorHold(rest.sectors, rest.script.blasts, map.blasts ?? []);
   const next: GameModel = {
     ...structuredClone(rest),
     map,
@@ -1644,7 +1644,7 @@ function stepSupport(game: GameModel, dt: number): void {
     battle: game.battle,
     enemies: game.enemies,
     supportT: game.supportT,
-    hold: sectorHold(game.sectors),
+    hold: sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []),
   };
   const shots = stepSupportState(world, stream('support'), dt);
   game.supportT = world.supportT;
@@ -1725,13 +1725,15 @@ export function timeScale(game: GameModel): number {
 // ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
 // (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
 // enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
-// (the closing cutscene may still be playing: it goes on to its end) or the mech is downed, the game's own frame does
-// nothing, but the battle layer still moves (see stepBattleLayer). A milestone's slowdown (SB-2010) scales the whole
+// (the closing cutscene may still be playing: it goes on to its end) the game's own frame does nothing, but the battle
+// layer still moves (see stepBattleLayer). A downed mech stops the whole frame, battle layer too: the infantry, its
+// waiting line's loss and its waves hold still until the retry. A milestone's slowdown (SB-2010) scales the whole
 // frame by `slow.scale`; its clock counts real seconds, so it ends after `slow.left` seconds have gone by whatever the
 // game's own clock says.
 export function step(game: GameModel, given: GameInput, dt: number): void {
   game.events = [];
-  if ((game.cleared && game.script.cutscene === null) || game.downed) {
+  if (game.downed) return;
+  if (game.cleared && game.script.cutscene === null) {
     stepBattleLayer(game, dt * timeScale(game));
     return;
   }
@@ -1739,9 +1741,9 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   stepBattleLayer(game, dt * timeScale(game));
 }
 
-// Moves the battle layer by one frame after the game's own frame (or instead of it while the sortie is downed or cleared),
-// in the order the view used to: the game's own shells and mines take the soldiers near them, the sectors move the
-// waiting line and send the wave a cleared one brings (not while any cutscene plays, the mech is downed or the sortie is
+// Moves the battle layer by one frame after the game's own frame (or instead of it while the cleared sortie's closing
+// cutscene plays), in the order the view used to: the game's own shells and mines take the soldiers near them, the
+// sectors move the waiting line and send the wave a cleared one brings (not while any cutscene plays or the sortie is
 // cleared), and
 // then the battle steps (the landing's cutscene holds it still). The fallen, the shell and the sector events become this
 // frame's events for the view to draw. The state is the game's, so a test can read it.
@@ -1763,9 +1765,9 @@ function stepBattleLayer(game: GameModel, dt: number): void {
   const cutscene = game.script.cutscene;
   if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
   if (game.sectors !== null) {
-    // The sectors and the trickle wait while the mech is downed, a cutscene plays or the sortie is cleared: no wave, no
-    // counterattack and no radio comes out then.
-    if (!game.downed && game.script.cutscene === null && !game.cleared) {
+    // The sectors and the trickle wait while a cutscene plays or the sortie is cleared: no wave, no counterattack and
+    // no radio comes out then.
+    if (game.script.cutscene === null && !game.cleared) {
       for (const event of stepSectors(game.sectors, game, dt)) {
         game.events.push(event);
         if (event.kind === 'sectorCleared') {
@@ -1778,6 +1780,9 @@ function stepBattleLayer(game: GameModel, dt: number): void {
             }
           }
           queueRadio(game, 'm1.sector-cleared');
+          // The infantry cannot answer "move up" while a line the mech has not blown holds it back: say what to do.
+          const lineHold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
+          if (sector !== undefined && lineHold.holdZ > sector.holdZ) queueRadio(game, 'm1.sector-line-closed');
         } else if (event.kind === 'sectorSecured') {
           queueRadio(game, 'm1.sector-secured');
         } else if (event.kind === 'sectorCounter') {
@@ -1798,7 +1803,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
             rects: game.rects,
             bounds: game.map.bounds,
             sectors: game.sectors,
-            paused: game.script.cutscene !== null || game.downed || game.cleared,
+            paused: game.script.cutscene !== null || game.cleared,
           },
           stream('trickle'),
           dt,
@@ -1807,7 +1812,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
         clearFallenTrickle(game);
       }
     }
-    const hold = sectorHold(game.sectors);
+    const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
     if (game.battle.crowd.holdZ !== hold.holdZ) {
       game.battle.crowd.holdZ = hold.holdZ;
       game.battle.crowd.holdT = 0;
@@ -1824,7 +1829,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
       game.battle.crowd.holdT = 0;
     }
   }
-  const hold = sectorHold(game.sectors);
+  const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
   const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, hold.held);
   for (const soldier of frame.fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
   if (frame.shell !== null) {

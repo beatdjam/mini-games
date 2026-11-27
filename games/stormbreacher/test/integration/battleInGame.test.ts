@@ -91,22 +91,24 @@ describe('the battle layer in the game', () => {
   test('a cleared sector moves the hold and sends one wave', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
-    const beach = M1_SECTORS[0];
     enterSector(game, 'beach');
+    const line1 = M1B_HAND.blasts?.find(point => point.id === 'l1-a')?.line ?? 0;
     const before = game.battle.crowd.soldiers.length;
     step(game, idle, DT);
     expect(game.sectors?.phase[0]).toBe('advancing');
-    expect(game.battle.crowd.holdZ).toBe(beach.holdZ);
+    // line 1 still stands closed, so the hold stops seaward of it rather than at the beach's own line
+    expect(game.battle.crowd.holdZ).toBe(line1 + SECTOR_TUNE.lineMargin);
     expect(game.battle.crowd.soldiers.length).toBe(before + SECTOR_TUNE.surge);
   });
 
-  test('the infantry keeps walking while the mech is downed', () => {
+  test('the infantry holds still while the mech is downed', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
     game.downed = true;
     const before = meanZ(game);
     run(game, 60);
-    expect(meanZ(game)).toBeLessThan(before);
+    expect(meanZ(game)).toBe(before);
+    expect(game.events).toEqual([]);
   });
 
   test('the landing cutscene holds the infantry still', () => {
@@ -127,9 +129,10 @@ describe('the battle layer in the game', () => {
     enterSector(game, 'beach');
     step(game, idle, DT);
     const back = resumed(game);
+    const line1 = M1B_HAND.blasts?.find(point => point.id === 'l1-a')?.line ?? 0;
     expect(back.sectors).toEqual(game.sectors);
-    expect(back.battle.crowd.holdZ).toBe(sectorHold(back.sectors).holdZ);
-    expect(back.battle.crowd.holdZ).toBe(M1_SECTORS[0].holdZ);
+    expect(back.battle.crowd.holdZ).toBe(sectorHold(back.sectors, back.script.blasts, M1B_HAND.blasts ?? []).holdZ);
+    expect(back.battle.crowd.holdZ).toBe(line1 + SECTOR_TUNE.lineMargin);
   });
 
   test('a retry rebuilds the battle at the checkpoint’s sector', () => {
@@ -138,6 +141,6 @@ describe('the battle layer in the game', () => {
     takeCp1(game);
     expect(game.checkpoint?.id).toBe('cp1');
     const again = retryFromCheckpoint(game);
-    expect(again.battle.crowd.holdZ).toBe(sectorHold(again.sectors).holdZ);
+    expect(again.battle.crowd.holdZ).toBe(sectorHold(again.sectors, again.script.blasts, M1B_HAND.blasts ?? []).holdZ);
   });
 });

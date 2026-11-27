@@ -3,6 +3,7 @@
 // is the small one the functions ask for, built by hand.
 import { expect, test } from 'vitest';
 import { LANG } from '@engine/core/index.ts';
+import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { newCrowd, type Soldier } from '../../src/logic/crowd.ts';
 import {
@@ -20,6 +21,8 @@ import '../../src/i18n/en.ts';
 
 const BEACH = M1_SECTORS[0];
 const PILLBOXES = M1_SECTORS[3];
+const BLASTS = M1B_HAND.blasts ?? [];
+const LINE1_Z = BLASTS.find(point => point.id === 'l1-a')?.line ?? 0;
 
 function soldierAt(z: number, alive = true): Soldier {
   return { x: 0, z, yaw: 0, alive, deadT: 0, phase: 0, squad: 0, fallAt: null, waited: false };
@@ -243,23 +246,49 @@ test('the dead are not counted as arrived, and a wiped-out crowd secures nothing
 });
 
 test('the hold starts at the water’s edge and follows the last cleared sector', () => {
+  const open = BLASTS.filter(point => point.line !== null).map(point => point.id);
   const fresh = newSectors();
-  expect(sectorHold(fresh)).toEqual({ holdZ: SECTOR_TUNE.startHoldZ, held: true });
+  expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: SECTOR_TUNE.startHoldZ, held: true });
   fresh.phase[0] = 'advancing';
-  expect(sectorHold(fresh)).toEqual({ holdZ: BEACH.holdZ, held: true });
+  expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: BEACH.holdZ, held: true });
   fresh.phase[0] = 'secured';
-  expect(sectorHold(fresh).holdZ).toBe(BEACH.holdZ);
+  expect(sectorHold(fresh, open, BLASTS).holdZ).toBe(BEACH.holdZ);
   fresh.phase[1] = 'advancing';
-  expect(sectorHold(fresh).holdZ).toBe(M1_SECTORS[1].holdZ);
+  expect(sectorHold(fresh, open, BLASTS).holdZ).toBe(M1_SECTORS[1].holdZ);
   fresh.phase[2] = 'advancing';
   fresh.phase[3] = 'advancing';
-  expect(sectorHold(fresh)).toEqual({ holdZ: PILLBOXES.holdZ, held: true });
+  expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: PILLBOXES.holdZ, held: true });
   fresh.phase[3] = 'secured';
-  expect(sectorHold(fresh)).toEqual({ holdZ: PILLBOXES.holdZ, held: false });
+  expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: PILLBOXES.holdZ, held: false });
+});
+
+test('a still-closed defence line keeps the infantry before it and the sector unsecured until a blast opens it', () => {
+  const state = stateWith(['advancing', 'idle', 'idle', 'idle']);
+  expect(LINE1_Z).toBe(137);
+  const waitZ = LINE1_Z + SECTOR_TUNE.lineMargin;
+  expect(sectorHold(state, [], BLASTS).holdZ).toBe(waitZ);
+  expect(sectorHold(state, ['l1-a'], BLASTS).holdZ).toBe(BEACH.holdZ);
+  // At the closed line they are not at the beach's hold line, so the beach is not secured.
+  const waiting = Array.from({ length: SECTOR_TUNE.arriveMax }, () => soldierAt(waitZ));
+  expect(stepSectors(state, world({ soldiers: waiting }), 1 / 60)).toEqual([]);
+  expect(state.phase[0]).toBe('advancing');
+  // Once they have walked through the hole to the beach's hold line, they secure it.
+  const arrived = Array.from({ length: SECTOR_TUNE.arriveMax }, () => soldierAt(BEACH.holdZ));
+  expect(stepSectors(state, world({ soldiers: arrived }), 1 / 60).map(event => event.kind)).toEqual([
+    'sectorSecured',
+    'sectorCounter',
+  ]);
 });
 
 test('every sector line has text in ja and en', () => {
-  const keys = ['m1.sector-cleared', 'm1.sector-secured', 'm1.sector-counter', 'm1.sector-stable', 'm1.sector-weak'];
+  const keys = [
+    'm1.sector-cleared',
+    'm1.sector-line-closed',
+    'm1.sector-secured',
+    'm1.sector-counter',
+    'm1.sector-stable',
+    'm1.sector-weak',
+  ];
   for (const code of ['ja', 'en']) {
     for (const key of keys) expect(LANG[code].ui[key], `${code} is missing "${key}"`).toBeTruthy();
   }
