@@ -1,0 +1,101 @@
+// The sectors of M1's front (SB-2210): a sector is cleared when the mech has gone in and no enemy is left in it, and it
+// is secured when enough of the infantry has reached its hold line. The game asks these pure functions, so a node test
+// runs them without a page; game.ts is not imported (game.ts imports this file). +z is the sea.
+import { M1_SECTORS, SECTOR_TUNE, type Sector, type SectorId } from '../data/sectors.ts';
+import type { Crowd, Soldier } from './crowd.ts';
+
+export type SectorPhase = 'idle' | 'advancing' | 'secured';
+
+export interface SectorsState {
+  phase: SectorPhase[]; // one for each sector of M1_SECTORS, front to back
+}
+
+// What the sectors need to know of one enemy or one target.
+interface SectorFoe {
+  z: number;
+  hp: number;
+}
+
+interface SectorTarget {
+  kind: string;
+  hp: number;
+}
+
+// What a frame of the sectors needs: the mech, the enemies and targets, and the infantry's crowd.
+export interface SectorWorld {
+  mech: { z: number };
+  enemies: readonly SectorFoe[];
+  targets: readonly SectorTarget[];
+  battle: { crowd: Crowd };
+}
+
+export type SectorEvent = { kind: 'sectorCleared'; sector: SectorId } | { kind: 'sectorSecured'; sector: SectorId };
+
+export interface SectorHold {
+  holdZ: number; // where the infantry waits now (m)
+  held: boolean; // whether it waits there instead of walking on
+}
+
+export function newSectors(): SectorsState {
+  return { phase: M1_SECTORS.map(() => 'idle') };
+}
+
+// The living soldiers at or past `holdZ` (within arriveBand of it, on the landward side).
+export function arrivedSoldiers(crowd: Crowd, holdZ: number): Soldier[] {
+  return crowd.soldiers.filter(soldier => soldier.alive && soldier.z <= holdZ + SECTOR_TUNE.arriveBand);
+}
+
+// Whether a sector has no living enemy left in it. Its enemies count from its landZ to seaMargin past its seaZ; the
+// pillbox line also counts the pillboxes that still stand.
+function sectorClear(sector: Sector, world: SectorWorld): boolean {
+  if (world.mech.z > sector.seaZ - SECTOR_TUNE.enterDepth) return false;
+  for (const enemy of world.enemies) {
+    if (enemy.hp <= 0) continue;
+    if (enemy.z < sector.landZ || enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
+    return false;
+  }
+  if (sector.id === 'pillboxes' && world.targets.some(target => target.kind === 'pillbox' && target.hp > 0)) {
+    return false;
+  }
+  return true;
+}
+
+// Whether enough of the living infantry stands at the sector's hold line: min(arriveMax, ceil(living * arriveShare)).
+// With every soldier down nothing is secured; the refill in game.ts puts the next wave out instead.
+function sectorSecured(crowd: Crowd, holdZ: number): boolean {
+  const living = crowd.soldiers.filter(soldier => soldier.alive).length;
+  if (living === 0) return false;
+  const needed = Math.min(SECTOR_TUNE.arriveMax, Math.ceil(living * SECTOR_TUNE.arriveShare));
+  return arrivedSoldiers(crowd, holdZ).length >= needed;
+}
+
+// Moves the sectors on by one frame. Only the frontmost sector that is not secured is looked at, so the ones behind it
+// wait until it is secured in turn. Gives back the event of a sector cleared or secured this frame.
+export function stepSectors(state: SectorsState, world: SectorWorld): SectorEvent[] {
+  for (let i = 0; i < M1_SECTORS.length; i++) {
+    const phase = state.phase[i];
+    if (phase === 'secured') continue;
+    const sector = M1_SECTORS[i];
+    if (phase === 'idle') {
+      if (!sectorClear(sector, world)) return [];
+      state.phase[i] = 'advancing';
+      return [{ kind: 'sectorCleared', sector: sector.id }];
+    }
+    if (!sectorSecured(world.battle.crowd, sector.holdZ)) return [];
+    state.phase[i] = 'secured';
+    return [{ kind: 'sectorSecured', sector: sector.id }];
+  }
+  return [];
+}
+
+// Where the infantry waits now: the last sector that is advancing or secured, or the water's edge before the first.
+// It waits until the pillbox line is secured and then walks on, as it did once `pillboxes-down` raised.
+export function sectorHold(state: SectorsState | null): SectorHold {
+  let holdZ = SECTOR_TUNE.startHoldZ;
+  for (let i = 0; i < M1_SECTORS.length; i++) {
+    const phase = state?.phase[i];
+    if (phase === 'advancing' || phase === 'secured') holdZ = M1_SECTORS[i].holdZ;
+  }
+  const last = state?.phase[M1_SECTORS.length - 1];
+  return { holdZ, held: last !== 'secured' };
+}

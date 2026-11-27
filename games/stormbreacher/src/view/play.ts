@@ -34,6 +34,7 @@ import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { stepZoom, wantsWide, zoomedTune } from '../logic/quarterZoom.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
+import { sectorHold } from '../logic/sectors.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
 import { burnAtmosphere } from './atmosphere.ts';
@@ -609,7 +610,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const cutscene = game.script.cutscene;
   const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
   if (!holdsBattle) {
-    const shellShake = view.battle.draw(dt, game.mech, game.battleFront !== 'pillboxes', game.events);
+    const shellShake = view.battle.draw(dt, game.mech, sectorHold(game.sectors).held, game.events);
     // The battlefield's shells shake the camera within the same cap as the blasts: a shell landing in the same frame as
     // a blast near the mech must not add the two past shakeMax and throw the camera off.
     if (shellShake > 0) feelBoom(view.feel, shellShake, FEEL_TUNE);

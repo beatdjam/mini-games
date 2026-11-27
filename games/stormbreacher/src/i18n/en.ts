@@ -106,6 +106,8 @@ LANG.en = {
     'm1.line2-cheer': 'Second line open! Push up!',
     'm1.line2-hold': 'Counterattack coming. Clear them at the cover, then push.',
     'm1.pillboxes-down': 'Bunkers silent! Push up!',
+    'm1.sector-cleared': 'Sector clear. Infantry, move up!',
+    'm1.sector-secured': 'Infantry dug in. Sector secured.',
     'm1.bunker-down': 'BUNKER DOWN',
     'm1.pillbox-charge': 'The front won’t give! Go round the side or back and plant a charge',
     'm1.wave2-lost': 'The second wave is lost. Push through with what we have.',

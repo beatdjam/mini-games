@@ -1,11 +1,9 @@
 // The battle layer in the game (SB-2200): the infantry's crowd and the battle's shells are GameModel's now, step moves
-// them and the view only draws them. The front line's flags still decide the waiting line, and a suspend or a retry
-// rebuilds the crowd at the line the flags hold.
+// them and the view only draws them. The front's sectors (SB-2210) decide the waiting line, and a suspend or a retry
+// rebuilds the crowd at the line the sectors hold.
 import { describe, expect, test } from 'vitest';
-import { LINE1_FLAG, LINE2_FLAG } from '../../src/data/front.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { PAYOFF_TUNE } from '../../src/data/payoff.ts';
-import { frontOf } from '../../src/logic/front.ts';
+import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.ts';
 import {
   newGame,
   retryFromCheckpoint,
@@ -15,6 +13,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { seed } from '../../src/logic/rng.ts';
+import { sectorHold } from '../../src/logic/sectors.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { newPlayGame } from './playGame.ts';
 
@@ -60,12 +59,24 @@ function resumed(game: GameModel): GameModel {
   return back;
 }
 
+// Takes every living enemy in the sector's z band down, and leaves the mech at the sector's sea-side edge.
+function enterSector(game: GameModel, id: SectorId): void {
+  const sector = M1_SECTORS.find(entry => entry.id === id);
+  if (sector === undefined) throw new Error(`M1 has no ${id} sector`);
+  for (const enemy of game.enemies) {
+    if (enemy.hp <= 0) continue;
+    if (enemy.z < sector.landZ || enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
+    enemy.hp = 0;
+  }
+  game.mech.z = sector.seaZ - SECTOR_TUNE.enterDepth - 1;
+}
+
 describe('the battle layer in the game', () => {
   test('the infantry walks from the sea to the hold line and waits', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
-    const holdZ = frontOf([]).holdZ;
-    expect(game.battleFront).toBe('beach');
+    const holdZ = SECTOR_TUNE.startHoldZ;
+    expect(game.sectors?.phase[0]).toBe('idle');
     expect(game.battle.crowd.holdZ).toBe(holdZ);
     const before = meanZ(game);
     const count = alive(game).length;
@@ -77,16 +88,16 @@ describe('the battle layer in the game', () => {
     expect(alive(game).length).toBeLessThanOrEqual(count);
   });
 
-  test('a new front line moves the hold and sends one wave', () => {
+  test('a cleared sector moves the hold and sends one wave', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
-    const line1 = frontOf([LINE1_FLAG]);
+    const beach = M1_SECTORS[0];
+    enterSector(game, 'beach');
     const before = game.battle.crowd.soldiers.length;
-    game.script.flags.push(LINE1_FLAG);
     step(game, idle, DT);
-    expect(game.battleFront).toBe('line1');
-    expect(game.battle.crowd.holdZ).toBe(line1.holdZ);
-    expect(game.battle.crowd.soldiers.length).toBe(before + PAYOFF_TUNE.surgeAllies);
+    expect(game.sectors?.phase[0]).toBe('advancing');
+    expect(game.battle.crowd.holdZ).toBe(beach.holdZ);
+    expect(game.battle.crowd.soldiers.length).toBe(before + SECTOR_TUNE.surge);
   });
 
   test('the infantry keeps walking while the mech is downed', () => {
@@ -110,26 +121,23 @@ describe('the battle layer in the game', () => {
     expect(alive(game).length).toBe(count);
   });
 
-  test('a suspend rebuilds the battle at the line the flags hold', () => {
+  test('a suspend rebuilds the battle at the sector’s line', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
-    game.script.flags.push(LINE2_FLAG);
+    enterSector(game, 'beach');
+    step(game, idle, DT);
     const back = resumed(game);
-    const front = frontOf(back.script.flags);
-    expect(front.id).toBe('line2');
-    expect(back.battleFront).toBe(front.id);
-    expect(back.battle.crowd.holdZ).toBe(front.holdZ);
+    expect(back.sectors).toEqual(game.sectors);
+    expect(back.battle.crowd.holdZ).toBe(sectorHold(back.sectors).holdZ);
+    expect(back.battle.crowd.holdZ).toBe(M1_SECTORS[0].holdZ);
   });
 
-  test('a retry rebuilds the battle at the checkpoint’s line', () => {
+  test('a retry rebuilds the battle at the checkpoint’s sector', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
     takeCp1(game);
     expect(game.checkpoint?.id).toBe('cp1');
     const again = retryFromCheckpoint(game);
-    const front = frontOf(again.script.flags);
-    expect(front.id).toBe('pillboxes');
-    expect(again.battleFront).toBe(front.id);
-    expect(again.battle.crowd.holdZ).toBe(front.holdZ);
+    expect(again.battle.crowd.holdZ).toBe(sectorHold(again.sectors).holdZ);
   });
 });

@@ -105,6 +105,8 @@ LANG.ja = {
     'm1.line2-cheer': '第二線も開いた！押し上げろ！',
     'm1.line2-hold': '迎撃が来る。障害物の手前で片付けてから進め',
     'm1.pillboxes-down': 'トーチカ沈黙！押し上げろ！',
+    'm1.sector-cleared': '区画掃討。歩兵、前へ！',
+    'm1.sector-secured': '歩兵が陣地に入った。ここは確保した',
     'm1.bunker-down': 'トーチカ沈黙',
     'm1.pillbox-charge': '正面は抜けない！横か後ろに回って爆薬を仕掛けろ',
     'm1.wave2-lost': '第2波の艇が沈んだ。今いる戦力で押し切れ',

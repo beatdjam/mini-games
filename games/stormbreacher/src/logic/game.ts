@@ -42,6 +42,7 @@ import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { FORTRESS_GUN_FLAG, M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
+import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../data/sectors.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
@@ -92,7 +93,7 @@ import {
   type Ray3,
 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
-import { frontOf, type FrontId } from './front.ts';
+import { newSectors, sectorHold, stepSectors, type SectorsState } from './sectors.ts';
 import {
   inCircle,
   mineStepped,
@@ -185,6 +186,8 @@ export type GameEvent =
   | { kind: 'mineBlast'; x: number; y: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
   | { kind: 'battleFell'; x: number; z: number } // one of the battle layer's soldiers fell this frame; the view puts its dust there
   | { kind: 'battleShell'; x: number; z: number; shake: number } // a shell of the battle layer landed; the view draws it and shakes the camera
+  | { kind: 'sectorCleared'; sector: SectorId } // a sector's enemies are all down; the infantry moves up to it (SB-2210)
+  | { kind: 'sectorSecured'; sector: SectorId } // enough infantry has reached the sector's hold line; it is secured (SB-2210)
   | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
   | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
@@ -275,11 +278,11 @@ function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
 
 // The game as a checkpoint keeps it: every field of GameModel except the ones listed here, which are not kept. `events`,
 // `bullets` and `shells` (a warning before it lands) are the frame's own, `checkpoint` never nests, and `id` is the checkpoint's name (cp1). `map` and
-// `mission` are definitions nothing writes to, so the copy points at the same ones. The battle layer (`battle`, `battleFront`,
-// `battleTune`) is rebuilt from the front line's flags when the sortie comes back.
+// `mission` are definitions nothing writes to, so the copy points at the same ones. The battle layer (`battle`,
+// `battleTune`) is rebuilt from the sectors when the sortie comes back.
 export type GameSnapshot = Omit<
   GameModel,
-  'events' | 'bullets' | 'shells' | 'nav' | 'checkpoint' | 'battle' | 'battleFront' | 'battleTune'
+  'events' | 'bullets' | 'shells' | 'nav' | 'checkpoint' | 'battle' | 'battleTune'
 > & { id: string };
 
 export interface GameModel {
@@ -288,7 +291,7 @@ export interface GameModel {
   mission: MissionDef; // the script's write-up (data/missions/m1.ts)
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
   battle: BattleState; // the battle layer's infantry and shells; step moves it, the view only draws it
-  battleFront: FrontId; // the front line the battle layer was last moved to
+  sectors: SectorsState | null; // the front's sectors; null where the sortie's sectors do not run (the arena)
   battleTune: FxTune; // the values the battle layer runs on (the sortie's, or the arena's thinner one)
   // The line on screen now. `time` is when it came up plus the cutscene seconds since (stepRadio holds it still while a
   // cutscene hides the HUD), so game.time - time is the seconds the HUD has shown it; null before one
@@ -940,10 +943,15 @@ export function fortressBlast(game: GameModel, blast: BlastState): void {
 
 // A new sortie on `map` with the script `mission`: the mech on the landing craft's deck at the middle of the front edge,
 // facing the land, every target at its health, and the script at its start. `battleTune` thins the battle layer (the arena
-// asks for the beach's own tune with its allies, shells and planes off); the sortie's is the default.
-export function newGame(map: MapDef, mission: MissionDef = M1, options: { battleTune?: FxTune } = {}): GameModel {
+// asks for the beach's own tune with its allies, shells and planes off); the sortie's is the default. `sectors` false
+// leaves the sector rules off (the arena walks its infantry only), keeping the hold at the water's edge.
+export function newGame(
+  map: MapDef,
+  mission: MissionDef = M1,
+  options: { battleTune?: FxTune; sectors?: boolean } = {},
+): GameModel {
   const battleTune = options.battleTune ?? PLAY_BATTLE_TUNE;
-  const front = frontOf([]);
+  const sectors = options.sectors === false ? null : newSectors();
   const mech = newMech();
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = craftZ(map.bounds) + LANDING_TUNE.startDepth;
@@ -966,8 +974,8 @@ export function newGame(map: MapDef, mission: MissionDef = M1, options: { battle
     map,
     mission,
     script: newScript(mission),
-    battle: newBattle(stream('crowd'), map.bounds, battleTune, front.holdZ, map.spawns[M1_NEST_WAVE] ?? []),
-    battleFront: front.id,
+    battle: newBattle(stream('crowd'), map.bounds, battleTune, SECTOR_TUNE.startHoldZ, map.spawns[M1_NEST_WAVE] ?? []),
+    sectors,
     battleTune,
     radio: null,
     radioQueue: [],
@@ -1344,7 +1352,6 @@ function snapshotOf(game: GameModel, id: string): GameSnapshot {
     nav: _nav,
     checkpoint: _checkpoint,
     battle: _battle,
-    battleFront: _battleFront,
     battleTune: _battleTune,
     map,
     mission,
@@ -1364,13 +1371,12 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   const checkpoint = game.checkpoint;
   if (checkpoint === null) throw new Error('no checkpoint to retry from');
   const { id, map, mission, ...rest } = checkpoint;
-  const front = frontOf(rest.script.flags);
+  const hold = sectorHold(rest.sectors);
   const next: GameModel = {
     ...structuredClone(rest),
     map,
     mission,
-    battle: newBattle(stream('crowd'), map.bounds, game.battleTune, front.holdZ, map.spawns[M1_NEST_WAVE] ?? []),
-    battleFront: front.id,
+    battle: newBattle(stream('crowd'), map.bounds, game.battleTune, hold.holdZ, map.spawns[M1_NEST_WAVE] ?? []),
     battleTune: game.battleTune,
     armor: MECH_TUNE.armor,
     downed: false,
@@ -1403,7 +1409,7 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
 
 // The sortie again from the start.
 export function restartGame(game: GameModel): GameModel {
-  const next = newGame(game.map, game.mission, { battleTune: game.battleTune });
+  const next = newGame(game.map, game.mission, { battleTune: game.battleTune, sectors: game.sectors !== null });
   next.retries = game.retries + 1;
   next.events.push({ kind: 'retried', from: null });
   return next;
@@ -1693,9 +1699,10 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
 }
 
 // Moves the battle layer by one frame after the game's own frame (or instead of it while the sortie is downed or cleared),
-// in the order the view used to: the game's own shells and mines take the soldiers near them, a new front line moves the
-// waiting line and sends a wave, and then the battle steps (the landing's cutscene holds it still). The fallen and the
-// shell become this frame's events for the view to draw. The state is the game's, so a test can read it.
+// in the order the view used to: the game's own shells and mines take the soldiers near them, the sectors move the
+// waiting line and send the wave a cleared one brings (not while a cutscene holds the battle or the mech is downed), and
+// then the battle steps (the landing's cutscene holds it still). The fallen, the shell and the sector events become this
+// frame's events for the view to draw. The state is the game's, so a test can read it.
 function stepBattleLayer(game: GameModel, dt: number): void {
   const tune = game.battleTune;
   // A shell of the game's own (a mortar round or a mine) takes the infantry near it, as the battle's own shells do.
@@ -1711,18 +1718,46 @@ function stepBattleLayer(game: GameModel, dt: number): void {
     );
     for (const soldier of fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
   }
-  const front = frontOf(game.script.flags);
-  if (front.id !== game.battleFront) {
-    game.battleFront = front.id;
-    game.battle.crowd.holdZ = front.holdZ;
-    game.battle.crowd.holdT = 0;
-    if (game.battle.crowd.bounds !== null && PAYOFF_TUNE.surgeAllies > 0) {
-      spawnCrowd(game.battle.crowd, stream('crowd'), game.battle.crowd.bounds, PAYOFF_TUNE.surgeAllies, tune);
-    }
-  }
   const cutscene = game.script.cutscene;
   if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
-  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, front.id !== 'pillboxes');
+  if (game.sectors !== null) {
+    if (!game.downed) {
+      for (const event of stepSectors(game.sectors, game)) {
+        game.events.push(event);
+        if (event.kind === 'sectorCleared') {
+          const sector = M1_SECTORS.find(entry => entry.id === event.sector);
+          if (sector !== undefined) {
+            game.battle.crowd.holdZ = sector.holdZ;
+            game.battle.crowd.holdT = 0;
+            if (game.battle.crowd.bounds !== null && SECTOR_TUNE.surge > 0) {
+              spawnCrowd(game.battle.crowd, stream('crowd'), game.battle.crowd.bounds, SECTOR_TUNE.surge, tune);
+            }
+          }
+          queueRadio(game, 'm1.sector-cleared');
+        } else {
+          queueRadio(game, 'm1.sector-secured');
+        }
+      }
+    }
+    const hold = sectorHold(game.sectors);
+    if (game.battle.crowd.holdZ !== hold.holdZ) {
+      game.battle.crowd.holdZ = hold.holdZ;
+      game.battle.crowd.holdT = 0;
+    }
+    // While the infantry waits, a wave that is wiped out entirely is made up from behind, so the line is not left empty
+    // before it is secured (SB-2210). One wave a frame: the wave just put out has its soldiers alive.
+    if (
+      hold.held &&
+      SECTOR_TUNE.refill > 0 &&
+      game.battle.crowd.bounds !== null &&
+      game.battle.crowd.soldiers.every(soldier => !soldier.alive)
+    ) {
+      spawnCrowd(game.battle.crowd, stream('crowd'), game.battle.crowd.bounds, SECTOR_TUNE.refill, tune);
+      game.battle.crowd.holdT = 0;
+    }
+  }
+  const hold = sectorHold(game.sectors);
+  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, hold.held);
   for (const soldier of frame.fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
   if (frame.shell !== null) {
     game.events.push({ kind: 'battleShell', x: frame.shell.x, z: frame.shell.z, shake: frame.shell.shake });
