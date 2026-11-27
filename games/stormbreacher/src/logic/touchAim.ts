@@ -33,32 +33,23 @@ export function dragAimPoint(
   return { x: mech.x + (dir.x / length) * tune.aimReach, z: mech.z + (dir.z / length) * tune.aimReach };
 }
 
-// The yaw the stick points to on the screen (`moveX` right, `moveZ` forward, the values readTouch gives), or `yaw` while
-// the stick is no farther than `min` from its centre.
-export function stickFace(move: { moveX: number; moveZ: number }, azimuth: number, yaw: number, min: number): number {
-  if (Math.hypot(move.moveX, move.moveZ) <= min) return yaw;
-  const dir = screenToGround(move.moveX, -move.moveZ, azimuth);
-  return Math.atan2(-dir.x, -dir.z);
-}
-
 export interface TouchAimArgs {
   mech: { x: number; z: number };
   yaw: number;
   azimuth: number;
   drag: { x: number; y: number } | null;
-  move: { moveX: number; moveZ: number };
-  stickMin: number;
   tune: TouchAimTune;
 }
 
-// What the main body and the arena add to a touch step: the screen's azimuth as the movement frame, the drag's ground
-// point as the aim, or the stick's direction as the facing while the right side is not touched (the same flow as
-// cursorAimInput). A drag inside the deadzone counts as no touch of the right side.
+// What the main body and the arena add to a touch step: the screen's azimuth as the movement frame, and the drag's
+// ground point as the aim. While the right side is not touched the mech keeps the yaw it last aimed at, so walking with
+// the stick alone does not turn the aim (it can back off or strafe while it shoots the same way). A drag inside the
+// deadzone counts as no touch of the right side.
 export function touchAimInput(args: TouchAimArgs): Pick<GameInput, 'frame' | 'aimAt' | 'face'> {
   const frame = args.azimuth;
   if (args.drag !== null) {
     const at = dragAimPoint(args.mech, args.drag, args.azimuth, args.tune);
     if (at !== null) return { frame, aimAt: at };
   }
-  return { frame, face: stickFace(args.move, args.azimuth, args.yaw, args.stickMin) };
+  return { frame, face: args.yaw };
 }

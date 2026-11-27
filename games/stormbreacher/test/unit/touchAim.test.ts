@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { MOVE_TUNE } from '../../src/data/tune.ts';
 import { newMech, stepMech, type MechInput } from '../../src/logic/mech.ts';
-import { dragAimPoint, screenToGround, stickFace } from '../../src/logic/touchAim.ts';
+import { dragAimPoint, screenToGround, touchAimInput } from '../../src/logic/touchAim.ts';
 
 const AZ = Math.PI / 4;
 const TUNE = { aimReach: 20, aimDeadzone: 16 };
@@ -57,21 +57,23 @@ test('a drag aims at a point aimReach away in its screen direction', () => {
   expect(diagonal.z - mech.z).toBeCloseTo(-TUNE.aimReach / Math.SQRT2, 10);
 });
 
-test('the stick faces the screen direction it is pushed, and holds the yaw at rest', () => {
-  expect(stickFace({ moveX: 0, moveZ: 1 }, 0, 1.2, 0.05)).toBeCloseTo(0, 10);
-  expect(stickFace({ moveX: 0, moveZ: 1 }, AZ, 1.2, 0.05)).toBeCloseTo(AZ, 10);
-  // up and right together point up-right on the screen: -z and +x at azimuth 0
-  expect(stickFace({ moveX: 1, moveZ: 1 }, 0, 1.2, 0.05)).toBeCloseTo(-Math.PI / 4, 10);
-  expect(stickFace({ moveX: 0.01, moveZ: -0.01 }, AZ, 1.2, 0.05)).toBe(1.2);
+test('without a right touch the mech keeps the yaw it last aimed at', () => {
+  const mech = { x: 0, z: 0 };
+  expect(touchAimInput({ mech, yaw: 1.2, azimuth: AZ, drag: null, tune: TUNE })).toEqual({ frame: AZ, face: 1.2 });
+  // a drag inside the deadzone counts as no touch of the right side
+  expect(touchAimInput({ mech, yaw: 1.2, azimuth: AZ, drag: { x: 3, y: 4 }, tune: TUNE })).toEqual({
+    frame: AZ,
+    face: 1.2,
+  });
 });
 
-test('a stick face turns the mech so it moves the same way as the screen frame', () => {
-  const framed = newMech();
-  const faced = newMech();
-  const face = stickFace({ moveX: 0, moveZ: 1 }, AZ, faced.yaw, 0.05);
-  stepMech(framed, { ...idle, moveZ: 1, frame: AZ }, 0.1, MOVE_TUNE, 0);
-  stepMech(faced, { ...idle, moveZ: 1, face }, 0.1, MOVE_TUNE, 0);
-  expect(faced.yaw).toBeCloseTo(AZ, 10);
-  expect(faced.x).toBeCloseTo(framed.x, 10);
-  expect(faced.z).toBeCloseTo(framed.z, 10);
+test('walking with the stick alone moves on the screen frame and does not turn the aim', () => {
+  const mech = newMech();
+  const before = mech.yaw;
+  const { frame, face } = touchAimInput({ mech, yaw: mech.yaw, azimuth: AZ, drag: null, tune: TUNE });
+  stepMech(mech, { ...idle, moveZ: 1, frame, face }, 0.1, MOVE_TUNE, 0);
+  expect(mech.yaw).toBeCloseTo(before, 10);
+  // up on the stick is up on the screen: -z and -x at azimuth PI/4
+  expect(mech.x).toBeLessThan(0);
+  expect(mech.z).toBeLessThan(0);
 });

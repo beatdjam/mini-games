@@ -8,7 +8,7 @@ import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { TOUCH_TUNE } from '../data/touch.ts';
 import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
-import { playInputOptions, STICK_MOVE_MIN } from '../logic/input.ts';
+import { playInputOptions } from '../logic/input.ts';
 import { touchAimInput } from '../logic/touchAim.ts';
 import {
   newGame,
@@ -55,7 +55,7 @@ let started = false; // the play system and the result's button are set up once
 // and the mech faces the ground under the cursor at its feet (the middle of the screen until the mouse moves). With no
 // point (the first frame, or the top edge above the horizon) the current yaw is held, so the turn keys do not take the
 // aim over. A touch screen moves with the same frame: its right drag aims at a point on the ground and, without a right
-// touch, the stick's direction is the facing. The arena calls this too.
+// touch, the mech keeps the yaw it last aimed at. The arena calls this too.
 export function cursorAim(
   game: GameModel,
   view: PlayView,
@@ -68,8 +68,6 @@ export function cursorAim(
       yaw: game.mech.yaw,
       azimuth,
       drag: read.drag,
-      move: read.stick ?? { moveX: 0, moveZ: 0 },
-      stickMin: STICK_MOVE_MIN,
       tune: TOUCH_TUNE,
     });
   }
