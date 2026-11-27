@@ -223,6 +223,46 @@ export const HUD_TUNE = {
   radarRange: 200, // how far the radar sees (m); a target farther than this is not drawn
 };
 
+// Layout D's sizes (SB-2155, 仮): the ring round the cross and its numbers (px, for 1280x720), and the ring on the
+// ground at the mech's feet (m). The numbers' shares fix where the text stops being quiet and where the armour's shades
+// change; view/hudRing.ts is the pure side that turns these into angles and shades.
+export const HUD_RING_TUNE = {
+  reticle: {
+    radius: 22, // px; the thin ring round the cross at the cursor
+    thickness: 1.4, // px; the ring's and the ammo arc's line
+    cross: 6, // px; each arm of the cross from the middle
+    crossThickness: 1.2, // px
+    lockRadius: 14, // px; the ring's radius while the aim is pulled toward a target
+    dotMax: 12, // the most sub ammo dots round the ring; a larger magazine is thinned by share
+    dotRadius: 1.4, // px
+    dotGap: 4, // px, from the ring's outer edge to the dot's middle
+    number: {
+      size: 10, // px
+      width: 64, // px; the box each number keeps inside the screen
+      height: 12, // px
+      gap: 4, // px, from the cursor to the first number
+      lineGap: 1, // px, between the main and sub lines
+      warnShare: 0.25, // the share of a magazine at or below which the numbers come out (and 0 is empty)
+      opacity: { quiet: 0.35, warn: 0.9, empty: 0.95 },
+      margin: 8, // px, kept from the screen's edge by the numbers
+    },
+  },
+  ground: {
+    radius: 2.2, // m; the ring's middle line
+    thickness: 0.22, // m
+    lift: 0.06, // m; above the face the mech stands on, as hazards.ts's shell rings
+    segments: 64, // pieces round the ring
+    armorMid: 0.6, // share above which the armour stays the high shade; at the value it is the mid one
+    armorLow: 0.28, // share above which it is the mid shade; at the value it is the low one
+    armorOpacity: 0.55, // the armour half's base opacity (0-1)
+    boostFullOpacity: 0.22, // the boost half's opacity while the gauge is full
+    boostLowOpacity: 0.8, // the boost half's opacity while any of it is spent
+    glowSec: 0.35, // s; how long the armour half stays lit after a hit
+  },
+} as const;
+
+export type HudRingTune = typeof HUD_RING_TUNE;
+
 // The signs of being under fire (SB-1380): the red edge a hit from a direction lights, the white flash of a blast close
 // by, and the dark, drained edge while the armour is low. Colours are 0xRRGGBB and shares are 0-1. All provisional,
 // settled by eye in #view-hurt.

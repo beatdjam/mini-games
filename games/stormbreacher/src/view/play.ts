@@ -54,6 +54,7 @@ import { ndcToScreen } from './hudPlace.ts';
 import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
+import { buildMechRing, drawMechRing, type MechRingView } from './mechRing.ts';
 import { mechSeeThrough } from './mechFade.ts';
 import { buildProtoMech, protoMuzzle, setProtoOpacity } from './mechProtoModel.ts';
 import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
@@ -131,6 +132,7 @@ export interface PlayView {
   battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; the game moves it, the view draws it (SB-170)
   allies: AllyView; // the script's allied mech
   hud: PlayHud; // the sortie's HUD, in the page
+  mechRing: MechRingView; // layout D's armour and boost ring on the ground under the mech
   useNear: boolean; // whether the mech is in reach of a blast point, so the touch use button lights (SB-2017)
   hurt: HurtView; // the red edge, the white flash and the dark edge while the armour is low
   cutscene: CutsceneView; // the bars, the line and the pictures only a cutscene shows
@@ -211,6 +213,7 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     ),
     allies: buildAllyView(),
     hud,
+    mechRing: buildMechRing(),
     useNear: false,
     hurt: buildHurtView(document.body),
     cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets, startSecond),
@@ -595,6 +598,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw, view.quarter.tune.azimuth);
+      // layout D's armour half flashes from the frame the hit lands; the HUD model has no hit of its own (SB-2155)
+      view.mechRing.glowFrom = game.time;
     }
   }
   // The fortress's charge blew (SB-1860): a large blast at the magazine and dust along each wall that comes down. The
@@ -739,6 +744,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   view.hurt.root.hidden = game.script.cutscene !== null;
   const hud = hudModel(game, view.quarter.tune.azimuth);
   view.useNear = hud.use !== null;
+  // layout D's ground ring shows only with D and outside a cutscene, as the HUD's root does; the mesh stays in the scene
+  // so an arena switch from another placement starts drawing it at once.
+  view.mechRing.mesh.visible = cutscene === null && view.hud.layout === 'd';
+  if (view.mechRing.mesh.visible) drawMechRing(view.mechRing, game, hud, game.time);
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   // a cutscene hides the HUD's root, so its feet are not needed
   const feet = game.script.cutscene === null ? mechFeetOnScreen(game) : null;
