@@ -29,7 +29,7 @@ import { removeEnemyView } from '../view/enemies.ts';
 import { removeGunfireView } from '../view/gunfire.ts';
 import { removeHazardView } from '../view/hazards.ts';
 import { removeHurtView } from '../view/hurt.ts';
-import { removeHud } from '../view/hud.ts';
+import { placeReticle, removeHud } from '../view/hud.ts';
 import { disposeProtoMech } from '../view/mechProtoModel.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { applyMarkerQuery } from '../data/marker.ts';
@@ -264,6 +264,8 @@ function update(dt: number): void {
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);
   drawPlay(view, game, drawDt, read.pitchDelta);
+  // the PC's reticle marks the cursor; a touch screen keeps the dot and circle at the centre (read.cursor is null there)
+  placeReticle(view.hud, read.cursor);
   // the touch use button lights while the mech stands in reach of a blast point (SB-2017)
   el('#btnUse').classList.toggle('on', view.useNear);
   // a cleared sortie shows its result once the closing cutscene is over

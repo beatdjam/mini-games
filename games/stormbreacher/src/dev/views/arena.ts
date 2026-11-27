@@ -18,6 +18,7 @@ import { newWeapon } from '../../logic/weapons.ts';
 import { cameraBoxesOfRect } from '../../view/camera.ts';
 import { noFade } from '../../view/fade.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
+import { placeReticle } from '../../view/hud.ts';
 import { buildOutdoor, buildTargets } from '../../view/outdoor.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../../view/play.ts';
 import { buildShore } from '../../view/shore.ts';
@@ -338,6 +339,7 @@ export function showArena(_hash: string) {
 
       soundFrame(arena, dt);
       drawPlay(view, arena, dt, read.pitchDelta);
+      placeReticle(view.hud, read.cursor);
 
       const time = arena.time.toFixed(1);
       hud.textContent =
