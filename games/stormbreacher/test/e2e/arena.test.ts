@@ -2,12 +2,11 @@
 // the game and the view by hand, as #view-fx's test does, so the test needs no frame timing.
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import * as THREE from 'three';
 import { el, runSystems } from '@engine/core/index.ts';
-import { camera } from '@engine/render/index.ts';
 import { boot } from '../../src/app/boot.ts';
-import { MECH_TUNE, QUARTER_TUNE } from '../../src/data/tune.ts';
-import { currentArenaGame, showArena } from '../../src/dev/views/arena.ts';
+import { MECH_TUNE } from '../../src/data/tune.ts';
+import { currentArenaGame, currentArenaView, showArena } from '../../src/dev/views/arena.ts';
+import { aimPointOf } from '../../src/view/play.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -15,6 +14,9 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
+
+// where on the screen's vertical middle line (+1 is the top) the cursor points: toward the top, where the enemies come from
+const AIM_Y = 0.25;
 
 const key = (type: string, code: string): KeyboardEvent => new KeyboardEvent(type, { code, bubbles: true });
 
@@ -26,29 +28,39 @@ test('#view-arena opens, fights a group and puts the next one out when it falls'
   expect(document.querySelector('#sbArenaHud')).not.toBeNull();
 
   runSystems(1 / 60);
+  const view = currentArenaView();
+  if (!view) throw new Error('the arena has no view');
+  // The camera follows the mech with a lag. Let it come to rest first, so the screen's point and the ground it names do
+  // not move under the test.
+  let moved = Infinity;
+  for (let i = 0; i < 60 && moved >= 1e-12; i++) {
+    const before = view.quarter.pose;
+    const pos = before?.pos.clone();
+    const look = before?.look.clone();
+    runSystems(1 / 60);
+    const after = view.quarter.pose;
+    if (pos && look && after) moved = Math.max(after.pos.distanceToSquared(pos), after.look.distanceToSquared(look));
+  }
+  expect(moved, 'the camera came to rest').toBeLessThan(1e-12);
+
   const first = arena.enemies.filter(enemy => enemy.hp > 0);
   expect(first).toHaveLength(1);
   const enemy = first[0];
-  // Put it on open ground the cursor can name: it stands toward the screen's top, a little to its right, clear of the
-  // blocks. The arena aims with the cursor's ground point (FCS_QUARTER), not with the mech's facing.
-  const upX = -Math.sin(QUARTER_TUNE.azimuth);
-  const upZ = -Math.cos(QUARTER_TUNE.azimuth);
-  const rightX = -upZ;
-  const rightZ = upX;
-  const spot = { x: arena.mech.x + upX * 15 + rightX * 3, z: arena.mech.z + upZ * 15 + rightZ * 3 };
+  // Put the enemy where a point on the screen's vertical middle line names on the ground: the arena aims with the
+  // cursor's ground point (FCS_QUARTER). x = 0 is the same line whatever the window's size, so no projection or camera
+  // aspect is read, and the upper half puts the enemy well ahead of the mech.
+  const cursor = { x: 0, y: AIM_Y };
+  const spot = aimPointOf(view, cursor, arena.mech.y);
+  if (!spot) throw new Error("the screen's point does not name a point on the ground");
   enemy.x = spot.x;
   enemy.z = spot.z;
   enemy.y = 0;
-  // The cursor is put on the enemy's own ground point: the screen draw's camera maps that point back to it.
-  camera.updateMatrixWorld();
-  const aimed = new THREE.Vector3(enemy.x, arena.mech.y, enemy.z).project(camera);
-  expect(Math.abs(aimed.x)).toBeLessThan(1);
-  expect(Math.abs(aimed.y)).toBeLessThan(1);
+  // The cursor goes to the same screen point, so the game reads the ground point the enemy stands on.
   const rect = el('#gl').getBoundingClientRect();
   window.dispatchEvent(
     new MouseEvent('mousemove', {
-      clientX: rect.left + ((aimed.x + 1) / 2) * rect.width,
-      clientY: rect.top + ((1 - aimed.y) / 2) * rect.height,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + ((1 - cursor.y) / 2) * rect.height,
       bubbles: true,
     }),
   );
@@ -66,13 +78,20 @@ test('#view-arena opens, fights a group and puts the next one out when it falls'
   } finally {
     window.dispatchEvent(key('keyup', 'KeyJ'));
   }
-  expect(enemy.hp).toBeLessThan(before);
-
   const report = JSON.parse(window.sbArenaReport?.() ?? '{}') as {
     kills: number;
     shots: number;
     hits: number;
   };
+  // the state at the failure, so a miss shows where the aim went
+  const state = JSON.stringify({
+    spot,
+    away: Math.hypot(spot.x - arena.mech.x, spot.z - arena.mech.z),
+    mech: { x: arena.mech.x, z: arena.mech.z },
+    hp: enemy.hp,
+    report,
+  });
+  expect(enemy.hp, state).toBeLessThan(before);
   expect(report.shots).toBeGreaterThan(0);
   expect(report.hits).toBeGreaterThan(0);
   expect(report.kills).toBeGreaterThanOrEqual(1);
