@@ -43,6 +43,10 @@ const enemyMeshes = (): THREE.Object3D[] =>
 // camera or past the fog is not written at all (SB-2086), so the sum is what the frame draws.
 const drawnEnemies = (): number => enemyMeshes().reduce((sum, mesh) => sum + (mesh as THREE.InstancedMesh).count, 0);
 
+// The follow eases from the cutscene's camera, out at sea, to the quarter view behind the mech, and the fog's far plane
+// is measured from wherever the camera stands. Two seconds of the game's time take it to the play pose.
+const SETTLE_STEPS = 120;
+
 test('an enemy’s bullet that takes the last armour shows the result with the downed heading', async () => {
   startSortie();
   // The landing cutscene starts on the first step, and no hit takes armour while it plays: a bullet that has not reached
@@ -80,15 +84,15 @@ const allMeshNames = (): string[] => ENEMY_KINDS.flatMap(kind => meshNamesOf(kin
 test('the enemies of a wave are drawn, and starting again leaves one set', async () => {
   startSortie();
   steps(1);
-  // the landing cutscene puts the camera out at sea, past the fog that hides the far squad; play starts at the mech
+  // the landing cutscene leaves the camera out at sea; the play view is the one the fog is measured from
   sendToScript(game(), { kind: 'skip' });
-  steps(1);
+  steps(SETTLE_STEPS);
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length + SOLDIER_KINDS.length);
   // the six nests and the two sectors' ten posted defenders (SB-2015) stand from the start
   expect(drawnEnemies()).toBe(16);
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   steps(1);
-  // the squad, on top of the six nests and the ten defenders
+  // the squad, on top of the six nests and the ten defenders; from the play pose the whole squad is inside the fog
   expect(game().enemies).toHaveLength(22);
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length + SOLDIER_KINDS.length);
   expect(drawnEnemies()).toBe(22);
@@ -96,7 +100,7 @@ test('the enemies of a wave are drawn, and starting again leaves one set', async
   startSortie();
   steps(1);
   sendToScript(game(), { kind: 'skip' });
-  steps(1);
+  steps(SETTLE_STEPS);
   expect(
     enemyMeshes()
       .map(mesh => mesh.name)
@@ -123,7 +127,7 @@ test('every kind keeps room for its instance colours, so the GPU can draw it', a
   steps(1);
   // the landing cutscene's camera is out past the fog; the wave is measured from where the player stands
   sendToScript(game(), { kind: 'skip' });
-  steps(1);
+  steps(SETTLE_STEPS);
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   steps(1);
   // the six nests, the ten posted defenders and the squad (SB-2015)
