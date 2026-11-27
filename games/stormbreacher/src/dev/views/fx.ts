@@ -21,7 +21,7 @@ import {
   collectGroundTiles,
   collectLights,
 } from '../../view/look.ts';
-import { buildFlatRange, checkOneTable, moveFeelFromParams, tuneWithParams } from './move.ts';
+import { buildFlatRange, checkOneTable, moveFeelFromParams, tuneWithParams } from '../flatRange.ts';
 
 declare global {
   interface Window {

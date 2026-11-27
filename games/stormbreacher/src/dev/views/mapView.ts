@@ -27,7 +27,7 @@ import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
 import { buildAreaFrames, buildBlastMarks, buildSpawnMarks, countProps } from '../map/build.ts';
 import { loadDevMap } from '../map/store.ts';
 import { createTunePanel } from '../tunePanel.ts';
-import { buildFlatRange, moveFeelFromParams } from './move.ts';
+import { buildFlatRange, moveFeelFromParams } from '../flatRange.ts';
 
 declare global {
   interface Window {

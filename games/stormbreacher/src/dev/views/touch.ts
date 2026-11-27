@@ -12,7 +12,7 @@ import { touchStats, type TouchStats } from '../../app/touch.ts';
 import type { MechState } from '../../logic/mech.ts';
 import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
-import { buildFlatRange, moveFeelFromParams } from './move.ts';
+import { buildFlatRange, moveFeelFromParams } from '../flatRange.ts';
 
 declare global {
   interface Window {
