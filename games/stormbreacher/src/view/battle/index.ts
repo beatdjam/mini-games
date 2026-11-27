@@ -329,8 +329,10 @@ export function buildBattle(
     let farCount = 0;
     for (let i = 0; i < n; i++) {
       const soldier = list[i];
-      // waiting at the line: the view's own read of the crowd's rule (stepCrowd pins it at holdZ while held)
-      const waiting = soldier.alive && held && holdZ !== null && soldier.z <= holdZ + 1e-9;
+      // waiting at the line (the view's own read of stepCrowd's rule), or standing on the post it took in a secured
+      // sector; one still walking to its post keeps the walk
+      const posted = soldier.post !== null && Math.hypot(soldier.x - soldier.post.x, soldier.z - soldier.post.z) < 0.05;
+      const waiting = soldier.alive && (posted || (held && holdZ !== null && soldier.z <= holdZ + 1e-9));
       const close = nearFlags[i] === 1;
       const meshes = close ? nearSoldiers : farSoldiers;
       const at = close ? nearCount++ : farCount++;

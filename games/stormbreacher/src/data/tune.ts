@@ -354,11 +354,11 @@ export const BATTLE_TUNE = {
   allyCatchGap: 40, // an ally this far behind the mech starts to hurry after it (m; SB-2044)
   allySpawnBehind: 60, // a new wave comes in this far behind the mech instead of at the sea edge, once the mech is past it (m)
   allyCatchMul: 2.5, // how many times allySpeed it walks at 2 x allyCatchGap behind the mech
-  // A line held under the machine guns bleeds more the longer it is held (SB-2020): the loss starts at holdLossRate a
-  // second and grows by holdLossRamp a second, so the waiting infantry visibly thins before the charge opens the line.
-  holdLossRate: 0.02,
-  holdLossRamp: 0.015,
-  holdLossMax: 0.12,
+  // The waiting line no longer bleeds (SB-2262): the sortie's infantry is there when the line moves, and only a shell or
+  // a mine takes one. The SB-2020 loss stays in FxTune for #view-fx, which changes nothing here.
+  holdLossRate: 0,
+  holdLossRamp: 0,
+  holdLossMax: 0,
   squads: 2, // the squads that walk on a machine-gun nest; the rest of the wave comes in scattered
   squad: 5, // the soldiers in one squad
   squadFallShare: 0.4, // the share of a squad that falls at the nest it walks on (0-1)

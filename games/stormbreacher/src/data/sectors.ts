@@ -32,6 +32,7 @@ export const SECTOR_TUNE = {
   counterSpread: 60, // half the x spread of the counterattack's points (m)
   weakArrived: 8, // fewer soldiers than this at the hold line make a weak hold (soldiers)
   counterKind: 'grunt' as EnemyKind, // the kind of enemy the counterattack puts out
+  postStayShare: 0.5, // the posted soldiers that keep their ground when the line moves on (share; SB-2262)
 };
 
 // The infantry's support fire (SB-2240): the soldiers at a sector's hold line shoot the nearest enemy in range. The

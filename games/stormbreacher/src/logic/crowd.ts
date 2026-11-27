@@ -20,6 +20,8 @@ const SQUAD_GAP_X = 2.2; // how far apart two of them stand across (m)
 const SQUAD_GAP_Z = 2; // how far one rank stands behind the next (m)
 const SQUAD_NEST_SPREAD = 3; // how far off a nest's x a squad comes in (m); inside squadFallRadius, so it falls there
 export const DEAD_LINGER = 4; // how long a fallen soldier stays on the ground (s)
+// How near its post a soldier is when it has taken it up: closer than this it stops and faces the land (m).
+const POST_ARRIVE = 0.05;
 
 export interface Soldier {
   x: number; // the feet (m)
@@ -31,6 +33,7 @@ export interface Soldier {
   squad: number; // the squad it walks in (0 for one of the scattered soldiers)
   fallAt: SpawnPoint | null; // the machine-gun nest it falls near (null keeps it walking)
   waited: boolean; // true once it has stood at the waiting line; it does not fall to the steady loss after that
+  post: { x: number; z: number } | null; // where it is posted in a secured sector; null while it walks with the wave
 }
 
 export interface Crowd {
@@ -105,6 +108,7 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
         squad: n + 1,
         fallAt: i < falls ? { x: nest.x, z: nest.z } : null,
         waited: false,
+        post: null,
       });
       added++;
     }
@@ -122,6 +126,7 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
       squad: 0,
       fallAt: null,
       waited: false,
+      post: null,
     });
     added++;
   }
@@ -143,9 +148,10 @@ export function catchUp(z: number, leaderZ: number | undefined, tune: FxTune): n
 // fallen away after DEAD_LINGER and counts the ones that reach the line. While `held` and the crowd has a holdZ, the
 // living stop at that line and no new wave comes in, so the field does not fill up while they wait. The pinned line
 // still bleeds: with SB-2020's holdLossRate/holdLossRamp the soldiers at it fall faster the longer it is held (the loss
-// is 0 unless a tune sets it, as #view-fx keeps). One that waited does not fall to the steady loss after the line is let
-// go (a shell or a squad's machine gun still takes it). Gives back the soldiers that fell this frame, so the view can put
-// a little dust where each one went down.
+// is 0 unless a tune sets it, as the sortie's own PLAY_BATTLE_TUNE now keeps). One that waited does not fall to the steady
+// loss after the line is let go (a shell or a squad's machine gun still takes it). A posted soldier (SB-2262) walks to
+// its place in a secured sector and stops there, and the line's moves do not take it away. Gives back the soldiers that
+// fell this frame, so the view can put a little dust where each one went down.
 export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held = false, leaderZ?: number): Soldier[] {
   const span = Math.max(0, dt);
   const fell: Soldier[] = [];
@@ -178,9 +184,29 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
       continue;
     }
 
-    // A soldier at the waiting line stands still and faces the land: no sway, no walk, and it is marked as one that
-    // waited, so the steady loss never takes it after the line is let go.
-    if (holdZ !== null && soldier.z <= holdZ + 1e-9) {
+    // A posted soldier walks to its place in a secured sector and stops there, facing the land (SB-2262). It stays when
+    // the line moves on, so the ground the infantry took keeps its soldiers.
+    if (soldier.post !== null) {
+      const dx = soldier.post.x - soldier.x;
+      const dz = soldier.post.z - soldier.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > POST_ARRIVE) {
+        const walk = Math.max(0, tune.allySpeed) * span;
+        const k = walk >= dist ? 1 : walk / dist;
+        soldier.x += dx * k;
+        soldier.z += dz * k;
+        soldier.yaw = Math.atan2(-dx, -dz);
+      } else {
+        soldier.x = soldier.post.x;
+        soldier.z = soldier.post.z;
+        soldier.yaw = 0;
+      }
+      if (bounds !== null) {
+        soldier.x = clamp(soldier.x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
+      }
+    } else if (holdZ !== null && soldier.z <= holdZ + 1e-9) {
+      // A soldier at the waiting line stands still and faces the land: no sway, no walk, and it is marked as one that
+      // waited, so the steady loss never takes it after the line is let go.
       soldier.z = holdZ;
       soldier.yaw = 0;
       soldier.waited = true;
@@ -196,8 +222,9 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
       }
     }
 
-    // the waiting line comes before the far line: a held soldier stops there and never counts as through
-    if (holdZ !== null && soldier.z < holdZ) soldier.z = holdZ;
+    // the waiting line comes before the far line: a held soldier stops there and never counts as through. A posted
+    // soldier is not on the line: it keeps the place it took behind the cover.
+    if (soldier.post === null && holdZ !== null && soldier.z < holdZ) soldier.z = holdZ;
 
     // the line is pinned under the machine guns: the soldiers standing at it fall faster the longer it is held
     if (holdZ !== null && soldier.waited && holdRate > 0 && rng.next() < holdDeathChance) {
@@ -208,7 +235,7 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
       continue;
     }
 
-    if (soldier.z <= crowd.lineZ) {
+    if (soldier.post === null && soldier.z <= crowd.lineZ) {
       crowd.through++;
       crowd.soldiers.splice(i, 1);
       continue;
@@ -223,7 +250,7 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
     }
     // Nobody falls to the steady loss while the crowd waits, or after it has waited: an ally that reached the line has
     // to be there when the flag comes, or the advance the ticket plays for never shows. Shells and squads still take them.
-    const steady = holdZ === null && !soldier.waited;
+    const steady = holdZ === null && !soldier.waited && soldier.post === null;
     if (steady && tune.allyDeathRate > 0 && rng.next() < deathChance) {
       soldier.alive = false;
       soldier.deadT = 0;

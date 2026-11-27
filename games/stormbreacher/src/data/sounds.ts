@@ -1,7 +1,7 @@
 // The sound table: every value the synth uses, named here so the view/sound.ts recipes have no numbers of their own. All values are provisional and get tuned by listening at #view-sound. There is no music: SOUND_VOLUME.bgm is 0.
 
-// The sounds the game can play. The first fifteen answer a frame's events (the fist's hit and miss among them); wave
-// and distantBoom are the beach's ambience.
+// The sounds the game can play. The ones through downed answer a frame's events (the fist's hit and miss, and the
+// infantry's support rifle among them); wave and distantBoom are the beach's ambience.
 export type SoundName =
   | 'autocannon'
   | 'heavyGun'
@@ -15,6 +15,7 @@ export type SoundName =
   | 'shellWarn'
   | 'shellLand'
   | 'enemyGun'
+  | 'supportFire'
   | 'mechHit'
   | 'charge'
   | 'radio'
@@ -36,6 +37,7 @@ export const SOUND_NAMES: readonly SoundName[] = [
   'shellWarn',
   'shellLand',
   'enemyGun',
+  'supportFire',
   'mechHit',
   'charge',
   'radio',
@@ -157,6 +159,14 @@ export const SOUND_LAYERS: Record<SoundName, readonly SoundLayer[]> = {
     { kind: 'tone', type: 'sine', f0: 145, f1: 50, dur: 0.06, vol: 0.13 },
     { kind: 'noise', type: 'lowpass', f0: 1300, f1: 300, dur: 0.1, vol: 0.05, at: 0.01 },
   ],
+  // The infantry's support rifle (SB-2262): a small crack with a short body, quieter than the enemy's gun and the mech's
+  // autocannon, so a burst at the line reads under the fight instead of standing out of it.
+  supportFire: [
+    { kind: 'noise', type: 'highpass', f0: 5200, f1: 2400, dur: 0.02, vol: 0.16 },
+    { kind: 'noise', type: 'bandpass', f0: 1700, f1: 560, dur: 0.055, vol: 0.11, q: 1.3 },
+    { kind: 'tone', type: 'sine', f0: 150, f1: 60, dur: 0.055, vol: 0.07 },
+    { kind: 'noise', type: 'lowpass', f0: 1200, f1: 260, dur: 0.1, vol: 0.035, at: 0.01 },
+  ],
   // The mech taking a round: heavier and closer than impactArmor. A deep thump and a low body, one dull clank, and a saw
   // that falls away under it as the frame groans.
   mechHit: [
@@ -222,6 +232,7 @@ export const SOUND_FRAME_LIMIT: Record<SoundName, number> = {
   shellWarn: 2,
   shellLand: 2,
   enemyGun: 2,
+  supportFire: 2,
   mechHit: 1,
   charge: 1,
   radio: 1,

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { FX_TUNE, type FxTune } from '../../src/data/tune.ts';
+import { FX_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../src/data/tune.ts';
 import {
   DEAD_LINGER,
   catchUp,
@@ -194,6 +194,17 @@ test('a shell makes the soldiers inside its radius fall, by its share', () => {
   expect(fallNear(crowd, 0, 0, 100, 0, rng)).toHaveLength(0);
   expect(fallNear(crowd, 0, 0, 0, 1, rng)).toHaveLength(0);
   expect(crowd.fallen).toBe(3);
+});
+
+test('the sortie’s waiting line loses no soldier while it waits with no shell or mine', () => {
+  const crowd = newCrowd();
+  const rng = createRng(31);
+  spawnWave(crowd, rng, BOUNDS, 300, PLAY_BATTLE_TUNE);
+  crowd.holdZ = 150;
+  // two minutes at the line, with the sortie's own tune: the held line no longer bleeds (SB-2262)
+  for (let i = 0; i < 60 * 120; i++) stepCrowd(crowd, rng, DT, PLAY_BATTLE_TUNE, true);
+  expect(crowd.fallen).toBe(0);
+  expect(crowd.soldiers.filter(soldier => soldier.alive)).toHaveLength(300);
 });
 
 // How many of 300 soldiers waiting at the line fall in `seconds`, with the held line's loss set as given (SB-2020).

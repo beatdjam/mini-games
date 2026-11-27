@@ -185,6 +185,16 @@ test('the same sound in one frame is cut to the table’s limit', () => {
   expect(cues).toHaveLength(SOUND_FRAME_LIMIT.autocannon + SOUND_FRAME_LIMIT.impactDirt + SOUND_FRAME_LIMIT.enemyGun);
 });
 
+test('the infantry’s support fire plays its own quiet rifle, cut to the frame limit', () => {
+  const fire: GameEvent = { kind: 'supportFire', from: { x: 5, z: 10 }, to: { x: 0, y: 1, z: 0 } };
+  const events = Array.from({ length: SOUND_FRAME_LIMIT.supportFire + 3 }, () => fire);
+  const cues = planSounds({ events, mech: MECH, targets: [], hostile: [] });
+  expect(cues.map(cue => cue.name)).toEqual(Array(SOUND_FRAME_LIMIT.supportFire).fill('supportFire'));
+  // it is a small rifle: quieter than the enemy's gun, so a burst at the line does not stand out
+  const loudest = (name: SoundName): number => Math.max(...SOUND_LAYERS[name].map(layer => layer.vol));
+  expect(loudest('supportFire')).toBeLessThan(loudest('enemyGun'));
+});
+
 test('the farther a sound is, the lower its level', () => {
   expect(soundMix(SOUND_DISTANCE.near).gain).toBe(1);
   expect(soundMix(SOUND_DISTANCE.far).gain).toBeCloseTo(SOUND_DISTANCE.minGain);
