@@ -38,5 +38,4 @@ test('#view-map opens under the overview camera, still, with the quarter camera 
   const panel = document.querySelector('#sbTunePanel');
   expect(panel).not.toBeNull();
   expect(panel!.textContent).toContain('QUARTER_TUNE');
-  expect(panel!.textContent).not.toContain('CAMERA_TUNE');
 });

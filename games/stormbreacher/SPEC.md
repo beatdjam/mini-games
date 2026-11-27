@@ -265,7 +265,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 `src/data/looks.ts` の `BASE_LIGHTS` はシーンの光の元の強さ。`hemi` 1.9（半球の強さ）・`sun` 1.25（太陽の強さ）・`sky` 0xe6f7ff・`ground` 0x4c4942（半球の上の色と下の色）・`sunAt` [42, 30, 22]（太陽の位置。横から当てて箱の面ごとに陰影を付ける）。合計の元は engine の半球 1.0・太陽 0.45 と `src/view/field.ts` の半球 0.9・太陽 0.8。上を向いた面の光は 1 を超えるため、`src/data/looks.ts` の `TONE.exposure`（0.85）を露出にして `ACESFilmicToneMapping` を掛け、砂や白波が白に飛ばないようにする（`applyToneBase` in `src/view/look.ts`。engine のレンダラーは共有なので STORMBREACHER の側で設定する）。
 
-機体そのものの大きさは `MECH_TUNE`（D-24: 高さ 4m）。下の `CAMERA_TUNE`・`MOVE_TUNE` はこの高さを基準に書く。
+機体そのものの大きさは `MECH_TUNE`（D-24: 高さ 4m）。下の `MOVE_TUNE`・`QUARTER_TUNE` はこの高さを基準に書く。
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -511,34 +511,6 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 - 壁と透かす物（SB-2048）: 物の高さ（`PROP_SIZE` の `h` に物の `scale` を掛けたもの）が `FADE_TUNE.wallHeight`（6m）以上なら壁で（seawall 6m・bunker 6m・stairs・ramp・cliff・fortWall 12m、目標の pillbox 6m・depot 6m・gun 8m・magazine 8m・fortressGun 10m、上陸の艇。トーチカ（pillbox・bunker）はちょうど 6m なので壁のまま）、`FADE_TUNE.wallHeight` 未満の物（hedgehog 3m・block 4m・wreck 5m・lowWall 0.85m）は壁にせず、透かす。大きい壁まで透かすと壁の向こうの敵が見えて遮蔽の意味が無くなるので、透かすのは低い物だけ。分けるのは `buildWorld`（`src/view/world.ts`）で、`lowRects`（`src/view/fade.ts`）が決める。`FADE_TUNE.wallHeight` を 0 にすると全部が壁に戻る
 - 低い物の透かし（SB-2048）: `fadeStep`（`src/view/fade.ts`）が毎フレーム、画面のカメラの位置から機体の胸（足元から `MECH_TUNE.height / 2`）への線を見て、その線が低い物の箱を（x・z に `FADE_TUNE.fadePad` 広げて）通る物、またはカメラがその箱の中に入った物を、`FADE_TUNE.fadeIn` 秒で不透明度 `FADE_TUNE.fadeOpacity` まで下げる。線から外れたら `FADE_TUNE.fadeOut` 秒で戻る。カメラの距離・位置は低い物では変わらない。描き方は、透かす間だけその物のコピーを、同じ種類の透明な双子の InstancedMesh（種類ごとに 1 つ、12 コピー分。コピーごとの不透明度を頂点属性 `instanceFade` で持つ）へ移し、元のコピーは大きさ 0 にする。透かしている種類だけ 1 draw 増え、透かす物の数では増えない。透かしの前に壊れた物は元のコピーへ戻してから壊す。機体自身の半透明（`MECH_TUNE.fadeDist`、`setProtoOpacity`）とは別の仕組みで、材質も別
-
-| 名前 | 値 | 単位・意味 |
-|------|----|------------|
-| `dist` | 8.6 | m。注視点からカメラまでの水平距離 |
-| `height` | 1.5 | m。注視点より上へ置く高さ |
-| `shoulder` | 2.15 | m。注視点を機体の右へずらす量 |
-| `lookHeight` | 2.9 | m。注視点の足元からの高さ |
-| `minDist` | 0.5 | m。壁で寄せるときの、注視点からの最短水平距離。ほぼ 0 にして、壁の向こうへ抜けないようにする |
-| `margin` | 0.6 | m。壁の手前に残す隙間 |
-| `pullSpeed` | 9 | m/s。壁に押されて寄るときの、機体の動きを除いたカメラの1フレームの移動の上限 |
-| `pullGap` | 1 | m。壁が離したあとの注視点の戻りが、これ以下になったら `pullSpeed` で閉じる |
-| `pullNear` | 0.5 | m。注視点からの距離が、壁のないときの距離（`openDist`）よりこれだけ近いカメラを、寄っているとみなす（前のフレームに壁が寄せていたときだけ） |
-| `returnSpeed` | 4 | m/s。壁が離したあと、カメラが戻る速さの上限 |
-| `returnLag` | 0.35 | s。壁が離したあと、カメラが戻る時定数 |
-| `turnLag` | 0.12 | s。壁が寄せている間・離した直後に、カメラが機体の後ろの向きへ回る時定数。距離の戻り（`returnSpeed`・`returnLag`）とは別。0 で遅れなし |
-| `returnDelay` | 0.5 | s。壁が離してから、カメラが戻り始めるまで待つ時間。この間にまた壁が押したら戻らない。0 で待たずに戻る |
-| `releaseGap` | 1.2 | m。望みの距離がカメラよりこれだけ遠いと、壁が離したとみなす |
-| `rise` | 0.9 | m。最短まで寄ったとき、肩越しに見えるようカメラを上げる量 |
-| `riseRange` | 1.5 | m。最短からこれだけ離れると、上げを 0 に戻す |
-| `closeLook` | 2 | m。最短まで寄ったとき、注視点を機体の前へ出す量 |
-| `closePitch` | 0.1 | rad。壁がないときの見下ろし角に足してよい上限 |
-| `fastTurn` | 8 | rad/s。これ以上の旋回は、壁が寄せていたカメラを望みの距離へ戻す途中の持ち越しを、望みの位置の `releaseGap` 以内で終える。角速度なので機体の大きさに比例させない |
-| `probeDeg` | 4 | 度。壁の当たりを測る線を、向きの左右へ振る角度 |
-| `pitchMin` | -0.5 | rad。上下の向きの下限（負が見下ろす） |
-| `pitchMax` | 0.8 | rad。上下の向きの上限（正が見上げる） |
-| `lag` | 0.12 | s。カメラが目標の位置に追いつく時定数（0 なら遅れなし） |
-| `aimDist` | 5.1 | m。狙うときの水平距離 |
-| `aimFov` | 52 | 度。狙うときの縦の画角 |
 
 手応えの基準・照準の円・カットシーンの画角は `FOV_TUNE`（SB-2196）。
 

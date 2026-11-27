@@ -5,7 +5,6 @@
 import { addSystem, clamp, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer } from '@engine/render/index.ts';
 import {
-  CAMERA_TUNE,
   FEEL_TUNE,
   FOV_TUNE,
   FX_STAGES,
@@ -322,10 +321,7 @@ export function showFx(_hash: string) {
   body.append(exportBtn, exportBox);
 
   const baseReport = () => {
-    const { moveTune: sizedMove } = scaleForMech(mechSize, moveTune, CAMERA_TUNE, {
-      camera: false,
-      move: mechMove,
-    });
+    const { moveTune: sizedMove } = scaleForMech(mechSize, moveTune, { move: mechMove });
     return {
       stage,
       src: source,
@@ -363,10 +359,7 @@ export function showFx(_hash: string) {
     name: 'sb-fx',
     update: dt => {
       const read = readInput(dt);
-      const { moveTune: moveAtSize } = scaleForMech(mechSize, moveTune, CAMERA_TUNE, {
-        camera: false,
-        move: mechMove,
-      });
+      const { moveTune: moveAtSize } = scaleForMech(mechSize, moveTune, { move: mechMove });
       range.model.scale.setScalar(mechSize / MECH_BASE_HEIGHT);
       range.feel.shake += battle.step(dt, mech);
       const step = range.step(
