@@ -86,9 +86,13 @@ const ARENA_BATTLE_TUNE: FxTune = {
 };
 
 let game: GameModel | null = null; // the arena in play, for the tests; null before it opens
+let shownView: PlayView | null = null; // the arena's view, for the tests; null before it opens
 
 // The arena in play, for the tests.
 export const currentArenaGame = (): GameModel | null => game;
+
+// The arena's view, for the tests.
+export const currentArenaView = (): PlayView | null => shownView;
 
 // The query of the hash (`#view-arena?enemies=grunt:4`) or, when it has none, of the page (`?enemies=grunt:4#view-arena`).
 function viewParams(): URLSearchParams {
@@ -246,6 +250,7 @@ export function showArena(_hash: string) {
   const view: PlayView = buildPlayView(arena, {
     world: buildArenaWorld(ARENA_MAP),
   });
+  shownView = view;
   initPlayInput(playInputOptions());
   el('#touch').hidden = !isTouch;
   // the arena takes no jump (D-50), so its touch layer has no jump button

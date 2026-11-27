@@ -1,7 +1,7 @@
 // The posted defenders of M1's two sectors (SB-2015): they hold their cover while their line stands, step out to fire,
 // and run for the next line's cover when a milestone breaks it. The open map keeps the run free of the hedgehog lines,
 // so a test can read the run itself; the posts are the hand map's own.
-import { describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { DEFENDER_POSTS, DEFENDER_START_POSTS, DEFENDER_TUNE } from '../../src/data/defenders.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
@@ -13,8 +13,12 @@ import {
   type GameInput,
   type GameModel,
 } from '../../src/logic/game.ts';
+import { seed } from '../../src/logic/rng.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { clearInfantry, newPlayGame } from './playGame.ts';
+
+// Every test starts from the same random streams: unseeded, `stream` draws from Math.random and each run differs.
+beforeEach(() => seed(7));
 
 const DT = 1 / 60;
 const idle: GameInput = {
@@ -71,6 +75,10 @@ describe('the defenders’ posts', () => {
 
   test('while its line holds a defender only steps out from its post, and it never walks toward the mech', () => {
     const game = newPlayGame(OPEN_MAP);
+    // this test reads the posted line alone: the infantry's support fire would shoot the defenders down (SB-2240),
+    // and the front's trickle would add enemies and shots among them (SB-2230)
+    clearInfantry(game);
+    game.trickle = null;
     game.armor = 1e9;
     // close to the first line's posts, with the line still closed; no prop hides the open map's lines
     game.mech.x = 0;
@@ -99,6 +107,10 @@ describe('the defenders’ posts', () => {
 describe('a milestone breaks the line', () => {
   test('line 1’s breach starts the whole first line at once, and it runs to the next cover and holds there', () => {
     const game = newPlayGame(OPEN_MAP);
+    // this test reads the posted line alone: the infantry's support fire and the front's trickle would join in
+    // (SB-2240, SB-2230)
+    clearInfantry(game);
+    game.trickle = null;
     game.armor = 1e9;
     game.mech.x = 40;
     game.mech.z = 150;
@@ -139,6 +151,10 @@ describe('a milestone breaks the line', () => {
 
   test('on the hand map the run reaches the next cover through the line it leaves', () => {
     const game = newPlayGame(M1B_HAND);
+    // this test reads the posted line alone: the infantry's support fire would shoot it (SB-2240), and a trickle walker
+    // near a runner would make keepApart push the runner against the hedgehogs (SB-2230)
+    clearInfantry(game);
+    game.trickle = null;
     const line1 = wave(game, 'line1-hold');
     const next = line1.map(enemy => DEFENDER_POSTS[enemy.post as number].next);
     sendToScript(game, { kind: 'blast', id: 'l1-b' });
@@ -153,6 +169,10 @@ describe('a milestone breaks the line', () => {
 
   test('line 2’s breach starts the posts behind it, and they run to the cover before the pillboxes', () => {
     const game = newPlayGame(OPEN_MAP);
+    // this test reads the posted line alone: the infantry's support fire and the front's trickle would join in
+    // (SB-2240, SB-2230)
+    clearInfantry(game);
+    game.trickle = null;
     game.armor = 1e9;
     game.mech.x = 0;
     game.mech.z = 90;
@@ -238,6 +258,10 @@ describe('a milestone breaks the line', () => {
 describe('a posted enemy on its own', () => {
   test('it steps out, fires and hides again without walking off the post', () => {
     const game = newPlayGame(OPEN_MAP);
+    // this test reads one posted defender alone: the infantry's support fire would shoot it down while it is stepped
+    // out (SB-2240), and the front's trickle would add enemies and shots (SB-2230)
+    clearInfantry(game);
+    game.trickle = null;
     game.armor = 1e9;
     game.mech.x = 0;
     game.mech.z = 130;
@@ -268,8 +292,10 @@ describe('a posted enemy on its own', () => {
 
   test('a new enemy that has a post runs with its back to the mech and fires nothing on the way', () => {
     const game = newPlayGame(OPEN_MAP);
-    // this test reads its own runner alone: the infantry's support fire would suppress it and slow its run (SB-2240)
+    // this test reads its own runner alone: the infantry's support fire would suppress it and slow its run (SB-2240), and
+    // a trickle walker near it would make keepApart push it about (SB-2230)
     clearInfantry(game);
+    game.trickle = null;
     const post = DEFENDER_POSTS[5];
     const enemy = newEnemy('run-1', 'line1-hold', 'grunt', 0, 120);
     enemy.awake = true;
