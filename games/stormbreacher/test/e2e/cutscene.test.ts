@@ -3,9 +3,8 @@ import { page } from 'vitest/browser';
 import { el, t, runSystems } from '@engine/core/index.ts';
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
-import { currentGame, startSortie } from '../../src/app/play.ts';
+import { currentGame, currentPlayView, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
-import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { craftZ } from '../../src/data/craft.ts';
 import { LANDING_RIDERS, LANDING_TUNE, SINKING_CREWS } from '../../src/data/landing.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
@@ -13,6 +12,7 @@ import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { RIDERS_NAME } from '../../src/view/riders.ts';
 import { SINKING_CREW_NAME } from '../../src/view/sinkingCrews.ts';
+import { quarterPose } from '../../src/view/quarterCamera.ts';
 import { pastSkipGuard as pastGuard } from './cutsceneSkip.ts';
 import { draw, steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
@@ -141,12 +141,50 @@ const sameAngles = (a: number[], b: number[]): boolean => a.every((v, i) => Math
 
 const START_Z = craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth; // where newGame puts the mech on the deck
 
-// The landing's keys are offsets from the mech; the last one is the game camera behind it at the shore.
-const lastKey = (): THREE.Vector3 => {
-  const keys = CUTSCENES.landing?.camera ?? [];
-  const last = keys[keys.length - 1];
-  return new THREE.Vector3(last.pos[0], last.pos[1], last.pos[2] + START_Z);
-};
+// The pose the quarter camera asks for now: where the camera is at rest once the cutscene has handed over.
+function quarterTarget(): THREE.Vector3 {
+  const view = currentPlayView();
+  if (!view) throw new Error('the sortie has no view');
+  return quarterPose({ x: game().mech.x, y: game().mech.y, z: game().mech.z }, view.quarter.tune).pos;
+}
+
+// Runs the game by hand while the bars show, and gives the camera pose the last cutscene frame showed. The first
+// controlled frame eases from that pose, so the cutscene's picture is not jumped over.
+function runCutsceneToEnd(): THREE.Vector3 {
+  const view = currentPlayView();
+  if (!view) throw new Error('the sortie has no view');
+  let shown: THREE.Vector3 | null = null;
+  for (let i = 0; i < 720 && !bars().hidden; i++) {
+    if (view.quarter.pose !== null) shown = view.quarter.pose.pos.clone();
+    runSystems(1 / 60);
+  }
+  if (!bars().hidden) throw new Error('the cutscene did not end');
+  if (shown === null) throw new Error('the cutscene showed no camera');
+  return shown;
+}
+
+// The follow from the cutscene's last pose: one `lag` step at a 60th of a second, then the quarter camera's place
+// within 0.5 m in a few dozen frames, with no frame moving farther than the ease asks.
+function expectEaseToQuarter(shown: THREE.Vector3, frames: number): void {
+  const view = currentPlayView();
+  if (!view || view.quarter.pose === null) throw new Error('the sortie has no camera');
+  const tune = view.quarter.tune;
+  if (!(tune.lag > 0)) throw new Error('the quarter camera has no lag to ease with');
+  const amount = 1 - Math.exp(-(1 / 60) / tune.lag);
+  const gap = shown.distanceTo(quarterTarget());
+  expect(view.quarter.pose.pos.distanceTo(shown)).toBeCloseTo(gap * amount, 4);
+  let prev = view.quarter.pose.pos.clone();
+  let prevGap = prev.distanceTo(quarterTarget());
+  for (let i = 0; i < frames; i++) {
+    steps(1);
+    const now = view.quarter.pose.pos.clone();
+    expect(now.distanceTo(prev)).toBeLessThanOrEqual(prevGap * amount + 1e-4);
+    prev = now;
+    prevGap = now.distanceTo(quarterTarget());
+  }
+  expect(prevGap).toBeLessThan(0.5);
+  expect(camera.position.distanceTo(quarterTarget())).toBeLessThan(0.5);
+}
 
 test('the landing draws the mech standing on the deck, not walking', async () => {
   startSortie();
@@ -293,28 +331,32 @@ test('the landing draws the sinking crews and the ally mech, and a skip hides th
   expect(allies).toBe(1);
 });
 
-test('when the landing ends the mech is at its start and the camera is where the last key put it', async () => {
+test('when the landing ends the mech is at its start and the camera eases from the last key to the quarter view', async () => {
   startSortie();
   await untilSteps(() => !bars().hidden);
   game().script.cutscene = { id: 'landing', left: 0.05 };
-  await untilSteps(() => bars().hidden);
-  // the blasts' shake runs out by the step's dt, not by the page's frames: half a second of steps lets it settle
-  steps(30);
+  // the last cutscene frame is the picture the first controlled frame eases from
+  const shown = runCutsceneToEnd();
   const model = mechModel();
   expect(model.visible).toBe(true);
   expect(model.position.x).toBeCloseTo(game().mech.x, 3);
   expect(model.position.z).toBeCloseTo(START_Z, 3);
-  expect(model.rotation.y).toBeCloseTo(0, 6);
-  expect(camera.position.distanceTo(lastKey())).toBeLessThan(0.5);
+  // the model faces the way the game's mech does: the cursor's point decides that now, not a fixed 0
+  expect(model.rotation.y).toBeCloseTo(game().mech.yaw, 6);
+  expectEaseToQuarter(shown, 60);
 });
 
-test('a skip puts the mech at its start and the camera at the game camera', async () => {
+test('a skip puts the mech at its start and eases the camera from the frame it skipped', async () => {
   startSortie();
   await untilSteps(() => !bars().hidden);
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 2 };
   steps(3);
+  const view = currentPlayView();
+  if (!view || view.quarter.pose === null) throw new Error('the sortie has no camera');
+  const shown = view.quarter.pose.pos.clone();
   el('#gl').click();
   await untilSteps(() => bars().hidden);
   expect(mechModel().position.z).toBeCloseTo(START_Z, 3);
-  expect(camera.position.distanceTo(lastKey())).toBeLessThan(0.5);
+  // the skipped frame is far out at sea, so the ease has farther to come than the landing's last key
+  expectEaseToQuarter(shown, 90);
 });
