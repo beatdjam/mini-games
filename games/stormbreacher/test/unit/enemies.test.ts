@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
 import { ENEMIES } from '../../src/data/enemies.ts';
+import { DEFENDER_POSTS, DEFENDER_TUNE } from '../../src/data/defenders.ts';
+import { SUPPORT_TUNE } from '../../src/data/sectors.ts';
 import { rectBox, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState, type EnemyWorld } from '../../src/logic/enemies.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
@@ -336,4 +338,60 @@ test('a nest is not pushed by the enemies near it, and a walker still is', () =>
   const start = { x: nest.x, z: nest.z };
   for (let i = 0; i < 120; i++) stepEnemy(nest, mechAt(0, 0), world, DT, createRng(1));
   expect({ x: nest.x, z: nest.z }).toEqual(start);
+});
+
+// The seconds from the first frame to a grunt's first shot, at its stopping distance.
+function firstShotAfter(suppressed: boolean): number {
+  const enemy = newEnemy('w-1', 'w', 'grunt', 0, -GRUNT.stopDist);
+  enemy.awake = true;
+  if (suppressed) enemy.suppressT = 10;
+  const rng = createRng(3);
+  for (let i = 1; i <= 600; i++) if (stepEnemy(enemy, mechAt(0, 0), OPEN, DT, rng)) return i * DT;
+  return Infinity;
+}
+
+test('suppression makes a grunt wait suppressFire times longer for its shot', () => {
+  const calm = firstShotAfter(false);
+  const slow = firstShotAfter(true);
+  expect(calm).toBeCloseTo(GRUNT.fireInterval, 1);
+  expect(slow / calm).toBeCloseTo(SUPPORT_TUNE.suppressFire, 1);
+});
+
+test('suppression slows a walking enemy to suppressMove', () => {
+  const enemy = newEnemy('w-1', 'w', 'grunt', 0, -100);
+  enemy.awake = true;
+  enemy.suppressT = 10;
+  const before = enemy.z;
+  for (let i = 0; i < 60; i++) stepEnemy(enemy, mechAt(0, 0), OPEN, DT, createRng(1));
+  expect(enemy.z - before).toBeCloseTo(GRUNT.speed * SUPPORT_TUNE.suppressMove, 4);
+});
+
+test('suppression slows a posted defender’s step and its shot too', () => {
+  const post = DEFENDER_POSTS[0];
+  const hidden = newEnemy('d-1', 'w', 'grunt', post.x + 10, post.z);
+  hidden.awake = true;
+  hidden.post = 0;
+  hidden.holdOut = false;
+  hidden.holdLeft = 100;
+  hidden.suppressT = 10;
+  const before = hidden.x;
+  stepEnemy(hidden, mechAt(post.x + 10, post.z - 40), OPEN, DT, createRng(1));
+  expect(before - hidden.x).toBeCloseTo(DEFENDER_TUNE.stepSpeed * DT * SUPPORT_TUNE.suppressMove, 6);
+
+  const out = newEnemy('d-2', 'w', 'grunt', post.peekX, post.peekZ);
+  out.awake = true;
+  out.post = 0;
+  out.holdOut = true;
+  out.holdLeft = 100;
+  out.suppressT = 10;
+  out.wait = DEFENDER_TUNE.fireInterval;
+  const rng = createRng(3);
+  let shotAt = Infinity;
+  for (let i = 1; i <= 600; i++) {
+    if (stepEnemy(out, mechAt(post.peekX, post.peekZ - 40), OPEN, DT, rng)) {
+      shotAt = i * DT;
+      break;
+    }
+  }
+  expect(shotAt).toBeCloseTo(DEFENDER_TUNE.fireInterval * SUPPORT_TUNE.suppressFire, 1);
 });

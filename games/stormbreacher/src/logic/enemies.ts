@@ -7,6 +7,7 @@ import type { Rng } from '@engine/core/index.ts';
 import { DEFENDER_POSTS, DEFENDER_TUNE } from '../data/defenders.ts';
 import { ENEMIES, ENEMY_CHEST, type EnemyDef, type EnemyKind } from '../data/enemies.ts';
 import { PAYOFF_TUNE } from '../data/payoff.ts';
+import { SUPPORT_TUNE } from '../data/sectors.ts';
 import { MECH_TUNE } from '../data/tune.ts';
 import type { GroundSpot, MapBounds } from '../data/types.ts';
 import { pushOutCircle, type GroundRect } from './collide.ts';
@@ -34,6 +35,7 @@ export interface EnemyState {
   awake: boolean; // set once the mech comes within the kind's `notice` or a script wakes it; it never sleeps again
   dormant: boolean; // put out asleep and held: `notice` does not wake it, only a script's `wake` does
   wait: number; // the seconds before it may shoot again
+  suppressT: number; // the seconds of infantry suppression left: its wait counts down slower and it walks slower (SB-2240)
   burstLeft: number; // the shots still to fire in this burst; 0 for a kind with no burst
   fallback: GroundSpot | null; // the next line's cover it runs to when a milestone breaks its sector (SB-2010)
   fallbackHold: number; // the seconds it holds that cover once it is there
@@ -89,6 +91,7 @@ export function newEnemy(
     awake: false,
     dormant,
     wait: def.fireInterval,
+    suppressT: 0,
     burstLeft: def.burst?.shots ?? 0,
     fallback: null,
     fallbackHold: 0,
@@ -190,12 +193,14 @@ function stepHolder(
   rng: Rng,
   def: EnemyDef,
   dist: number,
+  waitDt: number,
+  moveMul: number,
 ): EnemyShot | null {
   const post = DEFENDER_POSTS[enemy.post as number];
   const tx = enemy.holdOut ? post.peekX : post.x;
   const tz = enemy.holdOut ? post.peekZ : post.z;
   if (Math.hypot(tx - enemy.x, tz - enemy.z) > DEFENDER_TUNE.arrive) {
-    walk(enemy, tx, tz, DEFENDER_TUNE.stepSpeed * dt, world);
+    walk(enemy, tx, tz, DEFENDER_TUNE.stepSpeed * dt * moveMul, world);
   }
   enemy.holdLeft -= dt;
   if (enemy.holdLeft <= 1e-9) {
@@ -206,7 +211,7 @@ function stepHolder(
   if (!enemy.holdOut) return null;
   // it fires only once it stands at the step out point, so the shot comes from the place the view draws it
   if (Math.hypot(post.peekX - enemy.x, post.peekZ - enemy.z) > DEFENDER_TUNE.arrive) return null;
-  enemy.wait = Math.max(0, enemy.wait - dt);
+  enemy.wait = Math.max(0, enemy.wait - waitDt);
   if (enemy.wait > 0 || dist > def.fireRange) return null;
   const y = def.height * ENEMY_CHEST;
   const dy = mech.y + MECH_TUNE.chestHeight - y;
@@ -230,6 +235,12 @@ export function stepEnemy(
 ): EnemyShot | null {
   if (enemy.hp <= 0) return null;
   const def = ENEMIES[enemy.kind];
+  // Infantry suppression (SB-2240): the wait between shots runs at 1/suppressFire and the walk at suppressMove. The
+  // seconds count down whatever the enemy is doing, so a hit lasts the same on a walker, a nest or a posted defender.
+  const suppressed = enemy.suppressT > 0;
+  if (suppressed) enemy.suppressT = Math.max(0, enemy.suppressT - dt);
+  const waitDt = suppressed ? dt / SUPPORT_TUNE.suppressFire : dt;
+  const moveMul = suppressed ? SUPPORT_TUNE.suppressMove : 1;
   enemy.yaw = Math.atan2(enemy.x - mech.x, enemy.z - mech.z);
   if (enemy.y > 0) {
     // only a wave that comes in high falls; a nest is put on the ground
@@ -246,7 +257,7 @@ export function stepEnemy(
     const gap = Math.hypot(to.x - enemy.x, to.z - enemy.z);
     if (gap > PAYOFF_TUNE.retreatArrive) {
       enemy.yaw = Math.atan2(-(to.x - enemy.x), -(to.z - enemy.z));
-      const step = def.speed * PAYOFF_TUNE.retreatSpeed * dt;
+      const step = def.speed * PAYOFF_TUNE.retreatSpeed * dt * moveMul;
       if (enemy.fallbackPost !== null) run(enemy, to.x, to.z, step, world);
       else walk(enemy, to.x, to.z, step, world);
       keepApart(enemy, world, dt);
@@ -266,7 +277,7 @@ export function stepEnemy(
     if (enemy.dormant || dist > def.notice) return null;
     enemy.awake = true;
   }
-  if (enemy.post !== null) return stepHolder(enemy, mech, world, dt, rng, def, dist);
+  if (enemy.post !== null) return stepHolder(enemy, mech, world, dt, rng, def, dist, waitDt, moveMul);
   // from its chest to the mech's chest; a prop between them stops the shot
   const y = def.height * ENEMY_CHEST;
   const dy = mech.y + MECH_TUNE.chestHeight - y;
@@ -282,7 +293,9 @@ export function stepEnemy(
         enemy,
         to.x,
         to.z,
-        clear && dist > def.stopDist ? Math.min(def.speed * dt, dist - def.stopDist) : def.speed * dt,
+        clear && dist > def.stopDist
+          ? Math.min(def.speed * dt * moveMul, dist - def.stopDist)
+          : def.speed * dt * moveMul,
         world,
       );
     }
@@ -290,7 +303,7 @@ export function stepEnemy(
   }
   const burst = def.burst;
   // a machine-gun nest sweeps a burst across its arc; a burst that loses its line stops
-  enemy.wait = Math.max(0, enemy.wait - dt);
+  enemy.wait = Math.max(0, enemy.wait - waitDt);
   if (burst !== undefined && !clear && enemy.burstLeft < burst.shots) {
     enemy.burstLeft = burst.shots;
     enemy.wait = burst.rest;

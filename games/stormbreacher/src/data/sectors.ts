@@ -33,6 +33,24 @@ export const SECTOR_TUNE = {
   counterKind: 'grunt' as EnemyKind, // the kind of enemy the counterattack puts out
 };
 
+// The infantry's support fire (SB-2240): the soldiers at a sector's hold line shoot the nearest enemy in range. The
+// factor grows with the number of soldiers who have arrived, and the shooters are capped so a crowd of hundreds does not
+// outgun the mech. A hit takes a share of the target's health and suppresses its fire and walk for a moment. Provisional.
+export const SUPPORT_TUNE = {
+  shooters: 12, // the most soldiers that fire, however many have arrived (soldiers)
+  minFactor: 0.35, // the weakest the factor is (share)
+  maxFactor: 1.15, // the strongest the factor is (share)
+  factorPer: 12, // the arrived soldiers one whole factor is worth (soldiers)
+  intervalMin: 1.1, // the shortest wait between one soldier's shots (s)
+  intervalMax: 1.7, // the longest wait between one soldier's shots (s)
+  range: 57, // how far a soldier's shot reaches (m); the spike's 240 px in the sortie's scale
+  damageBase: 0.07, // the share of the target's health a shot takes with no factor
+  damagePer: 0.17, // the share the factor adds
+  suppressSec: 2.6, // how long a hit enemy is suppressed (s)
+  suppressFire: 2.5, // how many times longer the enemy's wait between shots is while suppressed
+  suppressMove: 0.55, // how much of its walk speed the enemy keeps while suppressed
+};
+
 // The four sectors, front to back. The beach's hold sits just seaward of line 1's hedgehogs (z 129..145); the pillbox
 // line's is the hold the battle layer waited at before the sectors came (BATTLE_TUNE.holdZ).
 export const M1_SECTORS: readonly Sector[] = [

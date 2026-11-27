@@ -42,7 +42,7 @@ import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { FORTRESS_GUN_FLAG, M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
-import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../data/sectors.ts';
+import { M1_SECTORS, SECTOR_TUNE, SUPPORT_TUNE, type SectorId } from '../data/sectors.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
@@ -95,6 +95,7 @@ import {
 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 import { newSectors, sectorHold, stepSectors, type SectorsState } from './sectors.ts';
+import { stepSupport as stepSupportState, supportDamage, type SupportWorld } from './support.ts';
 import { newTrickle, stepTrickle, type TrickleState } from './trickle.ts';
 import {
   inCircle,
@@ -199,6 +200,9 @@ export type GameEvent =
   | { kind: 'allyDown'; id: string; x: number; z: number; by: AllyFateBy } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'allyCall'; id: string; line: string } // an ally called on the radio before its fate
   | { kind: 'assistFire'; fromX: number; fromZ: number; toX: number; toZ: number } // the scripted allies shot an enemy from (fromX, fromZ) at (toX, toZ); a look only
+  // one of the infantry at the hold line shot an enemy (SB-2240): from the soldier at (from.x, from.z) to the enemy's
+  // chest at (to.x, to.y, to.z); the view draws the tracer, and the same frame's shot takes the enemy's health
+  | { kind: 'supportFire'; from: { x: number; z: number }; to: { x: number; y: number; z: number } }
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   // an ally's support fire flies at a silenced nest (SB-2024): from (x, y, z) to (tx, ty, tz); the view draws the tracer and the spark
   | { kind: 'coverFire'; enemy: string; x: number; y: number; z: number; tx: number; ty: number; tz: number }
@@ -338,6 +342,7 @@ export interface GameModel {
   // the allies' support fire under way (SB-2024): the wave it holds quiet, the seconds left, the wait to the next tracer, the nest to fire at next, and whether the radio line about the rounds running short has gone out; null when none
   cover: { wave: string; left: number; wait: number; next: number; warned: boolean } | null;
   assist: AssistState | null; // the script's assist once a cue has started it (SB-1840); null before one
+  supportT: number; // the seconds until the infantry's next support shot (SB-2240)
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
   checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
@@ -1029,6 +1034,7 @@ export function newGame(
     calm: null,
     cover: null,
     assist: null,
+    supportT: 0,
     events: [],
     cleared: false,
     checkpoint: null,
@@ -1629,6 +1635,28 @@ function stepAssist(game: GameModel, dt: number): void {
   damageEnemy(game, enemy, enemy.hp);
 }
 
+// The infantry's support fire (SB-2240): the soldiers at the hold line shoot the nearest awake enemy in range, and the
+// shot takes a share of its health and suppresses it. A cutscene holds the infantry, the downed and the cleared sortie
+// have no line to shoot from, and the enemy's fall still goes through damageEnemy, so the tracer is pushed first.
+function stepSupport(game: GameModel, dt: number): void {
+  if (game.script.cutscene !== null || game.downed || game.cleared) return;
+  const world: SupportWorld = {
+    battle: game.battle,
+    enemies: game.enemies,
+    supportT: game.supportT,
+    hold: sectorHold(game.sectors),
+  };
+  const shots = stepSupportState(world, stream('crowd'), dt);
+  game.supportT = world.supportT;
+  for (const shot of shots) {
+    const enemy = game.enemies.find(entry => entry.id === shot.enemy);
+    if (enemy === undefined || enemy.hp <= 0) continue;
+    game.events.push({ kind: 'supportFire', from: shot.from, to: shot.to });
+    damageEnemy(game, enemy, supportDamage(ENEMIES[enemy.kind].hp, shot.factor));
+    enemy.suppressT = SUPPORT_TUNE.suppressSec;
+  }
+}
+
 // How near the mech an aim point is too close to turn toward (m): a point under its feet would spin it every frame.
 const AIM_MIN_DIST = 0.9;
 
@@ -1799,6 +1827,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
   if (frame.shell !== null) {
     game.events.push({ kind: 'battleShell', x: frame.shell.x, z: frame.shell.z, shake: frame.shell.shake });
   }
+  stepSupport(game, dt);
 }
 
 // Puts out one enemy of a sector's counterattack (SB-2220): the sectors choose the point, the game makes the enemy as

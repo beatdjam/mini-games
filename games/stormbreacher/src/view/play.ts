@@ -84,6 +84,7 @@ const COVER_SPARK_SPEED = 4; // how fast a spark flies out (m/s)
 const COVER_SPARK_LIFE = 0.2; // how long a spark lives (s)
 const COVER_SPARK_GRAVITY = -5; // how fast a spark falls (m/s^2)
 const COVER_DUST = 4; // the dust's particle count before FEEL_TUNE.dust, per landing
+const SUPPORT_TRACER_HEIGHT = 1.2; // the height an infantry tracer leaves from over the ground (m), about a soldier's chest
 const MAX_COVER_HITS = 32; // the landings waiting for their tracer to arrive; the rest are dropped
 const MAX_NEST_SMOKE = 12; // the nests' smoke the mesh can draw at once
 const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the hand map has 3 pillboxes, so it is not reached
@@ -579,6 +580,18 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
         { x: (dx / length) * YARD_TUNE.assistTracerSpeed, y: 0, z: (dz / length) * YARD_TUNE.assistTracerSpeed },
       );
       spawnDust(event.toX, event.toZ, HIT_DUST * YARD_TUNE.assistDust, FEEL_TUNE);
+    } else if (event.kind === 'supportFire') {
+      // One of the infantry at the hold line shot an enemy (SB-2240): the tracer leaves the soldier's chest and flies
+      // as fast as the cover fire's; the same frame's `enemyDown` draws the fall itself.
+      const dx = event.to.x - event.from.x;
+      const dy = event.to.y - SUPPORT_TRACER_HEIGHT;
+      const dz = event.to.z - event.from.z;
+      const length = Math.hypot(dx, dy, dz) || 1;
+      const k = COVER_TUNE.speed / length;
+      view.battle.tracer(
+        { x: event.from.x, y: SUPPORT_TRACER_HEIGHT, z: event.from.z },
+        { x: dx * k, y: dy * k, z: dz * k },
+      );
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw, view.quarter.tune.azimuth);

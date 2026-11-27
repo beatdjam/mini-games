@@ -6,7 +6,9 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { seed } from '../../src/logic/rng.ts';
+import { arrivedSoldiers } from '../../src/logic/sectors.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { newPlayGame } from './playGame.ts';
 
@@ -62,6 +64,39 @@ describe('the sectors of M1', () => {
     expect(secured).toBe(true);
     expect(game.events.some(event => event.kind === 'sectorCounter')).toBe(true);
     expect(game.sectors?.phase[0]).toBe('counter');
+  });
+
+  test('the infantry at the beach hold line shoots an enemy inland', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    enterSector(game, 'beach');
+    step(game, idle, DT);
+    game.armor = Number.MAX_SAFE_INTEGER;
+    let secured = false;
+    for (let frame = 0; frame < 60 * 60 && !secured; frame++) {
+      step(game, idle, DT);
+      secured = game.events.some(event => event.kind === 'sectorSecured');
+    }
+    expect(secured).toBe(true);
+    const holdZ = game.battle.crowd.holdZ;
+    if (holdZ === null) throw new Error('the beach has no hold line');
+    expect(arrivedSoldiers(game.battle.crowd, holdZ).length).toBeGreaterThan(0);
+
+    // clear the field so the only enemy the test watches is its own, then put it 40 m inland of the hold line
+    for (const enemy of game.enemies) enemy.hp = 0;
+    const target = newEnemy('support-target', 'support', 'grunt', 0, holdZ - 40);
+    target.awake = true;
+    game.enemies.push(target);
+    const full = target.hp;
+    let hurt = false;
+    let down = false;
+    for (let frame = 0; frame < 60 * 30 && !down; frame++) {
+      step(game, idle, DT);
+      if (target.hp < full) hurt = true;
+      down = target.hp <= 0;
+    }
+    expect(hurt).toBe(true);
+    expect(down).toBe(true);
   });
 
   test('the secured beach is counterattacked, and becomes stable once its three are down', () => {
