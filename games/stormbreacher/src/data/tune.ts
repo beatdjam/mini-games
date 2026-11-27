@@ -1,5 +1,7 @@
+import type { EnemyKind } from './enemies.ts';
 import type { GaitKind } from './mech.ts';
 import type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
+import type { TargetKind } from './types.ts';
 
 export type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
 
@@ -42,7 +44,20 @@ export const QUARTER_TUNE: QuarterTune = {
   lookHeight: 1.2, // m; the look point's height above the mech's feet
   fov: 58, // deg; the vertical field of view
   lag: 0.23, // s; the time constant for following the mech; 0 means no lag
+  zoomScale: 1.4, // the ratio `height` and `back` grow to while a large enemy is near; the look point stays
+  zoomRange: 90, // m; a large enemy within this distance of the mech pulls the camera back
+  zoomLag: 0.6, // s; the time constant for pulling back and coming in; 0 means no lag
 };
+
+// The enemy kinds large enough to pull the camera back while one is near the mech (SB-2160). A machine-gun nest and
+// the mid boss shoot from farther than the quarter view reaches. The soldiers are small enough to leave the view as it
+// is.
+export const ZOOM_ENEMY_KINDS = ['emplacement', 'warden'] as const satisfies readonly EnemyKind[];
+
+// The target kinds large enough to pull the camera back (SB-2160): the coastal battery's main gun and the fortress's
+// machine-gun nest. A pillbox, depot or magazine is not counted: pillboxes line the beach, so they would leave the
+// camera pulled back almost everywhere.
+export const ZOOM_TARGET_KINDS = ['gun', 'fortressGun'] as const satisfies readonly TargetKind[];
 
 // The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.
 export const CAMERA_TUNE: CameraTune = {

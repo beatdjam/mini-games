@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import * as THREE from 'three';
 import { FEEL_TUNE, QUARTER_TUNE } from '../../src/data/tune.ts';
+import { zoomedTune } from '../../src/logic/quarterZoom.ts';
 import { quarterPose } from '../../src/view/quarterCamera.ts';
 import { aimPointOf, type PlayView } from '../../src/view/play.ts';
 
@@ -23,6 +24,38 @@ test('the top cursor with the boost fov meets the drawn ground within 0.1m', () 
     const at = aimPointOf(view, { x: 0, y: 1 }, 0);
     expect(at).not.toBeNull();
     expect(Math.hypot(at!.x - hit.x, at!.z - hit.z)).toBeLessThan(0.1);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test('the pulled-back cursor meets the drawn ground within 0.1m at the screen edges', () => {
+  vi.stubGlobal('window', { innerWidth: 1280, innerHeight: 720 });
+  try {
+    // the camera pulled all the way back to zoomScale, and a frame on the way there
+    for (const scale of [QUARTER_TUNE.zoomScale, 1.2]) {
+      const pose = quarterPose({ x: 0, y: 0, z: 0 }, zoomedTune(QUARTER_TUNE, scale));
+      const view = { quarter: { tune: QUARTER_TUNE, pose, fov: QUARTER_TUNE.fov } } as unknown as PlayView;
+      const fov = QUARTER_TUNE.fov;
+      const cam = new THREE.PerspectiveCamera(fov, 16 / 9, 0.1, 1000);
+      cam.position.copy(pose.pos);
+      cam.lookAt(pose.look);
+      cam.updateMatrixWorld();
+      cam.updateProjectionMatrix();
+      const ray = new THREE.Raycaster();
+      for (const ndc of [
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+        { x: 1, y: 0 },
+      ]) {
+        ray.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), cam);
+        const hit = new THREE.Vector3();
+        expect(ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)).not.toBeNull();
+        const at = aimPointOf(view, ndc, 0);
+        expect(at).not.toBeNull();
+        expect(Math.hypot(at!.x - hit.x, at!.z - hit.z)).toBeLessThan(0.1);
+      }
+    }
   } finally {
     vi.unstubAllGlobals();
   }

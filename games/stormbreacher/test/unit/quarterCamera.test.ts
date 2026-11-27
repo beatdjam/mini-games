@@ -138,6 +138,17 @@ test('quarterTuneFrom ignores values outside their range', () => {
   });
 });
 
+test('quarterTuneFrom keeps the zoom values inside their range', () => {
+  const ignored = quarterTuneFrom(new URLSearchParams('q.zoomScale=0.5&q.zoomRange=-1&q.zoomLag=-1'), QUARTER_TUNE);
+  expect(ignored).toEqual(QUARTER_TUNE);
+  expect(quarterTuneFrom(new URLSearchParams('q.zoomScale=2'), QUARTER_TUNE).zoomScale).toBe(2);
+  expect(quarterTuneFrom(new URLSearchParams('q.zoomRange=0&q.zoomLag=0'), QUARTER_TUNE)).toEqual({
+    ...QUARTER_TUNE,
+    zoomRange: 0,
+    zoomLag: 0,
+  });
+});
+
 test('groundPoint finds the look point under the middle of the screen', () => {
   const pose = quarterPose(MECH, QUARTER_TUNE);
   const at = groundPoint(pose, QUARTER_TUNE.fov, 16 / 9, { x: 0, y: 0 }, pose.look.y);
