@@ -32,6 +32,9 @@ export interface QuarterTune {
   lookHeight: number; // the look point's height above the mech's feet (m)
   fov: number; // the vertical field of view (deg)
   lag: number; // the time constant for the camera to reach its target pose (s); 0 means no lag
+  zoomScale: number; // the ratio `height` and `back` grow to while a large enemy is near; 1 leaves the pose as it is
+  zoomRange: number; // how near a large enemy must be to the mech to pull the camera back (m)
+  zoomLag: number; // the time constant for pulling back and coming in (s); 0 means no lag
 }
 
 export interface CameraTune {

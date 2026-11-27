@@ -32,6 +32,7 @@ import { blastFaceHeight, type GameModel } from '../logic/game.ts';
 import { cutsceneElapsed, cutsceneMech, cutscenePose } from '../logic/cutscene.ts';
 import type { Ray3 } from '../logic/fcs.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
+import { stepZoom, wantsWide, zoomedTune } from '../logic/quarterZoom.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
@@ -115,7 +116,7 @@ export interface PlayView {
   pitch: number; // the camera's pitch (rad); the quarter camera keeps it but does not use it yet (tickets 2110, 2115)
   // the overview camera's values, its place and look last frame (before the feel's shake), and the vertical field of
   // view the last frame was drawn with (the feel's boost included), which the cursor's point uses
-  quarter: { tune: QuarterTune; pose: QuarterPose | null; fov: number };
+  quarter: { tune: QuarterTune; pose: QuarterPose | null; fov: number; zoom: number };
   aim: Ray3 | undefined; // the line through the middle of the screen; undefined here: the main body and the arena aim with aimAt (ticket 2115), the other dev views pass aimRay
   gunfire: GunfireView; // the muzzle flashes, the tracers in flight and the impacts' sparks and smoke
   enemies: EnemyView; // the enemies' instanced boxes
@@ -188,7 +189,7 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     pitch: 0,
     // The first frame's pose is null, so the camera sits at its place at once: a checkpoint or a suspend resumes
     // without it flying in. `?q.height=30` tries a value without a build (quarterTuneFrom).
-    quarter: { tune: quarterTune, pose: null, fov: quarterTune.fov },
+    quarter: { tune: quarterTune, pose: null, fov: quarterTune.fov, zoom: 1 },
     aim: undefined,
     gunfire: buildGunfireView(),
     enemies: buildEnemyView(),
@@ -658,7 +659,13 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // The quarter camera has no pitch of its own yet; the value is still held while a cutscene plays, so the cursor's aim
   // (ticket 2115) starts from where the player left it.
   if (cutscene === null) view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
-  const pose = quarterPose({ x: game.mech.x, y: game.mech.y, z: game.mech.z }, view.quarter.tune);
+  // A large enemy near the mech pulls the camera back; a cutscene keeps the plain pose and the pull starts again from 1.
+  view.quarter.zoom =
+    cutscene === null ? stepZoom(view.quarter.zoom, wantsWide(game, view.quarter.tune), dt, view.quarter.tune) : 1;
+  const pose = quarterPose(
+    { x: game.mech.x, y: game.mech.y, z: game.mech.z },
+    zoomedTune(view.quarter.tune, view.quarter.zoom),
+  );
   if (cutscene === null) {
     // The follow starts from the last pose drawn, so a skip or a cutscene's end eases into the quarter view (ticket 2137).
     view.quarter.pose = followQuarter(view.quarter.pose, pose, dt, view.quarter.tune);
