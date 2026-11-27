@@ -1,8 +1,8 @@
-// The beach under fire (#view-fx, SB-045): M1 B's hand map walked with #view-map's input, with the battle's allies,
-// shells, smoke, tracers and planes around the mech, and the look (resolution, colour, haze) turned by the same knobs.
-// The panel at the top right changes the values as they are; "書き出し" puts the JSON in the textarea and
-// window.sbFxReport() gives the same JSON with the frame's counts.
-import { addSystem, clamp } from '@engine/core/index.ts';
+// The beach under fire (#view-fx, SB-045): M1 B's hand map walked with #view-map's input under the overview camera,
+// turning toward the cursor and taking no jump, with the battle's allies, shells, smoke, tracers and planes around the
+// mech, and the look (resolution, colour, haze) turned by the same knobs. The panel at the top right changes the values
+// as they are; "書き出し" puts the JSON in the textarea and window.sbFxReport() gives the same JSON with the frame's counts.
+import { addSystem, clamp, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer } from '@engine/render/index.ts';
 import {
   CAMERA_TUNE,
@@ -12,14 +12,16 @@ import {
   FX_TUNE,
   MECH_TUNE,
   MOVE_TUNE,
+  QUARTER_TUNE,
   type FxTune,
 } from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
+import { playInputOptions } from '../../logic/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
 import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
-import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
 import { buildBattle, type Battle } from '../../view/battle/index.ts';
+import { createQuarterRig } from '../quarterRig.ts';
 import type { CrowdCounts } from '../../logic/crowd.ts';
 import { MAP_FOG, buildMapScene, mapOf, seedOf, sourceOf, type Source } from './mapView.ts';
 import {
@@ -40,7 +42,7 @@ declare global {
 
 type TuneKey = keyof FxTune;
 
-const START_MARGIN = 4; // how far inside the sea edge the camera keeps the mech (m)
+const START_MARGIN = 4; // how far inside the sea edge the mech starts (m)
 
 // The knobs the panel shows; the colours are left out (the URL can still set them).
 const SLIDERS: readonly { key: TuneKey; min: number; max: number; step: number }[] = [
@@ -95,7 +97,6 @@ interface FxReport {
   allies: CrowdCounts;
   smoke: number;
   mech: number;
-  mechCam: boolean;
   mechMove: boolean;
   walkSpeed: number;
   boostSpeed: number;
@@ -123,7 +124,7 @@ function mechOf(params: URLSearchParams): number {
   return Number.isFinite(n) ? clamp(n, 3, 8) : MECH_TUNE.height;
 }
 
-// ?mechCam=0 / ?mechMove=0 turn a proportion off; anything else (or no value) leaves it on.
+// ?mechMove=0 turns the movement's proportion off; anything else (or no value) leaves it on.
 function flagOf(params: URLSearchParams, name: string): boolean {
   return params.get(name) !== '0';
 }
@@ -157,7 +158,6 @@ export function showFx(_hash: string) {
   const source = sourceOf(params);
   const seed = seedOf(params);
   let mechSize = mechOf(params);
-  let mechCam = flagOf(params, 'mechCam');
   let mechMove = flagOf(params, 'mechMove');
   if (seed !== null) seedRng(seed);
 
@@ -169,7 +169,7 @@ export function showFx(_hash: string) {
   const { moveTune, feelTune } = moveFeelFromParams(params);
 
   // Stage 0 is the look with every effect off, so the air (its smoke, fires, haze, grade and layers) is left out too.
-  const { built, cameraBoxes } = buildMapScene(map, stage !== 0);
+  const { built } = buildMapScene(map, stage !== 0);
   const basePixel = basePixelRatio();
   const lights = collectLights();
   const groundTiles = collectGroundTiles(built.group);
@@ -182,11 +182,13 @@ export function showFx(_hash: string) {
 
   const range = buildFlatRange(FOV_TUNE.feel, { targets: false, rects: mapBlockers(map) });
   const mech = range.mech;
-  const startCamera = scaleForMech(mechSize, MOVE_TUNE, CAMERA_TUNE, { camera: mechCam, move: mechMove }).cameraTune;
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
-  mech.z = map.bounds.maxZ - (startCamera.dist + START_MARGIN);
+  mech.z = map.bounds.maxZ - (QUARTER_TUNE.back + START_MARGIN);
   mech.yaw = 0;
-  initPlayInput();
+  const rig = createQuarterRig();
+  initPlayInput(playInputOptions());
+  // the view takes no jump, so its touch layer has no jump button
+  el('#btnJump').hidden = true;
 
   const rng = stream('battle');
   const craterRng = stream('craters');
@@ -263,7 +265,7 @@ export function showFx(_hash: string) {
     values.set(spec.key, value);
   }
 
-  // The mech's own size (m) and whether the camera and the movement follow it. The props and the allies stay as they are.
+  // The mech's own size (m) and whether the movement follows it. The props and the allies stay as they are.
   const mechRow = document.createElement('label');
   mechRow.style.cssText = 'display:block;border-top:1px solid rgba(213,228,238,0.12);padding:2px 0';
   const mechTitle = document.createElement('span');
@@ -296,9 +298,6 @@ export function showFx(_hash: string) {
     row.append(input, title);
     body.appendChild(row);
   };
-  addToggle('mechCam', mechCam, value => {
-    mechCam = value;
-  });
   addToggle('mechMove', mechMove, value => {
     mechMove = value;
   });
@@ -324,7 +323,7 @@ export function showFx(_hash: string) {
 
   const baseReport = () => {
     const { moveTune: sizedMove } = scaleForMech(mechSize, moveTune, CAMERA_TUNE, {
-      camera: mechCam,
+      camera: false,
       move: mechMove,
     });
     return {
@@ -335,15 +334,12 @@ export function showFx(_hash: string) {
       allies: battle.counts(),
       smoke: battle.smoke(),
       mech: mechSize,
-      mechCam,
       mechMove,
       walkSpeed: sizedMove.walk,
       boostSpeed: sizedMove.boost,
     };
   };
 
-  let pitch = 0;
-  let cam: CameraState | null = null;
   let fps = 0;
   let fpsFrames = 0;
   let fpsTime = 0;
@@ -367,25 +363,21 @@ export function showFx(_hash: string) {
     name: 'sb-fx',
     update: dt => {
       const read = readInput(dt);
-      const { cameraTune: cameraAtSize, moveTune: moveAtSize } = scaleForMech(mechSize, moveTune, CAMERA_TUNE, {
-        camera: mechCam,
+      const { moveTune: moveAtSize } = scaleForMech(mechSize, moveTune, CAMERA_TUNE, {
+        camera: false,
         move: mechMove,
       });
       range.model.scale.setScalar(mechSize / MECH_BASE_HEIGHT);
-      pitch = clamp(pitch + read.pitchDelta, cameraAtSize.pitchMin, cameraAtSize.pitchMax);
       range.feel.shake += battle.step(dt, mech);
       const step = range.step(
-        read.input,
+        { ...read.input, ...rig.aim(read, mech) },
         dt,
         moveAtSize,
         feelTune,
         undefined,
         (MECH_TUNE.radius * mechSize) / MECH_BASE_HEIGHT,
       );
-      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, cameraBoxes);
-      cam = followCamera(cam, pose, dt, cameraAtSize);
-      const pos = cam.pos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos, look: cam.sight }, step.fov);
+      rig.follow(mech, dt, step);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
 
       fpsFrames++;
@@ -397,7 +389,7 @@ export function showFx(_hash: string) {
       }
       const mechLine =
         `機体 ${mechSize}m 歩き ${moveAtSize.walk.toFixed(1)} ブースト ${moveAtSize.boost.toFixed(1)} m/s\n` +
-        `比例 カメラ ${mechCam ? 'あり' : 'なし'} 動き ${mechMove ? 'あり' : 'なし'}`;
+        `比例 動き ${mechMove ? 'あり' : 'なし'}`;
       hud.textContent = hudText(
         stage,
         source,
