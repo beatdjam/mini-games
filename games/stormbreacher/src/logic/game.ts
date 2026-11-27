@@ -47,6 +47,7 @@ import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
 import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../data/tune.ts';
+import { TRICKLE_TUNE, TRICKLE_WAVE } from '../data/trickle.ts';
 import type { FcsTune } from '../data/tuneTypes.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
@@ -94,6 +95,7 @@ import {
 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 import { newSectors, sectorHold, stepSectors, type SectorsState } from './sectors.ts';
+import { newTrickle, stepTrickle, type TrickleState } from './trickle.ts';
 import {
   inCircle,
   mineStepped,
@@ -295,6 +297,7 @@ export interface GameModel {
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
   battle: BattleState; // the battle layer's infantry and shells; step moves it, the view only draws it
   sectors: SectorsState | null; // the front's sectors; null where the sortie's sectors do not run (the arena)
+  trickle: TrickleState | null; // the enemies the front keeps putting out (SB-2230); null where the sectors do not run
   battleTune: FxTune; // the values the battle layer runs on (the sortie's, or the arena's thinner one)
   // The line on screen now. `time` is when it came up plus the cutscene seconds since (stepRadio holds it still while a
   // cutscene hides the HUD), so game.time - time is the seconds the HUD has shown it; null before one
@@ -955,6 +958,7 @@ export function newGame(
 ): GameModel {
   const battleTune = options.battleTune ?? PLAY_BATTLE_TUNE;
   const sectors = options.sectors === false ? null : newSectors();
+  const trickle = sectors === null ? null : newTrickle(M1_SECTORS.length);
   const mech = newMech();
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = craftZ(map.bounds) + LANDING_TUNE.startDepth;
@@ -979,6 +983,7 @@ export function newGame(
     script: newScript(mission),
     battle: newBattle(stream('crowd'), map.bounds, battleTune, SECTOR_TUNE.startHoldZ, map.spawns[M1_NEST_WAVE] ?? []),
     sectors,
+    trickle,
     battleTune,
     radio: null,
     radioQueue: [],
@@ -1454,6 +1459,11 @@ function stepEnemies(game: GameModel, dt: number): void {
       if (out.down) game.events.push({ kind: 'wardenDown', id: enemy.id, x: enemy.x, z: enemy.z });
       continue;
     }
+    // a fallen enemy only marks the time since it fell: the trickle's bodies are taken out after a while (SB-2230)
+    if (enemy.hp <= 0) {
+      enemy.fallenT += dt;
+      continue;
+    }
     // the nests draw from a stream of their own, so their bursts do not shift the walkers' spread
     const rng = ENEMIES[enemy.kind].burst ? stream('emplacements') : stream('enemies');
     const shot: EnemyShot | null = stepEnemy(enemy, game.mech, world, dt, rng);
@@ -1747,6 +1757,24 @@ function stepBattleLayer(game: GameModel, dt: number): void {
           queueRadio(game, event.weak ? 'm1.sector-weak' : 'm1.sector-stable');
         }
       }
+      if (game.trickle !== null) {
+        const spawn = stepTrickle(
+          game.trickle,
+          {
+            mech: game.mech,
+            enemies: game.enemies,
+            targets: game.targets,
+            rects: game.rects,
+            bounds: game.map.bounds,
+            sectors: game.sectors,
+            paused: game.script.cutscene !== null || game.cleared,
+          },
+          stream('trickle'),
+          dt,
+        );
+        if (spawn !== null) spawnTrickle(game, spawn.x, spawn.z);
+        clearFallenTrickle(game);
+      }
     }
     const hold = sectorHold(game.sectors);
     if (game.battle.crowd.holdZ !== hold.holdZ) {
@@ -1786,6 +1814,25 @@ function spawnSectorCounter(game: GameModel, event: Extract<GameEvent, { kind: '
   enemy.awake = true;
   game.enemies.push(enemy);
   game.sectors.counterIds[index].push(id);
+}
+
+// Puts out one enemy of the trickle (SB-2230): the trickle chose the point and spent its sector's budget, the game makes
+// the enemy awake and names it by how many the trickle has put out so far, so the names do not collide.
+function spawnTrickle(game: GameModel, x: number, z: number): void {
+  if (game.trickle === null) return;
+  const count = game.trickle.spent.reduce((sum, spent) => sum + spent, 0);
+  const enemy = newEnemy(`${TRICKLE_WAVE}-${count}`, TRICKLE_WAVE, TRICKLE_TUNE.kind, x, z);
+  enemy.awake = true;
+  game.enemies.push(enemy);
+}
+
+// Takes the fallen of the trickle out of the list once their bodies have shown for fallenKeep seconds, so a long sortie
+// does not keep growing it. Only the trickle's own fallen are taken: the script's enemies stay for its `cleared`.
+function clearFallenTrickle(game: GameModel): void {
+  const keep = TRICKLE_TUNE.fallenKeep;
+  const gone = (enemy: EnemyState) => enemy.wave === TRICKLE_WAVE && enemy.hp <= 0 && enemy.fallenT >= keep;
+  if (!game.enemies.some(gone)) return;
+  game.enemies = game.enemies.filter(enemy => !gone(enemy));
 }
 
 // The game's own frame, without the battle layer.

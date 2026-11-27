@@ -13,6 +13,7 @@ export interface Sector {
   landZ: number; // the sector's land-side edge (m)
   holdZ: number; // where the infantry waits once the sector is cleared (m)
   counter: number; // the enemies of the counterattack that follows the sector's securing (count)
+  budget: number; // the enemies the trickle may put out while this sector is the front (count, SB-2230)
 }
 
 // The values the sectors run on. Provisional, to be settled by eye in the sortie.
@@ -35,8 +36,8 @@ export const SECTOR_TUNE = {
 // The four sectors, front to back. The beach's hold sits just seaward of line 1's hedgehogs (z 129..145); the pillbox
 // line's is the hold the battle layer waited at before the sectors came (BATTLE_TUNE.holdZ).
 export const M1_SECTORS: readonly Sector[] = [
-  { id: 'beach', seaZ: 170, landZ: 129, holdZ: 132, counter: 3 },
-  { id: 'line1', seaZ: 129, landZ: 62, holdZ: 80, counter: 4 },
-  { id: 'line2', seaZ: 62, landZ: -11, holdZ: BATTLE_TUNE.holdLine2Z, counter: 6 },
-  { id: 'pillboxes', seaZ: -11, landZ: -40, holdZ: BATTLE_TUNE.holdZ, counter: 8 },
+  { id: 'beach', seaZ: 170, landZ: 129, holdZ: 132, counter: 3, budget: 8 },
+  { id: 'line1', seaZ: 129, landZ: 62, holdZ: 80, counter: 4, budget: 12 },
+  { id: 'line2', seaZ: 62, landZ: -11, holdZ: BATTLE_TUNE.holdLine2Z, counter: 6, budget: 16 },
+  { id: 'pillboxes', seaZ: -11, landZ: -40, holdZ: BATTLE_TUNE.holdZ, counter: 8, budget: 20 },
 ];

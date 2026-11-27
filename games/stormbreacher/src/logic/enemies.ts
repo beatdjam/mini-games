@@ -30,6 +30,7 @@ export interface EnemyState {
   vy: number; // how fast it falls (m/s, up is +)
   yaw: number; // the way it faces, in the mech's sense (the front is (-sin yaw, -cos yaw))
   hp: number; // the health left; 0 stays after it falls
+  fallenT: number; // the seconds since it fell; 0 while it lives (the trickle's fallen are taken out after a while, SB-2230)
   awake: boolean; // set once the mech comes within the kind's `notice` or a script wakes it; it never sleeps again
   dormant: boolean; // put out asleep and held: `notice` does not wake it, only a script's `wake` does
   wait: number; // the seconds before it may shoot again
@@ -84,6 +85,7 @@ export function newEnemy(
     vy: 0,
     yaw: 0,
     hp: def.hp,
+    fallenT: 0,
     awake: false,
     dormant,
     wait: def.fireInterval,

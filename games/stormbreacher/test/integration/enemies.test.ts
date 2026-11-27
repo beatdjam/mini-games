@@ -48,6 +48,8 @@ function field(places: { x: number; z: number }[]): MapDef {
 // that wants another kind pushes it in itself.
 function withSquad(places: { x: number; z: number }[]): GameModel {
   const game = newPlayGame(field(places));
+  // this test reads its own wave alone: the front's trickle would add enemies and shots (SB-2230)
+  game.trickle = null;
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
@@ -96,6 +98,8 @@ test('walking into b-line puts one enemy at each of the six b-squad places, in t
 
 test('a wave the map has no place for puts out nothing', () => {
   const game = newPlayGame({ ...M1B_HAND, spawns: {} });
+  // the walk is about the wave: the front's trickle would put enemies out (SB-2230)
+  game.trickle = null;
   expect(walkIntoBLine(game)).toBeNull();
   expect(game.script.spawned).toContain('b-squad');
   expect(game.enemies).toEqual([]);
@@ -634,6 +638,8 @@ test('once the six nests are down the script is told b-emplacements is cleared',
 // part, so the roles are told apart by their own values alone.
 function loneFoe(kind: EnemyKind, z: number): GameModel {
   const game = newPlayGame(field([]));
+  // this test reads its own enemy alone: the front's trickle would add enemies and shots (SB-2230)
+  game.trickle = null;
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;

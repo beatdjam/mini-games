@@ -190,6 +190,8 @@ test('from the beach the mech walks to all four pillbox points through the lines
   // The player blows one hole in each line on the way in: line 1 at x 40 and line 2 at its near point x -10.
   const map = openBreach(quietMap(), ['l1-b', 'l2-a']);
   const game = newPlayGame(map);
+  // the walk is about the pillbox points: the front's trickle would shoot the mech on the way (SB-2230)
+  game.trickle = null;
   game.mech.yaw = 0;
   // the beach, through line 1's hole at x 40 and line 2's near one at x -10
   walkTo(game, 42, 156);
