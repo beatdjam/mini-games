@@ -2,7 +2,7 @@
 // turning toward the cursor and taking no jump, with the battle's allies, shells, smoke, tracers and planes around the
 // mech, and the look (resolution, colour, haze) turned by the same knobs. The panel at the top right changes the values
 // as they are; "書き出し" puts the JSON in the textarea and window.sbFxReport() gives the same JSON with the frame's counts.
-import { addSystem, clamp, el } from '@engine/core/index.ts';
+import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer } from '@engine/render/index.ts';
 import {
   FEEL_TUNE,
@@ -15,7 +15,6 @@ import {
   type FxTune,
 } from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
-import { playInputOptions } from '../../logic/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
 import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
@@ -185,9 +184,7 @@ export function showFx(_hash: string) {
   mech.z = map.bounds.maxZ - (QUARTER_TUNE.back + START_MARGIN);
   mech.yaw = 0;
   const rig = createQuarterRig();
-  initPlayInput(playInputOptions());
-  // the view takes no jump, so its touch layer has no jump button
-  el('#btnJump').hidden = true;
+  initPlayInput();
 
   const rng = stream('battle');
   const craterRng = stream('craters');

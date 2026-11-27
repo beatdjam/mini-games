@@ -7,7 +7,6 @@ import { addSystem, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { cursorAim } from '../../app/play.ts';
-import { playInputOptions } from '../../logic/input.ts';
 import { mixOf } from '../arenaMix.ts';
 import { FCS_QUARTER, FEEL_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../data/tune.ts';
 import type { MapDef, MissionDef } from '../../data/types.ts';
@@ -247,10 +246,8 @@ export function showArena(_hash: string) {
     world: buildArenaWorld(ARENA_MAP),
   });
   shownView = view;
-  initPlayInput(playInputOptions());
+  initPlayInput();
   el('#touch').hidden = !isTouch;
-  // the arena takes no jump (D-50), so its touch layer has no jump button
-  el('#btnJump').hidden = true;
   resetSound(arena.radio);
 
   let kills = 0;

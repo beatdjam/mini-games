@@ -3,7 +3,6 @@
 // and abandon do to the sortie is play.ts's, passed in by initPause.
 import { el } from '@engine/core/index.ts';
 import { PAUSE_KEYS } from '../data/keys.ts';
-import { clearPendingJump } from './keyboard.ts';
 import { setState, state } from './screen.ts';
 import { takeSkip } from './skip.ts';
 import { clearPendingTouch } from './touch.ts';
@@ -48,8 +47,7 @@ function resume(): void {
   setState('play');
   // a press that came while paused (Esc, the menu's clicks) must not skip the cutscene that goes on
   takeSkip();
-  // a jump or a use (the keyboard's and the touch buttons') pressed while paused would act on the first frame after the resume
-  clearPendingJump();
+  // a use (the keyboard's and the touch buttons') pressed while paused would act on the first frame after the resume
   clearPendingTouch();
 }
 

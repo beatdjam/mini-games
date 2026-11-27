@@ -9,7 +9,6 @@ import { FOV_TUNE } from '../../data/tune.ts';
 import { TOUCH_BUTTONS, type TouchButton } from '../../data/touch.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { touchStats, type TouchStats } from '../../app/touch.ts';
-import { playInputOptions } from '../../logic/input.ts';
 import type { MechState } from '../../logic/mech.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildFlatRange, moveFeelFromParams } from '../flatRange.ts';
@@ -47,7 +46,6 @@ function reportJson(): string {
       main: place('main'),
       sub: place('sub'),
       melee: place('melee'),
-      jump: place('jump'),
       boost: place('boost'),
       lock: place('lock'),
       use: place('use'),
@@ -110,9 +108,7 @@ export function showTouch(_hash: string) {
   const mech = range.mech;
   const { moveTune, feelTune } = moveFeelFromParams(new URLSearchParams(location.search));
   const rig = createQuarterRig();
-  initPlayInput(playInputOptions());
-  // the touch view takes no jump, so its touch layer has no jump button
-  el('#btnJump').hidden = true;
+  initPlayInput();
 
   const hud = document.createElement('div');
   hud.id = 'sbTouchHud';

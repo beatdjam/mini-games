@@ -1,7 +1,7 @@
 // The play input: the touch screen and the keyboard / mouse read together into one MechInput (SB-030 keyboard). The
 // game and the dev views use this instead of either device's reader.
 import { el, isTouch } from '@engine/core/index.ts';
-import { cursorAimInput, jumpReading, mergeInput, withoutJump } from '../logic/input.ts';
+import { cursorAimInput, mergeInput } from '../logic/input.ts';
 import type { MechInput } from '../logic/mech.ts';
 import { holdMouseFireUntilRelease, initKeyboard, readKeyboard } from './keyboard.ts';
 import { initTouch, readTouch } from './touch.ts';
@@ -18,23 +18,16 @@ export interface PlayRead {
   drag: { x: number; y: number } | null; // the right touch finger's move from where it went down (px); null without a touch drag
 }
 
-export interface PlayInputOptions {
-  jump?: boolean; // false on the main body and the arena: they take no jump (D-50)
-}
-
 let ready = false; // initPlayInput has run (a second call does nothing)
-let jumpMode = true; // the main body and the arena take no jump (D-50); the dev views keep it
 let cursorAt: { x: number; y: number } | null = null; // the cursor's last place on the canvas, normalized; null until it moves
 
 // Starts both readers. On a PC the touch screen stays hidden and the cursor stays on the screen: a mousemove gives the
-// canvas's normalized point, even over a button above it. With `jump` false, neither reader makes a jump: the main body
-// and the arena take none (D-50).
-export function initPlayInput(options: PlayInputOptions = {}) {
+// canvas's normalized point, even over a button above it.
+export function initPlayInput() {
   if (ready) return;
   ready = true;
-  jumpMode = jumpReading(options);
-  initKeyboard({ jump: jumpMode });
-  initTouch({ show: isTouch, jump: jumpMode });
+  initKeyboard();
+  initTouch({ show: isTouch });
   const canvas = el('#gl');
   if (isTouch) return;
   // The window, not the canvas: the pause and fullscreen buttons take the events, and the point must keep following there.
@@ -54,7 +47,7 @@ export function readInput(dt: number): PlayRead {
   const keyboard = readKeyboard(dt);
   const merged = mergeInput(touch.input, keyboard.input);
   return {
-    input: jumpMode ? merged : withoutJump(merged),
+    input: merged,
     lock: keyboard.lock,
     sub: touch.sub || keyboard.sub,
     use: touch.use || keyboard.use,

@@ -30,7 +30,6 @@ LANG.ja = {
     'btn.main': 'メイン',
     'btn.sub': 'サブ',
     'btn.melee': '殴る',
-    'btn.jump': 'ジャンプ',
     'btn.boost': 'ブースト',
     'btn.lock': 'ロック',
     'btn.use': '使う',

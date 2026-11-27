@@ -31,7 +31,6 @@ LANG.en = {
     'btn.main': 'Main',
     'btn.sub': 'Sub',
     'btn.melee': 'Melee',
-    'btn.jump': 'Jump',
     'btn.boost': 'Boost',
     'btn.lock': 'Lock',
     'btn.use': 'Use',

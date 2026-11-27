@@ -7,7 +7,6 @@ import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { TOUCH_TUNE } from '../data/touch.ts';
 import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
-import { playInputOptions } from '../logic/input.ts';
 import { touchAimInput } from '../logic/touchAim.ts';
 import {
   newGame,
@@ -131,11 +130,9 @@ function beginPlay(next: GameModel): void {
   // `?marker=dim|map|next` picks how the blast points' lights show (SB-2022)
   applyMarkerQuery(location.search);
   view = buildPlayView(game);
-  initPlayInput(playInputOptions());
+  initPlayInput();
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
   el('#touch').hidden = !isTouch;
-  // the main body takes no jump (D-50), so its touch layer has no jump button
-  el('#btnJump').hidden = true;
   touchCovered = false;
   hidePause();
   showPauseButton(true);
@@ -270,7 +267,7 @@ function update(dt: number): void {
   // run at the same share of time, while the input still goes through (step already scaled its own frame).
   const drawDt = dt * timeScale(game);
   // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn. A
-  // cutscene that step has just started takes no skip for CUTSCENE_SKIP_GUARD_SEC: the jump, shot or Enter of this frame
+  // cutscene that step has just started takes no skip for CUTSCENE_SKIP_GUARD_SEC: the Space, shot or Enter of this frame
   // started it. takeSkip runs every frame, so a press inside the guard is thrown away rather than saved up.
   const skip = takeSkip();
   const cutscene = game.script.cutscene;

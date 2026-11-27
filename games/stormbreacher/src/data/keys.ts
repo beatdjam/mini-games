@@ -1,5 +1,5 @@
-// The keyboard's actions and their starting keys (SB-030 keyboard). An action is what the game asks for ('jump',
-// 'boost'); engine's defineActions keeps the player's bindings, so a later binding screen can change these without the
+// The keyboard's actions and their starting keys (SB-030 keyboard). An action is what the game asks for ('boost',
+// 'lock'); engine's defineActions keeps the player's bindings, so a later binding screen can change these without the
 // rest of the game changing. Keys are KeyboardEvent.code values.
 
 export type KeyAction =
@@ -7,7 +7,6 @@ export type KeyAction =
   | 'back'
   | 'left'
   | 'right'
-  | 'jump'
   | 'boost'
   | 'main'
   | 'sub'
@@ -23,7 +22,6 @@ export const KEY_DEFAULTS: Record<KeyAction, string[]> = {
   back: ['KeyS'],
   left: ['KeyA'],
   right: ['KeyD'],
-  jump: ['Space'],
   boost: ['ShiftLeft'],
   main: ['KeyJ'],
   sub: ['KeyK'],

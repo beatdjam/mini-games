@@ -15,7 +15,6 @@ import { PAYOFF_TUNE } from '../../data/payoff.ts';
 import { FOV_TUNE, QUARTER_TUNE } from '../../data/tune.ts';
 import { PROP_KINDS, type MapBounds, type MapDef, type PropKind } from '../../data/types.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
-import { playInputOptions } from '../../logic/input.ts';
 import { validateMapForMission, type MapViolation } from '../../logic/mapCheck.ts';
 import { generateMap } from '../../logic/mapgen.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
@@ -160,9 +159,7 @@ export function showMap(_hash: string) {
   mech.z = map.bounds.maxZ - MECH_MARGIN;
   mech.yaw = 0;
   const rig = createQuarterRig();
-  initPlayInput(playInputOptions());
-  // the map walk takes no jump, so its touch layer has no jump button
-  el('#btnJump').hidden = true;
+  initPlayInput();
 
   const hud = document.createElement('div');
   hud.id = 'sbMapHud';

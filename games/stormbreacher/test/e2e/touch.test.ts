@@ -102,24 +102,6 @@ test('the melee button does not sit on top of the main and sub buttons', () => {
   }
 });
 
-test('a jump is true for one read only', () => {
-  const button = el('#btnJump');
-  button.dispatchEvent(pointer('pointerdown', 32, 10, 10));
-  expect(readTouch().input.jump).toBe(true);
-  expect(readTouch().input.jump).toBe(false);
-  button.dispatchEvent(pointer('pointerup', 32, 10, 10));
-});
-
-test('the jump button holds while its finger stays down', () => {
-  const button = el('#btnJump');
-  button.dispatchEvent(pointer('pointerdown', 34, 10, 10));
-  expect(readTouch().input.jumpHeld).toBe(true);
-  expect(readTouch().input.jumpHeld).toBe(true);
-  expect(readTouch().input.jump).toBe(false);
-  button.dispatchEvent(pointer('pointerup', 34, 10, 10));
-  expect(readTouch().input.jumpHeld).toBe(false);
-});
-
 test('the view counts as in use for LOOK_RECENT after a drag', () => {
   INPUT.look(0.01, 0);
   const t = performance.now();

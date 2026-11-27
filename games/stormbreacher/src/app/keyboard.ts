@@ -16,9 +16,6 @@ export interface KeyboardRead {
 // The action table defineActions takes, built from the defaults (the object's keys are the action ids).
 const ACTION_DEFS = Object.entries(KEY_DEFAULTS).map(([id, keys]) => ({ id, keys }));
 
-// A key went down since the last read; a held key repeats keydown but that is not a new press.
-let jumpPressed = false;
-let jumpEnabled = true; // the main body and the arena take no jump (D-50); the dev views keep it
 let lockOn = false;
 let mainMouse = false; // the left mouse button is down on the canvas
 let subMouse = false; // the right mouse button is down on the canvas
@@ -31,14 +28,11 @@ export function toggleLock() {
   lockOn = !lockOn;
 }
 
-// The engine calls INPUT.key on every keydown, after keys[] is updated. Only the instant matters here: a jump and the
-// lock toggle happen once per press, not on the repeats of a held key.
+// The engine calls INPUT.key on every keydown, after keys[] is updated. Only the instant matters here: the lock toggle
+// happens once per press, not on the repeats of a held key.
 export function handleKey(e: KeyboardEvent) {
   if (e.repeat) return;
-  const action = actionOf(e.code);
-  if (action === 'jump') {
-    if (jumpEnabled) jumpPressed = true;
-  } else if (action === 'lock') toggleLock();
+  if (actionOf(e.code) === 'lock') toggleLock();
 }
 
 function initMouse() {
@@ -60,7 +54,6 @@ function initMouse() {
     mainMouse = false;
     subMouse = false;
     mouseHeldOff = false;
-    jumpPressed = false;
   });
 }
 
@@ -70,36 +63,27 @@ export function holdMouseFireUntilRelease(): void {
   if (mainMouse || subMouse) mouseHeldOff = true;
 }
 
-export function initKeyboard(options: { jump?: boolean } = {}) {
+export function initKeyboard() {
   if (ready) return;
   ready = true;
-  jumpEnabled = options.jump !== false;
   defineActions(ACTION_DEFS);
   initMouse();
-}
-
-// Throws away a jump pressed before the pause menu was up: nothing reads it while paused, so without this the mech jumps
-// on the first frame after the resume. The touch buttons' jump and use go the same way (clearPendingTouch in touch.ts, called
-// with this one).
-export function clearPendingJump(): void {
-  jumpPressed = false;
 }
 
 const actionAxis = (plus: KeyAction, minus: KeyAction): number =>
   (actionDown(plus) ? 1 : 0) - (actionDown(minus) ? 1 : 0);
 
-// This frame's keyboard input. A jump is true for one read only; the turn already has the frame time in.
+// This frame's keyboard input. The turn already has the frame time in. No input reads a jump (D-50).
 export function readKeyboard(dt: number): KeyboardRead {
   const input: MechInput = {
     moveX: actionAxis('right', 'left'),
     moveZ: actionAxis('forward', 'back'),
     turn: actionAxis('lookLeft', 'lookRight') * KEY_TUNE.lookRate * dt,
-    jump: jumpEnabled && jumpPressed,
-    jumpHeld: jumpEnabled && actionDown('jump'),
+    jump: false,
+    jumpHeld: false,
     boost: actionDown('boost'),
     fire: actionDown('main') || (mainMouse && !mouseHeldOff),
   };
-  jumpPressed = false;
   return {
     input,
     lock: lockState(),
