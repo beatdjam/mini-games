@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { systems } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { boot } from '../src/app/boot.ts';
-import { CAMERA_TUNE, MECH_TUNE } from '../src/data/tune.ts';
+import { CAMERA_TUNE, FOV_TUNE, MECH_TUNE } from '../src/data/tune.ts';
 import { showMech } from '../src/dev/views/mech.ts';
 import { applyPose, cameraPose } from '../src/view/camera.ts';
 import { disposeMech } from '../src/view/mechModel.ts';
@@ -112,7 +112,7 @@ test('mech-proto3', async () => {
       await picture(`mech-proto3-${detail.name}`);
     }
     // the sortie's shoulder camera: the same place view/camera.ts puts it behind the mech
-    applyPose(camera, cameraPose({ x: at.x, y: 0, z: at.z, yaw: 0 }, 0, CAMERA_TUNE, []), CAMERA_TUNE.fov);
+    applyPose(camera, cameraPose({ x: at.x, y: 0, z: at.z, yaw: 0 }, 0, CAMERA_TUNE, []), FOV_TUNE.feel);
     await picture('mech-proto3-game');
 
     // the motion: ten frames of walking catch the legs apart, then a hop's crouch bends the knees deep

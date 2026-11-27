@@ -1,9 +1,9 @@
 import type { EnemyKind } from './enemies.ts';
 import type { GaitKind } from './mech.ts';
-import type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
+import type { CameraTune, FadeTune, FcsKind, FcsTune, FovTune, MoveTune, QuarterTune } from './tuneTypes.ts';
 import type { TargetKind } from './types.ts';
 
-export type { CameraTune, FcsKind, FcsTune, MoveTune, QuarterTune } from './tuneTypes.ts';
+export type { CameraTune, FadeTune, FcsKind, FcsTune, FovTune, MoveTune, QuarterTune } from './tuneTypes.ts';
 
 // Named values for the empty field: the ground, the fog, the camera and the box that shows a mech's size.
 export const FIELD_TUNE = {
@@ -84,10 +84,21 @@ export const CAMERA_TUNE: CameraTune = {
   pitchMin: -0.5, // the lowest pitch the camera may look, looking down (rad)
   pitchMax: 0.8, // the highest pitch the camera may look, looking up (rad)
   lag: 0.12, // the time constant for the camera to reach its target position (s); 0 means no lag
-  fov: 72, // the vertical field of view (deg)
   aimDist: 5.1, // the camera's horizontal distance while aiming (m)
   aimFov: 52, // the vertical field of view while aiming (deg)
-  wallHeight: 6, // a blocking prop at least this tall (seawall, bunker, stairs, ramp, cliff, fortWall) is a wall; a lower one fades (m) (SB-2048)
+};
+
+// The body's own fields of view (SB-2196). All three are 72, but each is its own value: 72 is not the overview camera's
+// fov (QUARTER_TUNE.fov, 58), and changing one changes the aim circle's size or the cutscene's picture.
+export const FOV_TUNE: FovTune = {
+  feel: 72, // the feel's base field of view (deg)
+  ring: 72, // the field of view that sets the aim circle's size (deg)
+  cutscene: 72, // the cutscene's field of view (deg)
+};
+
+// The low props that fade instead of staying solid (SB-2048).
+export const FADE_TUNE: FadeTune = {
+  wallHeight: 6, // a blocking prop at least this tall does not fade (seawall, bunker, stairs, ramp, cliff, fortWall); a lower one fades (m)
   fadeOpacity: 0.35, // how much of a faded prop is left (0-1)
   fadeIn: 0.12, // the time a prop takes to fade out once it is between the camera and the mech (s)
   fadeOut: 0.25, // the time it takes to come back once it is clear (s)

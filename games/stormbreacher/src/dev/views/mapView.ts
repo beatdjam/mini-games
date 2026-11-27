@@ -13,7 +13,7 @@ import { M1 } from '../../data/missions/m1.ts';
 import { DEFENDER_TUNE } from '../../data/defenders.ts';
 import { FRONT_TUNE } from '../../data/front.ts';
 import { PAYOFF_TUNE } from '../../data/payoff.ts';
-import { CAMERA_TUNE } from '../../data/tune.ts';
+import { CAMERA_TUNE, FOV_TUNE } from '../../data/tune.ts';
 import { PROP_KINDS, type MapBounds, type MapDef, type PropKind } from '../../data/types.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { validateMapForMission, type MapViolation } from '../../logic/mapCheck.ts';
@@ -155,7 +155,7 @@ export function showMap(_hash: string) {
   const { built, cameraBoxes } = buildMapScene(map);
 
   const { moveTune, feelTune } = moveFeelFromParams(params);
-  const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false, rects: mapBlockers(map) });
+  const range = buildFlatRange(FOV_TUNE.feel, { targets: false, rects: mapBlockers(map) });
   const mech = range.mech;
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = map.bounds.maxZ - MECH_MARGIN;

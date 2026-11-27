@@ -5,7 +5,7 @@
 import { addSystem, clamp, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { buttonLayout, locked, openLayoutEditor } from '@engine/ui/index.ts';
-import { CAMERA_TUNE } from '../../data/tune.ts';
+import { CAMERA_TUNE, FOV_TUNE } from '../../data/tune.ts';
 import { TOUCH_BUTTONS, type TouchButton } from '../../data/touch.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { touchStats, type TouchStats } from '../../app/touch.ts';
@@ -105,7 +105,7 @@ export function showTouch(_hash: string) {
   // the title and the link to the list would sit under the touch HUD
   el('#sbApp').hidden = true;
 
-  const range = buildFlatRange(CAMERA_TUNE.fov);
+  const range = buildFlatRange(FOV_TUNE.feel);
   const mech = range.mech;
   const { moveTune, feelTune } = moveFeelFromParams(new URLSearchParams(location.search));
   initPlayInput();

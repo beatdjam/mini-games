@@ -2,7 +2,7 @@
 // it, the round radar, the radar's marks, and the dot and circle. DOM only; no three, so a test can build them without
 // a renderer.
 import { HUD_COLOR } from '../data/colors.ts';
-import { CAMERA_TUNE, FCS_TUNE, type HudRingTune } from '../data/tune.ts';
+import { FCS_TUNE, FOV_TUNE, type HudRingTune } from '../data/tune.ts';
 import type { ScreenPoint } from './hudPlace.ts';
 import { keepInside } from './hudPlace.ts';
 import {
@@ -27,7 +27,7 @@ const ARC_TEXT_GAP = 6; // px, between the arc and the text column
 // view. 720 gives about 70.
 export function ringRadius(height: number): number {
   const cone = (FCS_TUNE.soft.cone * Math.PI) / 180;
-  const halfFov = (CAMERA_TUNE.fov * Math.PI) / 360;
+  const halfFov = (FOV_TUNE.ring * Math.PI) / 360;
   return Math.tan(cone) * (height / 2 / Math.tan(halfFov));
 }
 

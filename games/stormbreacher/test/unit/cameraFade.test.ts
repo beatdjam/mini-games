@@ -1,9 +1,9 @@
-// Low props and the camera (SB-2048): a prop under CAMERA_TUNE.wallHeight between the camera and the mech does not pull the
+// Low props and the camera (SB-2048): a prop under FADE_TUNE.wallHeight between the camera and the mech does not pull the
 // camera in, and turns see-through instead; a tall wall pulls the camera in as before.
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { CAMERA_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE, FADE_TUNE } from '../../src/data/tune.ts';
 import type { MapDef, Prop } from '../../src/data/types.ts';
 import { cameraBlockers } from '../../src/logic/mapShapes.ts';
 import { cameraBoxesOfRect, cameraPose, followCamera, type CameraState } from '../../src/view/camera.ts';
@@ -34,7 +34,7 @@ const mapWith = (props: Prop[]): MapDef => ({
 // The walls the camera gets for a map, and the boxes of its low props.
 function split(map: MapDef): { walls: THREE.Box3[]; low: THREE.Box3[] } {
   const rects = cameraBlockers(map);
-  const isLow = lowRects(map, rects.length, CAMERA_TUNE);
+  const isLow = lowRects(map, rects.length, FADE_TUNE);
   const boxes = rects.map(cameraBoxesOfRect);
   return { walls: boxes.filter((_, i) => !isLow[i]).flat(), low: boxes.filter((_, i) => isLow[i]).flat() };
 }
@@ -82,7 +82,7 @@ test('a tall wall between them still pulls the camera in', () => {
 
 test('the split follows the prop height including its scale', () => {
   // a seawall is 6 m: at 0.9 it falls under the line, a hedgehog at 2.1 times is 6.3 m and becomes a wall
-  expect(PROP_SIZE.seawall.h * 0.9).toBeLessThan(CAMERA_TUNE.wallHeight);
+  expect(PROP_SIZE.seawall.h * 0.9).toBeLessThan(FADE_TUNE.wallHeight);
   const small = split(mapWith([{ kind: 'seawall', x: 0, z: 4, yaw: 0, scale: 0.9 }]));
   expect(small.low.length).toBe(1);
   const big = split(mapWith([{ kind: 'hedgehog', x: 0, z: 4, yaw: 0, scale: 2.1 }]));
@@ -97,7 +97,7 @@ function built(props: Prop[]): { fade: FadeSet; group: THREE.Group; lows: THREE.
   const outdoor = buildOutdoor(props, { chunk: 32, chunkMin: 3000 });
   const fade = newFadeSet(outdoor.group, outdoor.slots);
   const rects = cameraBlockers(map);
-  const isLow = lowRects(map, rects.length, CAMERA_TUNE);
+  const isLow = lowRects(map, rects.length, FADE_TUNE);
   const lows: THREE.Box3[] = [];
   rects.forEach((rect, i) => {
     if (!isLow[i]) return;
@@ -113,7 +113,7 @@ const CHEST = new THREE.Vector3(0, 2, 0);
 const ASIDE = new THREE.Vector3(30, 3, 8); // a camera that has the prop nowhere near the line to the chest
 
 function run(fade: FadeSet, from: THREE.Vector3, seconds: number): void {
-  for (let frame = 0; frame < Math.round(seconds / DT); frame++) fadeStep(fade, from, CHEST, DT, CAMERA_TUNE);
+  for (let frame = 0; frame < Math.round(seconds / DT); frame++) fadeStep(fade, from, CHEST, DT, FADE_TUNE);
 }
 
 function copyOf(group: THREE.Group, kind: string, index: number): THREE.Matrix4 {
@@ -130,7 +130,7 @@ test('a prop between the camera and the mech fades to fadeOpacity, and comes bac
   const before = copyOf(group, 'block', 0);
   run(fade, CAMERA, 1);
   expect(hidden.amount).toBe(1);
-  expect(fadeOpacityOf(fade, hidden)).toBeCloseTo(CAMERA_TUNE.fadeOpacity, 6);
+  expect(fadeOpacityOf(fade, hidden)).toBeCloseTo(FADE_TUNE.fadeOpacity, 6);
   expect(clear.amount).toBe(0);
   expect(fadeOpacityOf(fade, clear)).toBe(1);
   // the solid copy is shrunk to nothing where it stands, its twin is the one drawn
@@ -150,16 +150,16 @@ test('the fade is gradual, in both directions', () => {
   const [prop] = fade.props;
   const seen: number[] = [];
   for (let frame = 0; frame < 30; frame++) {
-    fadeStep(fade, CAMERA, CHEST, DT, CAMERA_TUNE);
+    fadeStep(fade, CAMERA, CHEST, DT, FADE_TUNE);
     seen.push(fadeOpacityOf(fade, prop));
   }
-  expect(seen[0]).toBeGreaterThan(CAMERA_TUNE.fadeOpacity);
+  expect(seen[0]).toBeGreaterThan(FADE_TUNE.fadeOpacity);
   expect(seen[0]).toBeLessThan(1);
   for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeLessThanOrEqual(seen[i - 1]);
-  expect(seen[seen.length - 1]).toBeCloseTo(CAMERA_TUNE.fadeOpacity, 6);
+  expect(seen[seen.length - 1]).toBeCloseTo(FADE_TUNE.fadeOpacity, 6);
   const back: number[] = [];
   for (let frame = 0; frame < 30; frame++) {
-    fadeStep(fade, ASIDE, CHEST, DT, CAMERA_TUNE);
+    fadeStep(fade, ASIDE, CHEST, DT, FADE_TUNE);
     back.push(fadeOpacityOf(fade, prop));
   }
   expect(back[0]).toBeLessThan(1);

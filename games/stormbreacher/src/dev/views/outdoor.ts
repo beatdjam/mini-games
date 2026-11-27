@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { addSystem, turnToward, yawToward } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
-import { CAMERA_TUNE } from '../../data/tune.ts';
+import { CAMERA_TUNE, FOV_TUNE } from '../../data/tune.ts';
 import { stream } from '../../logic/rng.ts';
 import { applyPose, cameraPose, type CameraTarget } from '../../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
@@ -151,7 +151,7 @@ export function showOutdoor(_hash: string) {
       } else {
         target = FIXED;
       }
-      applyPose(camera, cameraPose(target, 0, CAMERA_TUNE, NO_WALLS), CAMERA_TUNE.fov);
+      applyPose(camera, cameraPose(target, 0, CAMERA_TUNE, NO_WALLS), FOV_TUNE.feel);
 
       cullChunks(built.chunks, built.group, camera, bench.far);
       crowd.update(dt, camera.position);

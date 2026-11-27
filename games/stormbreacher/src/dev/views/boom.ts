@@ -8,7 +8,7 @@ import { BOOM_DEFS, BOOM_SHAKE, boomShakeAt, type BoomKind } from '../../data/bo
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1 } from '../../data/missions/m1.ts';
-import { CAMERA_TUNE, FEEL_TUNE } from '../../data/tune.ts';
+import { FEEL_TUNE, FOV_TUNE } from '../../data/tune.ts';
 import { boomCounts, buildBooms, drawBooms, spawnBoom } from '../../view/boom.ts';
 import { feelBoom, feelStep, newFeel } from '../../view/feel.ts';
 import { applyLookTo } from '../../view/look.ts';
@@ -81,13 +81,13 @@ export function showBoom(_hash: string) {
   // the player's craft sits right where the water blast goes; it is not what this view is for
   const craft = scene.getObjectByName(`${CRAFT_NAME}Unit`);
   if (craft) craft.visible = false;
-  const feel = newFeel(CAMERA_TUNE.fov);
+  const feel = newFeel(FOV_TUNE.feel);
   let kind: BoomKind = 'large';
   let step = 0;
 
   camera.position.set(...CAM_POS);
   camera.lookAt(...CAM_LOOK);
-  camera.fov = CAMERA_TUNE.fov;
+  camera.fov = FOV_TUNE.feel;
   camera.updateProjectionMatrix();
 
   const hud = document.createElement('div');
@@ -212,7 +212,7 @@ export function showBoom(_hash: string) {
     name: 'sb-boom',
     update: dt => {
       drawBooms(dt);
-      const frame = feelStep(feel, dt, false, CAMERA_TUNE.fov, FEEL_TUNE);
+      const frame = feelStep(feel, dt, false, FOV_TUNE.feel, FEEL_TUNE);
       camera.fov = frame.fov;
       camera.updateProjectionMatrix();
       camera.position.set(...CAM_POS).add(frame.offset);

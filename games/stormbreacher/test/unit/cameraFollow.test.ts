@@ -3,7 +3,7 @@
 // aim is the middle of the screen the state drew.
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import { CAMERA_TUNE as TUNED, MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE as TUNED, FOV_TUNE, MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import {
   aimRay,
   applyPose,
@@ -332,7 +332,7 @@ test('a frame of no time gives the camera a place, not a NaN', () => {
 // The camera applyPose leaves for a state.
 function cameraOf(pose: ReturnType<typeof cameraPose>, state: CameraState): THREE.PerspectiveCamera {
   const cam = new THREE.PerspectiveCamera(72, 16 / 9, 0.1, 1000);
-  applyPose(cam, { ...pose, pos: state.pos, look: state.look }, CAMERA_TUNE.fov);
+  applyPose(cam, { ...pose, pos: state.pos, look: state.look }, FOV_TUNE.feel);
   return cam;
 }
 

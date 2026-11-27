@@ -10,7 +10,7 @@ import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { meleeBlowSec } from '../../data/melee.ts';
 import { CORES, MECH_PAINT, MECH_PAINT_TEX, PARTS } from '../../data/mech.ts';
 import { PROTO_KIT_IDS, PROTO_KITS, PROTO_MATERIALS, PROTO_TUNE, type ProtoKitId } from '../../data/mechProto.ts';
-import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
+import { CAMERA_TUNE, FOV_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
 import { moveTuneOf } from '../../logic/mechTune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { applyLookTo } from '../../view/look.ts';
@@ -541,7 +541,7 @@ export function showMech(_hash: string) {
     if (state.view === 'behind') {
       mech.rotation.y = 0;
       if (protoMech !== null) protoMech.rotation.y = 0;
-      applyPose(camera, cameraPose({ x, y: 0, z, yaw: 0 }, 0, CAMERA_TUNE, []), CAMERA_TUNE.fov);
+      applyPose(camera, cameraPose({ x, y: 0, z, yaw: 0 }, 0, CAMERA_TUNE, []), FOV_TUNE.feel);
     } else {
       if (state.spin) {
         mech.rotation.y += SPIN_RATE * dt;

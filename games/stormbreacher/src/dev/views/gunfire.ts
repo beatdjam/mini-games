@@ -10,7 +10,7 @@ import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../../data/mech.ts';
 import { M1 } from '../../data/missions/m1.ts';
-import { CAMERA_TUNE, MECH_TUNE } from '../../data/tune.ts';
+import { FOV_TUNE, MECH_TUNE } from '../../data/tune.ts';
 import { WEAPONS, type WeaponId } from '../../data/weapons.ts';
 import { isEnemyBullet, type Bullet } from '../../logic/game.ts';
 import { buildGunfireView, drawGunfire, gunfireCounts, spawnImpact, spawnMuzzleFlash } from '../../view/gunfire.ts';
@@ -95,7 +95,7 @@ export function showGunfire(_hash: string) {
 
   camera.position.set(MECH_AT.x + CAM_AT.x, CAM_AT.y, MECH_AT.z + CAM_AT.z);
   camera.lookAt(MECH_AT.x, MECH_TUNE.chestHeight, MECH_AT.z - LOOK_AHEAD);
-  camera.fov = CAMERA_TUNE.fov;
+  camera.fov = FOV_TUNE.feel;
   camera.updateProjectionMatrix();
 
   const muzzle = () => ({

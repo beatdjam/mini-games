@@ -21,7 +21,7 @@ import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { CAMERA_TUNE, FEEL_TUNE, HUD_RING_TUNE, MECH_TUNE, QUARTER_TUNE } from '../data/tune.ts';
+import { CAMERA_TUNE, FADE_TUNE, FEEL_TUNE, FOV_TUNE, HUD_RING_TUNE, MECH_TUNE, QUARTER_TUNE } from '../data/tune.ts';
 import type { QuarterTune } from '../data/tuneTypes.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import type { WeaponId } from '../data/weapons.ts';
@@ -178,7 +178,7 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     model,
     stage,
     mechFaded: false,
-    feel: newFeel(CAMERA_TUNE.fov),
+    feel: newFeel(FOV_TUNE.feel),
     pitch: 0,
     // The first frame's pose is null, so the camera sits at its place at once: a checkpoint or a suspend resumes
     // without it flying in. `?q.height=30` tries a value without a build (quarterTuneFrom).
@@ -626,7 +626,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   }
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
   if (meleeHit) feelMelee(view.feel);
-  const frame = feelStep(view.feel, dt, game.mech.boosting, CAMERA_TUNE.fov, FEEL_TUNE);
+  const frame = feelStep(view.feel, dt, game.mech.boosting, FOV_TUNE.feel, FEEL_TUNE);
 
   // A cutscene that has the mech walk (the landing's ramp) draws it on its path; this is the picture only, so the
   // game's mech stays at its start and a skip, a checkpoint or a suspend need nothing: the model is back on the game's
@@ -674,7 +674,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const pos = view.quarter.pose.pos.clone().add(frame.offset);
   camera.position.copy(pos);
   camera.lookAt(view.quarter.pose.look);
-  camera.fov = view.quarter.tune.fov + (frame.fov - CAMERA_TUNE.fov);
+  camera.fov = view.quarter.tune.fov + (frame.fov - FOV_TUNE.feel);
   view.quarter.fov = camera.fov;
   camera.updateProjectionMatrix();
   // The main body and the arena pass the cursor's ground point as aimAt; the view leaves this line undefined and step
@@ -697,7 +697,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     camera.position,
     fadeChest.set(model.x, model.y + MECH_TUNE.height / 2, model.z),
     dt,
-    CAMERA_TUNE,
+    FADE_TUNE,
   );
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game, dt);

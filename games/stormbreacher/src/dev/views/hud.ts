@@ -5,7 +5,7 @@ import { camera, cullChunks, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { lookOf } from '../../data/looks.ts';
 import { RADIO_TUNE } from '../../data/script.ts';
-import { CAMERA_TUNE, MECH_TUNE } from '../../data/tune.ts';
+import { CAMERA_TUNE, FOV_TUNE, MECH_TUNE } from '../../data/tune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { buildHud } from '../hud/build.ts';
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from '../hud/plans.ts';
@@ -63,7 +63,7 @@ export function showHud(_hash: string) {
   applyLookTo({ ...lookOf('m1'), pixel: 1 }, built.group);
 
   const pose = cameraPose({ x, y: 0, z, yaw: 0 }, 0, CAMERA_TUNE, []);
-  applyPose(camera, pose, CAMERA_TUNE.fov);
+  applyPose(camera, pose, FOV_TUNE.feel);
   addSystem({
     name: 'sb-hud',
     update: () => cullChunks(built.chunks, built.group, camera, MAP_FOG.far),

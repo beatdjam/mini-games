@@ -4,7 +4,16 @@
 // window.sbFxReport() gives the same JSON with the frame's counts.
 import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer } from '@engine/render/index.ts';
-import { CAMERA_TUNE, FEEL_TUNE, FX_STAGES, FX_TUNE, MECH_TUNE, MOVE_TUNE, type FxTune } from '../../data/tune.ts';
+import {
+  CAMERA_TUNE,
+  FEEL_TUNE,
+  FOV_TUNE,
+  FX_STAGES,
+  FX_TUNE,
+  MECH_TUNE,
+  MOVE_TUNE,
+  type FxTune,
+} from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
 import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
@@ -171,7 +180,7 @@ export function showFx(_hash: string) {
   };
   apply();
 
-  const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false, rects: mapBlockers(map) });
+  const range = buildFlatRange(FOV_TUNE.feel, { targets: false, rects: mapBlockers(map) });
   const mech = range.mech;
   const startCamera = scaleForMech(mechSize, MOVE_TUNE, CAMERA_TUNE, { camera: mechCam, move: mechMove }).cameraTune;
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;

@@ -1,5 +1,5 @@
 // Screenshots of the low props that fade (SB-2048): in the fortress's yard, a block and a wreck between the camera and the
-// mech. SHOTS_ONLY=camera-fade-before takes the old camera (every prop a wall, CAMERA_TUNE.wallHeight 0); SHOTS_ONLY=
+// mech. SHOTS_ONLY=camera-fade-before takes the old camera (every prop a wall, FADE_TUNE.wallHeight 0); SHOTS_ONLY=
 // camera-fade-after takes the new one. Each picture also gets a .txt of the draws and triangles of the frame. npm run shots. Not a
 // test: it is not part of npm test or the CI (the drawn pixels differ between machines). SHOTS_OUT=<folder> picks where the
 // pictures go.
@@ -9,7 +9,7 @@ import { LOOP, runSystems } from '@engine/core/index.ts';
 import { renderer } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../src/app/play.ts';
 import { boot } from '../src/app/boot.ts';
-import { CAMERA_TUNE, MECH_TUNE } from '../src/data/tune.ts';
+import { FADE_TUNE, MECH_TUNE } from '../src/data/tune.ts';
 import { sendToScript } from '../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
@@ -54,7 +54,7 @@ function advance(seconds: number): void {
 
 beforeAll(async () => {
   // the old camera: wallHeight 0 makes every prop a wall again, so none fades
-  if (BEFORE) CAMERA_TUNE.wallHeight = 0;
+  if (BEFORE) FADE_TUNE.wallHeight = 0;
   await page.viewport(1280, 720);
   boot();
   const hide = document.createElement('style');

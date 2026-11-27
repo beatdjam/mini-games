@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { CAMERA_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE, FADE_TUNE } from '../../src/data/tune.ts';
 import { lowRects } from '../../src/view/fade.ts';
 import { step } from '../../src/logic/game.ts';
 import { cameraBlockers } from '../../src/logic/mapShapes.ts';
@@ -102,7 +102,7 @@ function walk(wallHeight: number, path: (typeof paths)[string]): Run {
 test('the yard walks have no jump in the distance once the low props are not walls', () => {
   for (const [name, path] of Object.entries(paths)) {
     const old = walk(0, path);
-    const now = walk(CAMERA_TUNE.wallHeight, path);
+    const now = walk(FADE_TUNE.wallHeight, path);
     expect(now.max, name).toBeLessThan(MAX_JUMP);
     expect(now.over, name).toBeLessThanOrEqual(old.over);
     expect(now.flips, name).toBeLessThanOrEqual(old.flips);

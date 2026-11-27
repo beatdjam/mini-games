@@ -37,6 +37,15 @@ export interface QuarterTune {
   zoomLag: number; // the time constant for pulling back and coming in (s); 0 means no lag
 }
 
+// The fields of view the body's own systems use (deg): the feel's base, the aim circle's size and the cutscenes. All
+// three are 72, but each is its own value. 72 is not the overview camera's 58, and changing one changes the circle's
+// size or the cutscene's picture.
+export interface FovTune {
+  feel: number; // the feel's base field of view (deg)
+  ring: number; // the field of view that sets the aim circle's size (deg)
+  cutscene: number; // the cutscene's field of view (deg)
+}
+
 export interface CameraTune {
   dist: number; // the camera's horizontal distance from the look point (m)
   height: number; // how far the camera sits above the look point (m)
@@ -61,10 +70,13 @@ export interface CameraTune {
   pitchMin: number; // the lowest pitch the camera may look, looking down (rad)
   pitchMax: number; // the highest pitch the camera may look, looking up (rad)
   lag: number; // the time constant for the camera to reach its target position (s); 0 means no lag
-  fov: number; // the vertical field of view (deg)
   aimDist: number; // the camera's horizontal distance while aiming (m)
   aimFov: number; // the vertical field of view while aiming (deg)
-  wallHeight: number; // a blocking prop at least this tall is a wall the camera stays in front of; a lower one never pulls the camera and fades when it is between the camera and the mech (m); 0 makes every prop a wall (SB-2048)
+}
+
+// The low props that fade instead of staying solid (SB-2048).
+export interface FadeTune {
+  wallHeight: number; // a blocking prop at least this tall does not fade (the third-person camera treats it as a wall); a lower one fades when it is between the camera and the mech (m); 0 fades nothing
   fadeOpacity: number; // how much of a faded prop is left (0-1)
   fadeIn: number; // the time a prop takes to fade out once it is between the camera and the mech (s)
   fadeOut: number; // the time it takes to come back once it is clear (s)

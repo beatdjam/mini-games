@@ -26,7 +26,6 @@ test('an 8 m mech doubles the 4 m walking, boost and camera values and raises th
   expect(scale.cameraTune.shoulder).toBeCloseTo(4.3, 10);
   expect(scale.cameraTune.lookHeight).toBeCloseTo(5.8, 10);
   expect(scale.cameraTune.aimDist).toBeCloseTo(10.2, 10);
-  expect(scale.cameraTune.fov).toBe(CAMERA_TUNE.fov);
 });
 
 test('an 8 m mech scales every camera distance and speed, and keeps the angles and times', () => {
@@ -59,7 +58,6 @@ test('an 8 m mech scales every camera distance and speed, and keeps the angles a
     'returnLag',
     'turnLag',
     'returnDelay',
-    'fov',
     'aimFov',
   ] as const) {
     expect(scale.cameraTune[key], key).toBe(CAMERA_TUNE[key]);
