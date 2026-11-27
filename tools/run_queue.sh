@@ -189,7 +189,7 @@ base_ref() {
 finish() {
   local n=$1 wt=$2 name=$3 title=$4
   if dirty "$wt"; then
-    git -C "$wt" add -A -- . ':(exclude)node_modules' || { log "票$n: git add に失敗した（$wt）"; return 1; }
+    git -C "$wt" add -A -- . || { log "票$n: git add に失敗した（$wt）"; return 1; }
     git -C "$wt" commit -q -m "WIP（未レビュー）: 票$n $title" -m "キューが書いたまま。Claude のレビュー前。" -m "Changelog: なし" || {
       log "票$n: WIP のコミットに失敗した（pre-commit などの失敗かもしれない。$wt を見る）"
       return 1
@@ -216,7 +216,7 @@ wip_interrupted() { # 番号
   [ -f "$wt/.tasks/$name.result.md" ] && return 0
   dirty "$wt" || return 0
   title=$(head -1 "$t" | sed 's/^# タスク: //')
-  git -C "$wt" add -A -- . ':(exclude)node_modules' &&
+  git -C "$wt" add -A -- . &&
     git -C "$wt" commit -q --no-verify -m "WIP（途中・枠切れで止めた）: 票$n $title" -m "枠切れで止めたときの作業ツリーの変更。続きから回す。" -m "Changelog: なし" || {
     log "票$n: 途中の変更を WIP にできなかった（$wt に未コミットの変更が残る）"
     return 0
