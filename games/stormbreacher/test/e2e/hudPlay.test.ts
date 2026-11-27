@@ -6,7 +6,8 @@ import { newEnemy } from '../../src/logic/enemies.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { currentGame, currentPlayView, startSortie, showResult } from '../../src/app/play.ts';
 import { aimPointOf } from '../../src/view/play.ts';
-import { makeReticle } from '../../src/view/hud.ts';
+import { HUD_LAYOUTS } from '../../src/data/hudLayout.ts';
+import { buildPlayHud, makeReticle, removeHud } from '../../src/view/hud.ts';
 import { reticleAt } from '../../src/view/hudParts.ts';
 import { boot } from '../../src/app/boot.ts';
 import { steps } from './steps.ts';
@@ -30,6 +31,18 @@ test('a sortie shows the HUD', () => {
   expect(hud.querySelector('[data-hud="radio"]')?.hasAttribute('hidden'), 'no radio line at the start').toBe(true);
   expect(hud.querySelector('[data-hud="heat"]'), 'the HUD should not have heat').toBeNull();
   expect(document.querySelector('#sbHud')).toBeNull();
+});
+
+test('every placement keeps the HUD parts', () => {
+  for (const layout of HUD_LAYOUTS) {
+    const hud = buildPlayHud(document.body, layout);
+    try {
+      for (const id of ['armor', 'boost', 'main', 'sub', 'objective', 'radio', 'radar', 'reticle', 'warning'])
+        expect(hud.root.querySelector(`[data-hud="${id}"]`), `${layout} is missing ${id}`).not.toBeNull();
+    } finally {
+      removeHud(hud);
+    }
+  }
 });
 
 test('a built reticle keeps the place it is given', () => {

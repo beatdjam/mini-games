@@ -25,6 +25,7 @@ import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, QUARTER_TUNE, type
 import type { QuarterTune } from '../data/tuneTypes.ts';
 import { WARDEN_TUNE } from '../data/warden.ts';
 import type { WeaponId } from '../data/weapons.ts';
+import { hudLayoutFrom, type HudLayout } from '../data/hudLayout.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { frontOf, type FrontId } from '../logic/front.ts';
 import { blastFaceHeight, type GameModel } from '../logic/game.ts';
@@ -48,6 +49,7 @@ import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.t
 import { buildGunfireView, drawGunfire, spawnImpact, spawnMuzzleFlash, type GunfireView } from './gunfire.ts';
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
+import { ndcToScreen } from './hudPlace.ts';
 import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
@@ -65,6 +67,8 @@ import {
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const fadeChest = new THREE.Vector3(); // the mech's chest, the far end of the line a low prop fades on
+const feetWorld = new THREE.Vector3(); // the mech's feet, projected for layout B's gauges (SB-2150)
+const feetView = new THREE.Vector3();
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
 const DEFLECT_SPARKS = 6; // the sparks a shot off a pillbox's front throws
 const DEFLECT_SPEED = 5; // how fast a spark flies out (m/s)
@@ -138,6 +142,7 @@ export interface PlayView {
 export interface PlayViewOptions {
   world?: World;
   battleTune?: FxTune;
+  hudLayout?: HudLayout;
 }
 
 // The ground point at height `y` that the screen's point (`ndc`) looks at, from the quarter camera's pose before the
@@ -165,7 +170,8 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     stage.setShadow(shadow);
     stage.setEnv(env);
   }
-  const hud = buildPlayHud(document.body);
+  // The page picks the placement with ?hud=a|b|c (the arena passes its own hash query); A stays the sortie's default.
+  const hud = buildPlayHud(document.body, options.hudLayout ?? hudLayoutFrom(location.search));
   // The line the allies hold now: a checkpoint or a suspend that comes back after a milestone starts the battle layer
   // at that line's waiting z, so the infantry does not walk the ground it has already taken again (SB-2010).
   const front = frontOf(game.script.flags);
@@ -425,6 +431,17 @@ function drawCoverFire(view: PlayView, game: GameModel, dt: number): void {
     );
     spawnDust(hit.x, hit.z, COVER_DUST, FEEL_TUNE, hit.y);
   }
+}
+
+// The mech's feet on the screen (px), or null when the camera is in front of them (the same test screenRect uses).
+// Nothing is clamped here: layout B's bars keep themselves in view (view/hudPlace.ts).
+function mechFeetOnScreen(game: GameModel): { x: number; y: number } | null {
+  camera.updateMatrixWorld();
+  feetWorld.set(game.mech.x, game.mech.y, game.mech.z);
+  feetView.copy(feetWorld).applyMatrix4(camera.matrixWorldInverse);
+  if (feetView.z >= 0) return null;
+  feetWorld.project(camera);
+  return ndcToScreen({ x: feetWorld.x, y: feetWorld.y }, window.innerWidth, window.innerHeight);
 }
 
 // One frame of the sortie: the frame's events become dust, sparks and the camera's shake, the bullets in flight become
@@ -711,5 +728,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const hud = hudModel(game, view.quarter.tune.azimuth);
   view.useNear = hud.use !== null;
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
-  drawHud(view.hud, hud, lock);
+  // a cutscene hides the HUD's root, so its feet are not needed
+  const feet = game.script.cutscene === null ? mechFeetOnScreen(game) : null;
+  drawHud(view.hud, hud, lock, feet);
 }

@@ -18,6 +18,7 @@ import {
   PLAY_BATTLE_TUNE,
   type FxTune,
 } from '../../data/tune.ts';
+import { HUD_LAYOUTS, hudLayoutFrom } from '../../data/hudLayout.ts';
 import type { MapDef, MissionDef } from '../../data/types.ts';
 import { WEAPONS } from '../../data/weapons.ts';
 import { newEnemy } from '../../logic/enemies.ts';
@@ -27,7 +28,7 @@ import { newWeapon } from '../../logic/weapons.ts';
 import { cameraBoxesOfRect } from '../../view/camera.ts';
 import { noFade } from '../../view/fade.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
-import { placeReticle } from '../../view/hud.ts';
+import { placeReticle, setHudLayout } from '../../view/hud.ts';
 import { buildOutdoor, buildTargets } from '../../view/outdoor.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../../view/play.ts';
 import { buildShore } from '../../view/shore.ts';
@@ -231,12 +232,49 @@ function addTunePanel() {
   });
 }
 
+// The A/B/C buttons for the HUD's placement (SB-2150). The arena is where the three are compared before the game picks
+// one; the button of the placement in use is lit. A pointer down here is kept from the game's input.
+function addHudLayoutButtons(view: PlayView): void {
+  const row = document.createElement('div');
+  row.id = 'sbArenaHudLayout';
+  row.style.cssText =
+    'position:fixed;left:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);display:flex;gap:4px;' +
+    'z-index:6;pointer-events:auto';
+  const buttons = HUD_LAYOUTS.map(layout => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = layout.toUpperCase();
+    button.dataset.hudLayout = layout;
+    button.style.cssText =
+      'width:32px;height:26px;padding:0;border:1px solid rgba(213,228,238,0.35);background:rgba(10,17,25,0.7);' +
+      'color:#e8eef2;font:12px/1 monospace;pointer-events:auto';
+    button.addEventListener('pointerdown', event => event.stopPropagation());
+    button.addEventListener('click', () => {
+      setHudLayout(view.hud, layout);
+      paint();
+    });
+    row.appendChild(button);
+    return { layout, button };
+  });
+  const paint = () => {
+    for (const { layout, button } of buttons) {
+      const on = view.hud.layout === layout;
+      button.style.borderColor = on ? 'rgba(84,232,255,0.95)' : 'rgba(213,228,238,0.35)';
+      button.style.background = on ? 'rgba(84,232,255,0.28)' : 'rgba(10,17,25,0.7)';
+      button.setAttribute('aria-pressed', String(on));
+    }
+  };
+  paint();
+  document.body.appendChild(row);
+}
+
 // The values the user settled in the arena (2026-11-17) are the game's own now (SB-2072), so the arena opens on them.
 export function showArena(_hash: string) {
   const params = viewParams();
   const mix = mixOf(params.get('enemies'));
   const god = params.get('god') !== '0';
   const endlessAmmo = params.get('ammo') === 'inf';
+  const hudLayout = hudLayoutFrom(params.toString());
 
   el('#sbApp').hidden = true;
   const ground = scene.getObjectByName(GROUND_NAME);
@@ -256,6 +294,7 @@ export function showArena(_hash: string) {
   const view: PlayView = buildPlayView(arena, {
     world: buildArenaWorld(ARENA_MAP),
     battleTune: ARENA_BATTLE_TUNE,
+    hudLayout,
   });
   initPlayInput(playInputOptions());
   el('#touch').hidden = !isTouch;
@@ -293,6 +332,7 @@ export function showArena(_hash: string) {
 
   addTunePanel();
   const hud = addHud();
+  addHudLayoutButtons(view);
 
   addSystem({
     name: 'sb-arena',
