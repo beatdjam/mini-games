@@ -5,8 +5,7 @@ import { camera, cullChunks, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { lookOf } from '../../data/looks.ts';
 import { RADIO_TUNE } from '../../data/script.ts';
-import { CAMERA_TUNE, FOV_TUNE, MECH_TUNE } from '../../data/tune.ts';
-import { applyPose, cameraPose } from '../../view/camera.ts';
+import { FOV_TUNE, MECH_TUNE } from '../../data/tune.ts';
 import { buildHud } from '../hud/build.ts';
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from '../hud/plans.ts';
 import { createTunePanel } from '../tunePanel.ts';
@@ -30,6 +29,14 @@ const BUTTON =
 
 // How far inside the map's front edge the mech stands (m); showMap's MECH_MARGIN is not exported.
 const MECH_MARGIN = 4;
+
+// The fixed camera behind the mech: its place and its look point, as offsets from the mech's feet (m). The values are the
+// third-person camera's place for a 4 m mech that stands still: 8.6 m behind, 2.15 m to its right, the look point 2.9 m
+// above the feet and the camera 1.5 m above the look point.
+const HUD_CAMERA = {
+  pos: { x: 2.15, y: 4.4, z: 8.6 },
+  look: { x: 2.15, y: 2.9, z: 0 },
+} as const;
 
 const KEY_PLAN: Record<string, PlanId> = { '1': 'a', '2': 'b', '3': 'c', '4': 'd' };
 
@@ -62,8 +69,10 @@ export function showHud(_hash: string) {
   // #view-fx's default look (the M1 row) without the low resolution, through the same view/look.ts the sortie uses
   applyLookTo({ ...lookOf('m1'), pixel: 1 }, built.group);
 
-  const pose = cameraPose({ x, y: 0, z, yaw: 0 }, 0, CAMERA_TUNE, []);
-  applyPose(camera, pose, FOV_TUNE.feel);
+  camera.position.set(x + HUD_CAMERA.pos.x, HUD_CAMERA.pos.y, z + HUD_CAMERA.pos.z);
+  camera.fov = FOV_TUNE.feel;
+  camera.updateProjectionMatrix();
+  camera.lookAt(x + HUD_CAMERA.look.x, HUD_CAMERA.look.y, z + HUD_CAMERA.look.z);
   addSystem({
     name: 'sb-hud',
     update: () => cullChunks(built.chunks, built.group, camera, MAP_FOG.far),

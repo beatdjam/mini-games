@@ -1,11 +1,11 @@
-// The beach bench view (#view-outdoor): a wide landing beach built from a seed, mechs walking it, a camera that walks
-// the beach or stands still, and the numbers the screen drew, measured by bench.ts.
+// The beach bench view (#view-outdoor): a wide landing beach built from a seed, mechs walking it, the game's overhead
+// camera following the walk or standing still, and the numbers the screen drew, measured by bench.ts.
 import * as THREE from 'three';
-import { addSystem, turnToward, yawToward } from '@engine/core/index.ts';
+import { addSystem } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
-import { CAMERA_TUNE, FOV_TUNE } from '../../data/tune.ts';
+import { QUARTER_TUNE } from '../../data/tune.ts';
 import { stream } from '../../logic/rng.ts';
-import { applyPose, cameraPose, type CameraTarget } from '../../view/camera.ts';
+import { quarterPose } from '../../view/quarterCamera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { startBench, type BenchParams } from '../outdoor/bench.ts';
 import { buildOutdoor } from '../../view/outdoor.ts';
@@ -22,33 +22,31 @@ const PARAMS = {
   mechDraw: { fallback: 'group', values: ['group', 'instanced'] }, // how the mechs are drawn
   mechs: { fallback: 0 }, // mechs added in a line for comparison (?mechs=100)
   density: { fallback: 1 }, // how many obstacles stand on the beach
-  cam: { fallback: 'path', values: ['path', 'fixed'] }, // the camera walks the beach or stands still
+  cam: { fallback: 'path', values: ['path', 'fixed'] }, // the camera's target walks the beach or stands still
 } as const;
 
 const SKY_COLOR = 0x9db8c6; // the field's sky colour, for the fog when the scene has none
-const NO_WALLS: THREE.Box3[] = []; // the camera has no level boxes to keep in front of here
 
-// The camera's path: an invisible 8 m mech walks from the sea to the seawall and back, swaying across the beach.
+// The path the camera's target walks: an invisible 8 m mech walks from the sea to the seawall and back, swaying across
+// the beach.
 const PATH = {
   fromZ: 150, // the sea end of the walk (m)
   toZ: -60, // the seawall end (m)
   speed: 8, // m/s along the walk
   swayX: 30, // how far the walk sways to either side (m)
   swayLegs: 1, // how many full sways one leg of the walk makes
-  turnRate: 2, // how fast the camera's target turns toward its way (rad/s)
 } as const;
 
 const PATH_LENGTH = PATH.fromZ - PATH.toZ; // m, one leg
 
-// The fixed camera looks at the middle of the beach and faces the land.
-const FIXED: CameraTarget = { x: 0, y: 0, z: 60, yaw: 0 };
+// The fixed camera's target: the middle of the beach.
+const FIXED = { x: 0, y: 0, z: 60 };
 
 interface Walk {
   u: number; // 0 at the sea end, 1 at the seawall end
   dir: 1 | -1; // which way along the path the next step goes
   x: number;
   z: number;
-  yaw: number;
 }
 
 function readChoice<T extends number | string>(
@@ -75,7 +73,7 @@ function readNumber(params: URLSearchParams, name: string, fallback: number, inv
   return fallback;
 }
 
-// Moves the invisible mech along the path and says where it stands and which way it faces.
+// Moves the invisible mech along the path and says where it stands.
 function stepWalk(walk: Walk, dt: number) {
   walk.u += (walk.dir * PATH.speed * dt) / PATH_LENGTH;
   if (walk.u > 1) {
@@ -87,9 +85,6 @@ function stepWalk(walk: Walk, dt: number) {
   }
   const z = PATH.fromZ + (PATH.toZ - PATH.fromZ) * walk.u;
   const x = PATH.swayX * Math.sin(walk.u * Math.PI * 2 * PATH.swayLegs);
-  const dx = x - walk.x;
-  const dz = z - walk.z;
-  if (Math.hypot(dx, dz) > 1e-4) walk.yaw = turnToward(walk.yaw, yawToward(dx, dz), PATH.turnRate * dt);
   walk.x = x;
   walk.z = z;
 }
@@ -138,20 +133,23 @@ export function showOutdoor(_hash: string) {
     dir: 1,
     x: 0,
     z: PATH.fromZ,
-    yaw: yawToward(0, PATH.toZ - PATH.fromZ),
   };
 
   addSystem({
     name: 'sb-outdoor',
     update: dt => {
-      let target: CameraTarget;
+      let target: { x: number; y: number; z: number };
       if (bench.cam === 'path') {
         stepWalk(walk, dt);
-        target = { x: walk.x, y: 0, z: walk.z, yaw: walk.yaw };
+        target = { x: walk.x, y: 0, z: walk.z };
       } else {
         target = FIXED;
       }
-      applyPose(camera, cameraPose(target, 0, CAMERA_TUNE, NO_WALLS), FOV_TUNE.feel);
+      const pose = quarterPose(target, QUARTER_TUNE);
+      camera.position.copy(pose.pos);
+      camera.lookAt(pose.look);
+      camera.fov = QUARTER_TUNE.fov;
+      camera.updateProjectionMatrix();
 
       cullChunks(built.chunks, built.group, camera, bench.far);
       crowd.update(dt, camera.position);
