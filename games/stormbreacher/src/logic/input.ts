@@ -19,3 +19,9 @@ export function mergeInput(touch: MechInput, keyboard: MechInput): MechInput {
     fire: touch.fire || keyboard.fire,
   };
 }
+
+// The main body and the arena take no jump (D-50): the mech has no free jump there, so the buttons do nothing. The
+// dev views keep it, and so do the jump's logic and MOVE_TUNE.
+export function withoutJump(input: MechInput): MechInput {
+  return { ...input, jump: false, jumpHeld: false };
+}

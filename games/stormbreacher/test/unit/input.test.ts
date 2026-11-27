@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { mergeInput } from '../../src/logic/input.ts';
+import { mergeInput, withoutJump } from '../../src/logic/input.ts';
 import type { MechInput } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -35,4 +35,13 @@ test('the fire is on when either side fires', () => {
   expect(mergeInput(input({ fire: true }), idle).fire).toBe(true);
   expect(mergeInput(idle, input({ fire: true })).fire).toBe(true);
   expect(mergeInput(idle, idle).fire).toBe(false);
+});
+
+test('withoutJump drops the jump and leaves the rest of the input alone', () => {
+  const merged = mergeInput(input({ jump: true, jumpHeld: true, moveZ: 1, boost: true }), idle);
+  const noJump = withoutJump(merged);
+  expect(noJump.jump).toBe(false);
+  expect(noJump.jumpHeld).toBe(false);
+  expect(noJump.moveZ).toBe(1);
+  expect(noJump.boost).toBe(true);
 });

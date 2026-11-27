@@ -243,8 +243,10 @@ export function showArena(_hash: string) {
     world: buildArenaWorld(ARENA_MAP),
     battleTune: ARENA_BATTLE_TUNE,
   });
-  initPlayInput({ cursor: true });
+  initPlayInput({ cursor: true, jump: false });
   el('#touch').hidden = !isTouch;
+  // the arena takes no jump (D-50), so its touch layer has no jump button
+  el('#btnJump').hidden = true;
   resetSound(arena.radio);
 
   let kills = 0;

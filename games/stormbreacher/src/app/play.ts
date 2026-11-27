@@ -115,9 +115,11 @@ function beginPlay(next: GameModel): void {
   // `?marker=dim|map|next` picks how the blast points' lights show (SB-2022)
   applyMarkerQuery(location.search);
   view = buildPlayView(game);
-  initPlayInput({ cursor: true });
+  initPlayInput({ cursor: true, jump: false });
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
   el('#touch').hidden = !isTouch;
+  // the main body takes no jump (D-50), so its touch layer has no jump button
+  el('#btnJump').hidden = true;
   touchCovered = false;
   hidePause();
   showPauseButton(true);

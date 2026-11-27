@@ -20,6 +20,7 @@ const ACTION_DEFS = Object.entries(KEY_DEFAULTS).map(([id, keys]) => ({ id, keys
 
 // A key went down since the last read; a held key repeats keydown but that is not a new press.
 let jumpPressed = false;
+let jumpEnabled = true; // the main body and the arena take no jump (D-50); the dev views keep it
 let lockOn = false;
 let mainMouse = false; // the left mouse button is down on the canvas with the free cursor
 let subMouse = false; // the right mouse button is down (while the pointer is locked, or on the canvas with the free cursor)
@@ -37,8 +38,9 @@ export function toggleLock() {
 export function handleKey(e: KeyboardEvent) {
   if (e.repeat) return;
   const action = actionOf(e.code);
-  if (action === 'jump') jumpPressed = true;
-  else if (action === 'lock') toggleLock();
+  if (action === 'jump') {
+    if (jumpEnabled) jumpPressed = true;
+  } else if (action === 'lock') toggleLock();
 }
 
 function initMouse() {
@@ -72,10 +74,11 @@ function initMouse() {
   });
 }
 
-export function initKeyboard(options: { cursor?: boolean } = {}) {
+export function initKeyboard(options: { cursor?: boolean; jump?: boolean } = {}) {
   if (ready) return;
   ready = true;
   cursorMode = options.cursor === true;
+  jumpEnabled = options.jump !== false;
   defineActions(ACTION_DEFS);
   initMouse();
 }
@@ -96,8 +99,8 @@ export function readKeyboard(dt: number): KeyboardRead {
     moveX: actionAxis('right', 'left'),
     moveZ: actionAxis('forward', 'back'),
     turn: actionAxis('lookLeft', 'lookRight') * KEY_TUNE.lookRate * dt,
-    jump: jumpPressed,
-    jumpHeld: actionDown('jump'),
+    jump: jumpEnabled && jumpPressed,
+    jumpHeld: jumpEnabled && actionDown('jump'),
     boost: actionDown('boost'),
     fire: actionDown('main') || mouseFire || mainMouse,
   };
