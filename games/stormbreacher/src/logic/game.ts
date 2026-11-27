@@ -1690,9 +1690,9 @@ function levelAim(
 // test inputs need no change) and the fist.
 export interface GameInput extends MechInput {
   sub: boolean;
-  // The aim line: the third-person camera's line through the middle of the screen for the dev views. The main body and
-  // the arena pass none and aim with `aimAt`, or with only a movement frame (`frame`) while a touch screen's right drag is
-  // off; with neither, the line is level from the chest along the mech's yaw.
+  // The aim line: a line through the middle of the screen for the views that have one. The main body and the arena pass
+  // none and aim with `aimAt`, or with only a movement frame (`frame`) while a touch screen's right drag is off; with
+  // neither, the line is level from the chest along the mech's yaw.
   aim?: Ray3;
   // The point the player points at, on the mech's feet plane (world, m): the mech turns toward it and the aim line is
   // level from the chest to it.

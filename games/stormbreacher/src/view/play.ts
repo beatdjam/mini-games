@@ -115,7 +115,7 @@ export interface PlayView {
   // the overview camera's values, its place and look last frame (before the feel's shake), and the vertical field of
   // view the last frame was drawn with (the feel's boost included), which the cursor's point uses
   quarter: { tune: QuarterTune; pose: QuarterPose | null; fov: number; zoom: number };
-  aim: Ray3 | undefined; // the line through the middle of the screen; undefined here: the main body and the arena aim with aimAt (ticket 2115), the other dev views pass aimRay
+  aim: Ray3 | undefined; // the line through the middle of the screen; undefined here: the main body and the arena aim with aimAt (ticket 2115)
   gunfire: GunfireView; // the muzzle flashes, the tracers in flight and the impacts' sparks and smoke
   enemies: EnemyView; // the enemies' instanced boxes
   wardenCharge: WardenChargeView; // the red band ahead of a warden about to charge
@@ -678,7 +678,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   view.quarter.fov = camera.fov;
   camera.updateProjectionMatrix();
   // The main body and the arena pass the cursor's ground point as aimAt; the view leaves this line undefined and step
-  // makes a level line from the chest to the point. The other dev views pass their own aimRay.
+  // makes a level line from the chest to the point.
   view.aim = undefined;
   drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset, view.battle);
   drawBooms(dt);
