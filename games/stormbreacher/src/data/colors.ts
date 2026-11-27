@@ -110,6 +110,11 @@ export const HUD_COLOR = {
   dot: '#f4f7fa', // the aim dot (仮)
   lock: '#ff9d3d', // the lock frame round the target the soft FCS pulls toward (仮)
   track: 'rgba(84, 232, 255, 0.2)', // the empty part of an arc (仮)
+  markShadow: 'rgba(0, 0, 0, 0.55)', // the thin dark edge round an arc or bar, so it reads over bright sand (SB-2159, 仮)
+  // the armour's three shades as it goes down (layouts D-F, SB-2159); the boost keeps `bar`.
+  armorHigh: '#7fe3c0',
+  armorMid: '#ffcf6a',
+  armorLow: '#ff5a4a',
 };
 
 // The enemies wear the enemy row of PROTO_PALETTES (SB-2083): dark grey armour, near-black joints, red accents and red
