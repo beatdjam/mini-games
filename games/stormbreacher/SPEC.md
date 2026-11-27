@@ -134,7 +134,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 出撃中は HUD を出す。本体の既定は今までの D 案（配置 A: 目標・敵の体力・レーダー・画面の中央の `--ring` の半径に沿った装甲とブーストの弧・メインとサブの弾数）。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。左上に目標、下の真ん中に今出している1行の無線（`RADIO_TUNE.minSec` の間だけ。ラベルは `hud.radio`）を出す。ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。機体が着弾予告の円の中にいる間だけ、画面の中央から `--ring` だけ上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。PC では円を出さない（タッチだけ円を出す）。色と主張は仮。
 
 - 枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）
-- HUD の配置（SB-2150・2155）: `PLAY_HUD_LAYOUTS` in `src/view/hud.ts` の A・B・C・D の4通り。A は今までの D 案（既定）。B は視線の置き場に寄せ、メインとサブの弾数をカーソル（`placeReticle` が残す点。カーソルが無いときは画面の真ん中）に、装甲とブーストの細い横バーを機体の足元の画面上の位置の下に置く。目標・無線・レーダー・見出し・敵の体力・警告は A と同じ位置。C は装甲・ブースト（弧ではなく横バー）とメイン・サブの弾数を画面の下の端に横並びに置き、無線をその上へずらす。目標・レーダー・見出し・敵の体力・警告は A と同じ位置。B・C の `use`・`melee`・`warning`・`callout` は画面の真ん中のまま（A と同じ `--ring` の位置）。D（SB-2155）は B と同じ置き方で、メイン・サブの弾数をカーソルの点の照準のマーク（小さな十字と細い輪）に移す。メインは輪の弧の長さ、サブは輪の外の小さな点の数で見せ、`max` が多いときは `HUD_RING_TUNE.reticle.dotMax` まで割合で間引く。数字は小さく薄く、残りが1/4（`HUD_RING_TUNE.reticle.number.warnShare`）以下のときと弾切れのときだけ強く出す（リロードは無く、弾切れだけ）。装甲とブーストは機体の足元の地面に描く輪（three のメッシュ。左半分が装甲、右半分がブースト。向きは `QUARTER_TUNE.azimuth` に固定し、機体の向きでは回さない）で見せ、装甲は3段の色（`HUD_COLOR.armorHigh`・`armorMid`・`armorLow`）と被弾の光、ブーストは満タンの間は薄く、減っている間だけ濃い。地面の輪は `depthTest` 有効・`depthWrite` 無効で、機体の足元の面 `mech.y` から `HUD_RING_TUNE.ground.lift` だけ浮かせる。切り替えは `?hud=a|b|c|d`（大文字も可。無し・不正は A。`hudLayoutFrom` in `src/data/hudLayout.ts`）と、広場 `#view-arena` の左下の A・B・C・D のボタン（`setHudLayout`）。本体の既定は A のままで、どれを既定にするかは遊んでから決める（この票では決めない）
+- HUD の配置（SB-2150・2155・2157）: `PLAY_HUD_LAYOUTS` in `src/view/hud.ts` の A・B・C・D の4通り。A は今までの D 案（既定）。B は視線の置き場に寄せ、メインとサブの弾数をカーソル（`placeReticle` が残す点。カーソルが無いときは画面の真ん中）に、装甲とブーストの細い横バーを機体の足元の画面上の位置の下に置く。目標・無線・レーダー・見出し・敵の体力・警告は A と同じ位置。C は装甲・ブースト（弧ではなく横バー）とメイン・サブの弾数を画面の下の端に横並びに置き、無線をその上へずらす。目標・レーダー・見出し・敵の体力・警告は A と同じ位置。B・C の `use`・`melee`・`warning`・`callout` は画面の真ん中のまま（A と同じ `--ring` の位置）。D（SB-2155・2157）は B と同じ置き方で、カーソルの点に照準のマーク（中心の点と小さな円。ロック中は色が変わる）を置く。装甲とブーストは照準の左右の短い弧（左が装甲、右がブースト）で見せ、弧の長さ（`HUD_RING_TUNE.reticle.arc.openDeg` まで）で残りを表す。装甲は残りで3段の色（`HUD_COLOR.armorHigh`・`armorMid`・`armorLow`）に変わり、被弾の瞬間に `HUD_RING_TUNE.reticle.glowSec` の間光る。ブーストは満タンの間は薄く、減っている間だけ濃い。弾数は照準の下に小さく薄い1行「M120 S8」（メインの頭は M、サブは S）で出し、残りが1/4（`HUD_RING_TUNE.reticle.number.warnShare`）以下で色を付け、弾切れは赤ではっきり出す（リロードは無く、弾切れだけ）。カーソルが画面の端に近いときは、弧と数字がはみ出さないよう内側に寄せる。切り替えは `?hud=a|b|c|d`（大文字も可。無し・不正は A。`hudLayoutFrom` in `src/data/hudLayout.ts`）と、広場 `#view-arena` の左下の A・B・C・D のボタン（`setHudLayout`）。本体の既定は A のままで、どれを既定にするかは遊んでから決める（この票では決めない）
 - 値: `hudModel` in `src/logic/hud.ts`（純粋）が、HUD に出す値（ブースト・装甲・メインとサブの弾数・台本の今の目標と数えている数 `objective`・今出している1行の無線 `radio`・ソフトロックが狙いを寄せている目標か敵の体力 `enemy` とその箱 `lock`・レーダーの点・着弾予告の警告 `warning`）を `GameModel` から作る。装甲は `armor / MECH_TUNE.armor`。熱は持たない。レーダーの角度は、呼び元が画面の向き `viewYaw` を渡したときは画面の上（本体と広場は `QUARTER_TUNE.azimuth`）を 0 度にし、渡さないときは機体の正面を 0 度にする
 - HUD の目標: `objective` は台本の今の目標 `game.script.objective` の言語キー `obj.<id>`。台本がまだ目標を出していないときは null で、何も出さない。数える目標だけ `count: { done, total }` を持ち、画面は「目標 トーチカを2基破壊 1/2」のように数を足して書く。どの目標が何を数えるかは `OBJECTIVE_COUNT` in `src/data/script.ts`（目標 id → 数える目標 id の列。`break-pillboxes` は `pillbox-1`・`pillbox-2`、`silence-battery` は `main-gun-1`・`main-gun-2`）。表に無い目標（`reach-pillboxes`・`stop-fortress-gun`・`bomb-fortress`・`hit-magazine`）は数を出さない。`total` はマップにある目標だけ、`done` はその中で体力 0 のもの。数える目標がマップに1つも無いときも数を出さない
 - HUD の爆薬: `use` は爆破点の近くで `hud.use`（「使う」）と長押しの割合を出し、`charge` は仕掛けた爆薬の `hud.charge`（「爆破まで」）と残り秒・棒を出す。棒の割合は `left / total` で、`total` はその爆薬を仕掛けたときの導火線（`ChargeState.total`。線の爆薬は `CHARGE_TUNE.fuse` の 3 秒、要塞の爆薬は `FORT_BLAST_TUNE.countdownSec` の 20 秒）。新しい行やキーは足さない（SB-1860）
@@ -309,20 +309,21 @@ HUD の値は `HUD_TUNE`（SB-160）。値は仮。
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
 | `radarRange` | 200 | m。レーダーの見える距離。これより遠い目標は描かない |
-| `PLAY_HUD_LAYOUTS` | a・b・c・d | `src/view/hud.ts` の HUD の配置（SB-2150・2155）。A は今までの D 案（既定）、B はカーソルの弾数と機体の足元の横バー、C は下の端に横並び、D はカーソルの照準の輪に弾数、機体の足元の地面の輪に装甲とブースト。寸法は 1280x720 向けの px で仮 |
-| `HUD_RING_TUNE` | 下表 | 配置 D の寸法（SB-2155）。`reticle` はカーソルの照準のマーク（px）、`ground` は足元の地面の輪（m） |
-| `HUD_RING_TUNE.reticle.radius` | 22 | px。十字のまわりの細い輪の半径 |
-| `HUD_RING_TUNE.reticle.thickness` | 1.4 | px。輪と弾数の弧の太さ |
-| `HUD_RING_TUNE.reticle.cross` | 6 | px。十字の腕の長さ（中心から） |
-| `HUD_RING_TUNE.reticle.lockRadius` | 14 | px。ロック中に締まる輪の半径 |
-| `HUD_RING_TUNE.reticle.dotMax` | 12 | サブの点の最大数。これより多い弾は割合で間引く |
-| `HUD_RING_TUNE.reticle.number.warnShare` | 0.25 | 残りの割合がこれ以下なら数字を強く出す（ちょうども含む） |
-| `HUD_RING_TUNE.ground.radius` | 2.2 | m。足元の輪の中心線の半径 |
-| `HUD_RING_TUNE.ground.thickness` | 0.22 | m。輪の幅 |
-| `HUD_RING_TUNE.ground.lift` | 0.06 | m。機体の足元の面から浮かせる高さ |
-| `HUD_RING_TUNE.ground.armorMid` | 0.6 | 装甲の色が high から mid に変わる境目（この値は mid） |
-| `HUD_RING_TUNE.ground.armorLow` | 0.28 | 装甲の色が mid から low に変わる境目（この値は low） |
-| `HUD_RING_TUNE.ground.glowSec` | 0.35 | s。被弾のあと装甲が光っている長さ |
+| `PLAY_HUD_LAYOUTS` | a・b・c・d | `src/view/hud.ts` の HUD の配置（SB-2150・2155・2157）。A は今までの D 案（既定）、B はカーソルの弾数と機体の足元の横バー、C は下の端に横並び、D はカーソルの照準の左右の弧に装甲とブースト、照準の下の1行に弾数。寸法は 1280x720 向けの px で仮 |
+| `HUD_RING_TUNE` | 下表 | 配置 D の寸法（SB-2155・2157）。`reticle` はカーソルの照準のマーク（px） |
+| `HUD_RING_TUNE.reticle.radius` | 12 | px。照準の中心の点のまわりの小さな円の半径 |
+| `HUD_RING_TUNE.reticle.thickness` | 1.4 | px。円の線の太さ |
+| `HUD_RING_TUNE.reticle.dotRadius` | 2.2 | px。中心の点の半径 |
+| `HUD_RING_TUNE.reticle.arc.radius` | 28 | px。左右の弧（左が装甲、右がブースト）の中心線の半径 |
+| `HUD_RING_TUNE.reticle.arc.thickness` | 3 | px。弧の太さ |
+| `HUD_RING_TUNE.reticle.arc.openDeg` | 88 | 度。満タンのときに弧が開く角度 |
+| `HUD_RING_TUNE.reticle.arc.armorOpacity` | 0.7 | 装甲の弧の普段の不透明度（0-1） |
+| `HUD_RING_TUNE.reticle.arc.boostFullOpacity` | 0.22 | ブーストが満タンの間の弧の不透明度（0-1） |
+| `HUD_RING_TUNE.reticle.arc.boostLowOpacity` | 0.85 | ブーストが減っている間の弧の不透明度（0-1） |
+| `HUD_RING_TUNE.reticle.armorMid` | 0.6 | 装甲の色が high から mid に変わる境目（この値は mid） |
+| `HUD_RING_TUNE.reticle.armorLow` | 0.28 | 装甲の色が mid から low に変わる境目（この値は low） |
+| `HUD_RING_TUNE.reticle.glowSec` | 0.35 | s。被弾のあと装甲の弧が光っている長さ |
+| `HUD_RING_TUNE.reticle.number.warnShare` | 0.25 | 残りの割合がこれ以下なら数字に色を付ける（ちょうども含む） |
 
 `use`（「使う」。`hud.use`）は爆破点の `CHARGE_TUNE.reach` 以内にいるとき、画面の中央から `--ring` だけ上の真ん中（`top: calc(50% - var(--ring) - 80px)`。着弾予告の警告の上）に1つだけ出し、長押しの進み（`plant.hold / CHARGE_TUNE.holdSec`）を細い棒で表す。仕掛けたあとは同じ場所に導火線（`charge`。`hud.charge` と残り秒）と棒を出す。弾数の2段（`50% + ring + 36px`）とは重ねない。値は `HudModel.use`・`HudModel.charge`（`src/logic/hud.ts`）、描くのは `src/view/hud.ts`。
 

@@ -2,8 +2,8 @@
 // the top centre, the round radar at the top right, an arc along the aim circle (the armour on the left, the boost on the
 // right), the main and sub ammo under the circle, the last radio line at the bottom centre and a lock frame round the
 // target the aim is pulled toward. B (SB-2150) puts the ammo at the cursor and short gauge bars at the mech's feet; C puts
-// the gauges and the ammo in a row along the bottom. D (SB-2155) keeps B's other parts and draws the ammo as a ring at the
-// cursor and the armour and boost as a ring on the ground under the mech (view/mechRing.ts). It reads HudModel
+// the gauges and the ammo in a row along the bottom. D (SB-2155, revised SB-2157) keeps B's other parts and draws the
+// armour and boost as short arcs at the cursor's left and right, with one small line of ammo under it. It reads HudModel
 // (logic/hud.ts) and draws it; it never writes the model. Heat is not drawn; the only warning is the shell's. The shades
 // and the emphasis are 仮.
 import { isTouch, t } from '@engine/core/index.ts';
@@ -15,7 +15,7 @@ import type { TargetKind } from '../data/types.ts';
 import type { HudAmmo, HudModel } from '../logic/hud.ts';
 import type { ScreenRect } from './camera.ts';
 import { keepInside, ndcToScreen, type ScreenPoint } from './hudPlace.ts';
-import { ammoTier, subDots } from './hudRing.ts';
+import { ammoTier } from './hudRing.ts';
 import {
   BAR_GAUGE_HEIGHT,
   fillArcGauge,
@@ -90,8 +90,8 @@ const PLAY_HUD_LAYOUTS = {
     sub: { css: 'left:calc(50% + 170px);bottom:16px;width:150px;text-align:left' },
     radio: { css: 'left:50%;transform:translateX(-50%);bottom:64px;width:560px;padding:2px 6px' },
   },
-  // D (SB-2155) keeps B's other parts and moves the ammo to the ring at the cursor. The armour and boost are not DOM
-  // parts: they are the ring on the ground (view/mechRing.ts), so their boxes stay as empty slots for the e2e ids.
+  // D (SB-2155, revised SB-2157) keeps B's other parts and moves the armour, boost and ammo to the aim mark at the
+  // cursor. The armour and boost boxes stay as empty slots for the e2e ids.
   d: {
     ...PLAY_HUD_LAYOUT_A,
     armor: { css: '' },
@@ -337,7 +337,7 @@ function layOut(
       thickness: spec.armor.bar.thickness,
     });
   } else {
-    // layout D draws the armour on the ground (view/mechRing.ts); the empty box keeps the e2e id
+    // layout D draws the armour as the aim mark's left arc; the empty box keeps the e2e id
     armor = { set: () => {} };
   }
   const boostNode = place(root, spec.boost.css, 'boost');
@@ -359,6 +359,7 @@ function layOut(
       thickness: spec.boost.bar.thickness,
     });
   } else {
+    // layout D draws the boost as the aim mark's right arc; the empty box keeps the e2e id
     boost = { set: () => {} };
   }
   // B's gauges wait for the first frame to put them at the mech's feet; D's slots stay empty.
@@ -596,8 +597,15 @@ function countText(count: { done: number; total: number } | null): string {
 
 // Writes one frame of the HUD. Only the values that changed are written; the radar's marks and the lock frame are put
 // down every frame. `lock` is the lock target's rectangle on the screen (view/camera.ts screenRect), null for none.
-// `feet` is the mech's feet on the screen (px) for layout B's gauges, null while the camera is in front of them.
-export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null, feet: ScreenPoint | null = null): void {
+// `feet` is the mech's feet on the screen (px) for layout B's gauges, null while the camera is in front of them. `glow`
+// is layout D's armour flash after a hit (0-1).
+export function drawHud(
+  hud: PlayHud,
+  model: HudModel,
+  lock: ScreenRect | null,
+  feet: ScreenPoint | null = null,
+  glow = 0,
+): void {
   // the arcs and the aims sit on the window's size, so a new height lays the parts out again
   if (window.innerHeight !== hud.height) {
     Object.assign(hud, layOut(hud.root, hud.reticle.at, hud.layout, hud.reticle.cursor));
@@ -615,26 +623,29 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null, 
     last.boost = model.boost;
   }
 
-  const main = ammoText(model.main);
-  if (last.main !== main) {
-    hud.mainValue.textContent = main;
-    last.main = main;
-  }
-  const sub = ammoText(model.sub);
-  if (last.sub !== sub) {
-    hud.subValue.textContent = sub;
-    last.sub = sub;
-  }
-
   if (hud.layout === 'd' && hud.marks !== null) {
     const reticle = HUD_RING_TUNE.reticle;
     hud.marks.set({
-      mainRatio: model.main.max > 0 ? model.main.ammo / model.main.max : 0,
-      sub: subDots(model.sub.ammo, model.sub.max, reticle.dotMax),
+      armor: model.armor,
+      boost: model.boost,
+      main: model.main.ammo,
+      sub: model.sub.ammo,
       mainTier: ammoTier(model.main.ammo, model.main.max, reticle.number.warnShare),
       subTier: ammoTier(model.sub.ammo, model.sub.max, reticle.number.warnShare),
       locked: lock !== null,
+      glow,
     });
+  } else {
+    const main = ammoText(model.main);
+    if (last.main !== main) {
+      hud.mainValue.textContent = main;
+      last.main = main;
+    }
+    const sub = ammoText(model.sub);
+    if (last.sub !== sub) {
+      hud.subValue.textContent = sub;
+      last.sub = sub;
+    }
   }
 
   const objective = model.objective === null ? '' : ` ${t(model.objective.key)}${countText(model.objective.count)}`;

@@ -32,7 +32,6 @@ import { removeGunfireView } from '../view/gunfire.ts';
 import { removeHazardView } from '../view/hazards.ts';
 import { removeHurtView } from '../view/hurt.ts';
 import { placeReticle, removeHud } from '../view/hud.ts';
-import { removeMechRing } from '../view/mechRing.ts';
 import { disposeProtoMech } from '../view/mechProtoModel.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { applyMarkerQuery } from '../data/marker.ts';
@@ -101,7 +100,6 @@ function clearPlay(old: PlayView): void {
   removeEnemyView(old.enemies);
   removeWardenChargeView(old.wardenCharge);
   removeHazardView(old.hazards);
-  removeMechRing(old.mechRing);
   removeSeaFire(old.seaFire);
   old.battle.dispose();
   removeAllyView(old.allies);

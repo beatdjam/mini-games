@@ -5,7 +5,7 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CAMERA_TUNE, FCS_TUNE, type HudRingTune } from '../data/tune.ts';
 import type { ScreenPoint } from './hudPlace.ts';
 import { keepInside } from './hudPlace.ts';
-import { arcSweep, reticleRing, type AmmoTier, type SubDots } from './hudRing.ts';
+import { ammoLine, armorColor, armorStage, boostOpacity, gaugeSweep, reticleColor, type AmmoTier } from './hudRing.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const DOT_RADIUS = 2.5; // px
@@ -289,16 +289,19 @@ export function reticleAt(cursor: { x: number; y: number } | null): { left: stri
   return { left: `${((x + 1) / 2) * 100}%`, top: `${((1 - y) / 2) * 100}%` };
 }
 
-// Layout D's aim mark (SB-2155): a small cross, a thin ring whose arc is the main ammo's share, dots outside the ring
-// for the sub ammo, and two small numbers under it. It follows the cursor's point; `setPosition` keeps the numbers
-// inside the screen while the ring itself may run off the edge. `set` writes the marks' values, so a frame only touches
-// what changed.
+// Layout D's aim mark (SB-2155, revised SB-2157): the centre dot and small circle, the armour's short arc on the left,
+// the boost's on the right, and one small line of ammo under it. It follows the cursor's point; `setPosition` pulls the
+// mark inward near an edge so neither the arcs nor the line leave the screen. `set` writes the marks' values, so a frame
+// only touches what changed.
 export interface ReticleMarkState {
-  mainRatio: number;
-  sub: SubDots;
+  armor: number; // 0-1
+  boost: number; // 0-1
+  main: number; // rounds left
+  sub: number; // rounds left
   mainTier: AmmoTier;
   subTier: AmmoTier;
   locked: boolean;
+  glow: number; // the armour's flash, 0-1
 }
 
 export interface ReticleMarks {
@@ -309,12 +312,17 @@ export interface ReticleMarks {
   set(state: ReticleMarkState): void;
 }
 
-export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
-  const tierStyle: Record<AmmoTier, { color: string; opacity: number }> = {
+// The numbers take the warn colour at a quarter and the red at no rounds; the empty red reads hardest.
+function tierStyle(tune: HudRingTune['reticle']): Record<AmmoTier, { color: string; opacity: number }> {
+  return {
     quiet: { color: HUD_COLOR.text, opacity: tune.number.opacity.quiet },
-    warn: { color: HUD_COLOR.warn, opacity: tune.number.opacity.warn },
+    warn: { color: HUD_COLOR.amber, opacity: tune.number.opacity.warn },
     empty: { color: HUD_COLOR.warn, opacity: tune.number.opacity.empty },
   };
+}
+
+export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
+  const tier = tierStyle(tune);
   const root = document.createElement('div');
   root.style.cssText = 'position:absolute;inset:0;pointer-events:none';
   const rootSvg = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
@@ -323,7 +331,27 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
 
   const group = svg('g', {}) as SVGGElement;
   rootSvg.appendChild(group);
-  const track = svg('circle', {
+
+  // The left arc is the armour, the right the boost: each opens from its own middle as the gauge goes down.
+  const arc = (mid: number, color: string): SVGPathElement => {
+    const node = svg('path', {
+      d: arcPath(0, 0, tune.arc.radius, mid - tune.arc.openDeg / 2, tune.arc.openDeg),
+      fill: 'none',
+      stroke: color,
+      'stroke-width': tune.arc.thickness,
+      'stroke-linecap': 'butt',
+    }) as SVGPathElement;
+    group.appendChild(node);
+    return node;
+  };
+  arc(180, HUD_COLOR.track);
+  const armorArc = arc(180, HUD_COLOR.armorHigh);
+  arc(0, HUD_COLOR.track);
+  const boostArc = arc(0, HUD_COLOR.bar);
+  armorArc.style.display = 'none';
+  boostArc.style.display = 'none';
+
+  const circle = svg('circle', {
     cx: 0,
     cy: 0,
     r: tune.radius,
@@ -331,154 +359,122 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
     stroke: HUD_COLOR.ring,
     'stroke-width': tune.thickness,
   });
-  group.appendChild(track);
-  const arc = svg('circle', {
-    cx: 0,
-    cy: 0,
-    r: tune.radius,
-    fill: 'none',
-    stroke: HUD_COLOR.bar,
-    'stroke-width': tune.thickness,
-    'stroke-linecap': 'butt',
-    transform: 'rotate(-90)',
-  });
-  group.appendChild(arc);
-  group.appendChild(
-    svg('path', {
-      d: `M ${-tune.cross} 0 H ${tune.cross} M 0 ${-tune.cross} V ${tune.cross}`,
-      fill: 'none',
-      stroke: HUD_COLOR.dot,
-      'stroke-width': tune.crossThickness,
-      'stroke-linecap': 'round',
-    }),
-  );
-  const dots = svg('g', {}) as SVGGElement;
-  group.appendChild(dots);
-  const dotNodes: SVGCircleElement[] = [];
-  for (let i = 0; i < tune.dotMax; i++) {
-    const dot = svg('circle', { cx: 0, cy: 0, r: tune.dotRadius, fill: HUD_COLOR.track }) as SVGCircleElement;
-    dot.style.display = 'none';
-    dots.appendChild(dot);
-    dotNodes.push(dot);
-  }
+  group.appendChild(circle);
+  const dot = svg('circle', { cx: 0, cy: 0, r: tune.dotRadius, fill: HUD_COLOR.dot });
+  group.appendChild(dot);
 
-  const label = (): HTMLSpanElement => {
-    const node = document.createElement('span');
-    node.style.cssText =
-      `position:absolute;box-sizing:border-box;width:${tune.number.width}px;height:${tune.number.height}px;` +
-      `font-size:${tune.number.size}px;line-height:${tune.number.height}px;text-align:center;white-space:nowrap;` +
-      `color:${HUD_COLOR.text};opacity:${tune.number.opacity.quiet}`;
-    root.appendChild(node);
-    return node;
-  };
-  const mainValue = label();
-  const subValue = label();
+  const line = document.createElement('div');
+  line.style.cssText =
+    `position:absolute;box-sizing:border-box;width:${tune.number.width}px;height:${tune.number.height}px;` +
+    `font-size:${tune.number.size}px;line-height:${tune.number.height}px;text-align:center;white-space:nowrap;`;
+  const mainValue = document.createElement('span');
+  mainValue.style.color = tier.quiet.color;
+  mainValue.style.opacity = String(tier.quiet.opacity);
+  const subValue = document.createElement('span');
+  subValue.style.color = tier.quiet.color;
+  subValue.style.opacity = String(tier.quiet.opacity);
+  line.append(mainValue, document.createTextNode(' '), subValue);
+  root.appendChild(line);
 
-  let lastAt: ScreenPoint | null = null;
-  let lastRadius: number = tune.radius;
-  let lastColor = HUD_COLOR.ring;
-  let lastSweep = -1;
-  let lastSub: SubDots | null = null;
+  let lastCenter: ScreenPoint | null = null;
+  let lastLocked: boolean | null = null;
+  let lastArmorSweep = -1;
+  let lastArmorColor = '';
+  let lastArmorOpacity = -1;
+  let lastBoostSweep = -1;
+  let lastBoostOpacity = -1;
+  let lastMainText = '';
+  let lastSubText = '';
   let lastMainTier: AmmoTier | null = null;
   let lastSubTier: AmmoTier | null = null;
-
-  // The sub ammo's dots go round the ring, but each is kept inside the screen, so a cursor near an edge does not lose
-  // them. The ring itself may run off the edge.
-  const placeDots = (sub: SubDots, radius: number): void => {
-    const screen = { width: window.innerWidth, height: window.innerHeight };
-    const at = lastAt ?? { x: screen.width / 2, y: screen.height / 2 };
-    const orbit = radius + tune.dotGap;
-    const size = tune.dotRadius * 2;
-    for (let i = 0; i < dotNodes.length; i++) {
-      const dot = dotNodes[i];
-      if (i >= sub.count) {
-        dot.style.display = 'none';
-        continue;
-      }
-      const angle = (-90 + (i / sub.count) * 360) * (Math.PI / 180);
-      const raw = { x: at.x + Math.cos(angle) * orbit, y: at.y + Math.sin(angle) * orbit };
-      const inside = keepInside(
-        { x: raw.x - tune.dotRadius, y: raw.y - tune.dotRadius },
-        size,
-        size,
-        screen,
-        tune.number.margin,
-      );
-      dot.setAttribute('cx', String(inside.x + tune.dotRadius - at.x));
-      dot.setAttribute('cy', String(inside.y + tune.dotRadius - at.y));
-      dot.setAttribute('fill', i < sub.lit ? HUD_COLOR.text : HUD_COLOR.track);
-      dot.style.display = '';
-    }
-  };
 
   return {
     root,
     mainValue,
     subValue,
     setPosition(at) {
-      if (lastAt !== null && lastAt.x === at.x && lastAt.y === at.y) return;
-      lastAt = at;
-      group.setAttribute('transform', `translate(${at.x} ${at.y})`);
-      const number = tune.number;
       const screen = { width: window.innerWidth, height: window.innerHeight };
-      const total = number.height * 2 + number.lineGap;
-      const below = at.y + number.gap;
-      const top = below + total > screen.height - number.margin ? at.y - number.gap - total : below;
-      const mainAt = keepInside(
-        { x: at.x - number.width / 2, y: top },
+      const number = tune.number;
+      const reach = tune.arc.radius + tune.arc.thickness / 2;
+      const size = reach * 2;
+      // the whole mark is pulled inward, so the arcs stay on the screen; the line is kept inside on its own below
+      const box = keepInside({ x: at.x - reach, y: at.y - reach }, size, size, screen, number.margin);
+      const center = { x: box.x + reach, y: box.y + reach };
+      if (lastCenter !== null && lastCenter.x === center.x && lastCenter.y === center.y) return;
+      lastCenter = center;
+      group.setAttribute('transform', `translate(${center.x} ${center.y})`);
+      const below = center.y + number.gap;
+      const top = below + number.height > screen.height - number.margin ? center.y - number.gap - number.height : below;
+      const lineAt = keepInside(
+        { x: center.x - number.width / 2, y: top },
         number.width,
         number.height,
         screen,
         number.margin,
       );
-      const subAt = keepInside(
-        { x: at.x - number.width / 2, y: mainAt.y + number.height + number.lineGap },
-        number.width,
-        number.height,
-        screen,
-        number.margin,
-      );
-      mainValue.style.left = `${mainAt.x}px`;
-      mainValue.style.top = `${mainAt.y}px`;
-      subValue.style.left = `${subAt.x}px`;
-      subValue.style.top = `${subAt.y}px`;
-      if (lastSub !== null) placeDots(lastSub, lastRadius);
+      line.style.left = `${lineAt.x}px`;
+      line.style.top = `${lineAt.y}px`;
     },
     set(state) {
-      const ring = reticleRing(state.locked, tune.radius, tune.lockRadius);
-      if (ring.color !== lastColor) {
-        track.setAttribute('stroke', ring.color);
-        lastColor = ring.color;
+      const locked = reticleColor(state.locked);
+      if (state.locked !== lastLocked) {
+        lastLocked = state.locked;
+        circle.setAttribute('stroke', locked);
+        dot.setAttribute('fill', state.locked ? HUD_COLOR.lock : HUD_COLOR.dot);
       }
-      const radiusChanged = ring.radius !== lastRadius;
-      if (radiusChanged) {
-        lastRadius = ring.radius;
-        track.setAttribute('r', String(ring.radius));
-        arc.setAttribute('r', String(ring.radius));
-      }
-      const sweep = arcSweep(state.mainRatio);
-      if (sweep !== lastSweep || radiusChanged) {
-        lastSweep = sweep;
-        if (sweep <= 0) {
-          arc.style.display = 'none';
+      const armorSweep = gaugeSweep(state.armor, tune.arc.openDeg);
+      const color = armorColor(armorStage(state.armor, tune.armorMid, tune.armorLow));
+      const armorOpacity = Math.min(1, tune.arc.armorOpacity + (1 - tune.arc.armorOpacity) * Math.max(0, state.glow));
+      if (armorSweep !== lastArmorSweep) {
+        lastArmorSweep = armorSweep;
+        if (armorSweep <= 0) {
+          armorArc.style.display = 'none';
         } else {
-          arc.style.display = '';
-          const circumference = 2 * Math.PI * ring.radius;
-          arc.setAttribute('stroke-dasharray', `${(sweep / 360) * circumference} ${circumference}`);
+          armorArc.style.display = '';
+          armorArc.setAttribute('d', arcPath(0, 0, tune.arc.radius, 180 - armorSweep / 2, armorSweep));
         }
       }
-      const subChanged = lastSub === null || lastSub.lit !== state.sub.lit || lastSub.count !== state.sub.count;
-      if (subChanged) lastSub = { ...state.sub };
-      if ((subChanged || radiusChanged) && lastSub !== null) placeDots(lastSub, ring.radius);
+      if (color !== lastArmorColor) {
+        lastArmorColor = color;
+        armorArc.setAttribute('stroke', color);
+      }
+      if (armorOpacity !== lastArmorOpacity) {
+        lastArmorOpacity = armorOpacity;
+        armorArc.setAttribute('stroke-opacity', String(armorOpacity));
+      }
+      const boostSweep = gaugeSweep(state.boost, tune.arc.openDeg);
+      if (boostSweep !== lastBoostSweep) {
+        lastBoostSweep = boostSweep;
+        if (boostSweep <= 0) {
+          boostArc.style.display = 'none';
+        } else {
+          boostArc.style.display = '';
+          boostArc.setAttribute('d', arcPath(0, 0, tune.arc.radius, -boostSweep / 2, boostSweep));
+        }
+      }
+      const boostAlpha = boostOpacity(state.boost, tune.arc.boostFullOpacity, tune.arc.boostLowOpacity);
+      if (boostAlpha !== lastBoostOpacity) {
+        lastBoostOpacity = boostAlpha;
+        boostArc.setAttribute('stroke-opacity', String(boostAlpha));
+      }
+      const text = ammoLine(state.main, state.sub);
+      if (text.main !== lastMainText) {
+        lastMainText = text.main;
+        mainValue.textContent = text.main;
+      }
+      if (text.sub !== lastSubText) {
+        lastSubText = text.sub;
+        subValue.textContent = text.sub;
+      }
       if (state.mainTier !== lastMainTier) {
         lastMainTier = state.mainTier;
-        const style = tierStyle[state.mainTier];
+        const style = tier[state.mainTier];
         mainValue.style.color = style.color;
         mainValue.style.opacity = String(style.opacity);
       }
       if (state.subTier !== lastSubTier) {
         lastSubTier = state.subTier;
-        const style = tierStyle[state.subTier];
+        const style = tier[state.subTier];
         subValue.style.color = style.color;
         subValue.style.opacity = String(style.opacity);
       }
