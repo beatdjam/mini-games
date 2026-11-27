@@ -1,18 +1,13 @@
-// The pure side of layout D (SB-2155, revised SB-2157): the shares, shades and angles that the aim mark at the cursor
-// shows, without the DOM or three. The sizes come from data/tune.ts's HUD_RING_TUNE; the colours from HUD_COLOR. A test
-// can fix every boundary here without a page.
+// The pure side of layout D (SB-2155, revised SB-2157 and SB-2158): the shares, shades, angles and blink that the aim
+// mark at the cursor shows, without the DOM or three. The sizes come from data/tune.ts's HUD_RING_TUNE; the colours from
+// HUD_COLOR. A test can fix every boundary here without a page.
 import { HUD_COLOR } from '../data/colors.ts';
 
 export type AmmoTier = 'quiet' | 'warn' | 'empty';
 export type ArmorStage = 'high' | 'mid' | 'low';
 
-export interface AmmoLine {
-  main: string; // "M120"
-  sub: string; // "S8"
-}
-
 // The share of a magazine that is left, clamped to 0-1. A magazine with no maximum is treated as empty.
-function share(ammo: number, max: number): number {
+export function ammoShare(ammo: number, max: number): number {
   if (max <= 0) return 0;
   return Math.max(0, Math.min(1, ammo / max));
 }
@@ -22,17 +17,38 @@ export function gaugeSweep(ratio: number, maxDeg: number): number {
   return Math.max(0, Math.min(1, ratio)) * Math.max(0, maxDeg);
 }
 
-// How hard a number should read: quiet in the ordinary case, warn at a quarter of a magazine or less (the boundary
-// counts as warn), and empty at no rounds.
+// How hard a bar should read: quiet in the ordinary case, warn at a quarter of a magazine or less (the boundary counts
+// as warn), and empty at no rounds.
 export function ammoTier(ammo: number, max: number, warnShare: number): AmmoTier {
   if (ammo <= 0) return 'empty';
-  return share(ammo, max) <= warnShare ? 'warn' : 'quiet';
+  return ammoShare(ammo, max) <= warnShare ? 'warn' : 'quiet';
 }
 
-// The one line of ammo under the aim mark: the main count wears an M, the sub count an S. Rounds are counted, so a
-// fraction or a negative never reaches the line.
-export function ammoLine(main: number, sub: number): AmmoLine {
-  return { main: `M${Math.max(0, Math.round(main))}`, sub: `S${Math.max(0, Math.round(sub))}` };
+// The bar's colour for its tier: the gauges' cyan while quiet, amber at a quarter, the warning red when empty.
+export function ammoColor(tier: AmmoTier): string {
+  if (tier === 'quiet') return HUD_COLOR.bar;
+  if (tier === 'warn') return HUD_COLOR.amber;
+  return HUD_COLOR.warn;
+}
+
+// How many cells a full magazine draws in the sub bar: one a round up to `maxSegments`, or 0 when the magazine is
+// fuller than that (the bar then shows its share as one length instead of cells).
+export function ammoCells(max: number, maxSegments: number): number {
+  const count = Math.max(0, Math.round(max));
+  return count <= maxSegments ? count : 0;
+}
+
+// How many of those cells the rounds left light. In the one-length case (no cells) it is 0; the caller uses the share.
+export function ammoFilled(ammo: number, max: number, maxSegments: number): number {
+  const cells = ammoCells(max, maxSegments);
+  if (cells <= 0) return 0;
+  return Math.min(cells, Math.max(0, Math.round(ammo)));
+}
+
+// An empty bar's blink: 1 at the start, 0 half a cycle later and 1 again on the next cycle, so the red comes and goes.
+export function ammoBlink(elapsed: number, hz: number): number {
+  if (hz <= 0) return 1;
+  return (Math.cos(elapsed * hz * Math.PI * 2) + 1) / 2;
 }
 
 // The aim mark's colour: the lock colour while the aim is pulled toward a target, the ring colour otherwise.

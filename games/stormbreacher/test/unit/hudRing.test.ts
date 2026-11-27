@@ -1,9 +1,14 @@
-// Layout D's pure values (SB-2155, revised SB-2157): the arcs' sweep, the ammo line, the number's tier, the aim mark's
-// lock colour, the armour's shades, the boost's opacity and the hit's flash. Every boundary is fixed here.
+// Layout D's pure values (SB-2155, revised SB-2157 and SB-2158): the arcs' sweep, the ammo bars' shares and cells, the
+// bars' tier and colour, the empty blink, the aim mark's lock colour, the armour's shades, the boost's opacity and the
+// hit's flash. Every boundary is fixed here.
 import { expect, test } from 'vitest';
 import { HUD_COLOR } from '../../src/data/colors.ts';
 import {
-  ammoLine,
+  ammoBlink,
+  ammoCells,
+  ammoColor,
+  ammoFilled,
+  ammoShare,
   ammoTier,
   armorStage,
   boostOpacity,
@@ -22,11 +27,47 @@ test('gaugeSweep opens from nothing to the full arc and cuts the ends', () => {
   expect(gaugeSweep(0.5, -10)).toBe(0);
 });
 
-test('ammoLine writes the main count with M and the sub count with S', () => {
-  expect(ammoLine(120, 8)).toEqual({ main: 'M120', sub: 'S8' });
-  expect(ammoLine(0, 0)).toEqual({ main: 'M0', sub: 'S0' });
-  expect(ammoLine(399.6, 11.4)).toEqual({ main: 'M400', sub: 'S11' });
-  expect(ammoLine(-5, -1)).toEqual({ main: 'M0', sub: 'S0' });
+test('ammoShare is the share left, cut to 0-1 and empty without a maximum', () => {
+  expect(ammoShare(400, 400)).toBe(1);
+  expect(ammoShare(100, 400)).toBe(0.25);
+  expect(ammoShare(0, 400)).toBe(0);
+  expect(ammoShare(500, 400)).toBe(1);
+  expect(ammoShare(-1, 400)).toBe(0);
+  expect(ammoShare(5, 0)).toBe(0);
+});
+
+test('ammoCells gives one cell a round up to the limit and none past it', () => {
+  expect(ammoCells(0, 16)).toBe(0);
+  expect(ammoCells(12, 16)).toBe(12);
+  expect(ammoCells(16, 16)).toBe(16); // the limit itself still has cells
+  expect(ammoCells(17, 16)).toBe(0); // past it the bar shows one length instead
+  expect(ammoCells(400, 16)).toBe(0);
+  expect(ammoCells(12.4, 16)).toBe(12);
+  expect(ammoCells(-2, 16)).toBe(0);
+});
+
+test('ammoFilled lights the rounds left, up to the whole magazine', () => {
+  expect(ammoFilled(8, 12, 16)).toBe(8);
+  expect(ammoFilled(0, 12, 16)).toBe(0);
+  expect(ammoFilled(12, 12, 16)).toBe(12);
+  expect(ammoFilled(13, 12, 16)).toBe(12);
+  expect(ammoFilled(-1, 12, 16)).toBe(0);
+  expect(ammoFilled(400, 400, 16)).toBe(0); // no cells, so the caller uses the share
+  expect(ammoFilled(5, 0, 16)).toBe(0);
+});
+
+test('ammoColor keeps the gauge colour while quiet and warns amber then red', () => {
+  expect(ammoColor('quiet')).toBe(HUD_COLOR.bar);
+  expect(ammoColor('warn')).toBe(HUD_COLOR.amber);
+  expect(ammoColor('empty')).toBe(HUD_COLOR.warn);
+});
+
+test('ammoBlink is full at the start, dark half a cycle later and full again on the next', () => {
+  expect(ammoBlink(0, 2.5)).toBe(1);
+  expect(ammoBlink(0.2, 2.5)).toBeCloseTo(0, 10); // half of a 0.4s cycle
+  expect(ammoBlink(0.4, 2.5)).toBeCloseTo(1, 10);
+  expect(ammoBlink(0.1, 2.5)).toBeCloseTo(0.5, 10);
+  expect(ammoBlink(1, 0)).toBe(1); // no speed, no blink
 });
 
 test('ammoTier is warn at a quarter exactly and empty at no rounds', () => {

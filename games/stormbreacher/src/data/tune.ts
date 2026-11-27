@@ -223,9 +223,11 @@ export const HUD_TUNE = {
   radarRange: 200, // how far the radar sees (m); a target farther than this is not drawn
 };
 
-// Layout D's sizes (SB-2155, revised SB-2157, 仮): the small aim mark at the cursor (px, for 1280x720), its armour and
-// boost arcs, and the one line of ammo under it. The shares fix where the numbers stop being quiet and where the
-// armour's shades change; view/hudRing.ts is the pure side that turns these into angles and shades.
+// Layout D's sizes (SB-2155, revised SB-2157 and SB-2158, 仮): the small aim mark at the cursor (px, for 1280x720), its
+// armour and boost arcs, and the two ammo bars over and under it. `gap` is the distance from the aim mark's outer edge
+// (the arcs' outside) to a bar; the main bar is above the mark, the sub bar below. The shares fix where the bars stop
+// being quiet and where the armour's shades change; view/hudRing.ts is the pure side that turns these into lengths and
+// shades.
 export const HUD_RING_TUNE = {
   reticle: {
     radius: 12, // px; the small circle round the centre dot
@@ -242,15 +244,23 @@ export const HUD_RING_TUNE = {
     armorMid: 0.6, // share above which the armour stays the high shade; at the value it is the mid one
     armorLow: 0.28, // share above which it is the mid shade; at the value it is the low one
     glowSec: 0.35, // s; how long the armour arc stays lit after a hit
-    number: {
-      size: 10, // px
-      width: 84, // px; the box the one ammo line keeps inside the screen
-      height: 12, // px
-      gap: 8, // px, from the cursor to the line
-      warnShare: 0.25, // the share of a magazine at or below which a number takes the warn colour (0 is empty)
-      opacity: { quiet: 0.35, warn: 0.9, empty: 0.95 },
-      margin: 8, // px, kept from the screen's edge by the arcs and the line
+    ammo: {
+      warnShare: 0.25, // the share of a magazine at or below which a bar takes the warn colour (0 is empty)
+      blinkHz: 2.5, // the red blink of an empty bar (cycles a second)
+      main: {
+        width: 56, // px; the bar over the aim mark
+        thickness: 3, // px
+        gap: 8, // px, from the aim mark's outer edge to the bar
+      },
+      sub: {
+        width: 72, // px; the bar under the aim mark
+        thickness: 5, // px
+        gap: 8, // px, from the aim mark's outer edge to the bar
+        segmentGap: 2, // px, between one round's cell and the next
+        maxSegments: 16, // a fuller magazine than this shows its share as one length instead of cells
+      },
     },
+    margin: 8, // px, kept from the screen's edge by the arcs and the bars
   },
 } as const;
 

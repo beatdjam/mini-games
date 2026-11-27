@@ -750,5 +750,5 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   // a cutscene hides the HUD's root, so its feet are not needed
   const feet = game.script.cutscene === null ? mechFeetOnScreen(game) : null;
-  drawHud(view.hud, hud, lock, feet, glow);
+  drawHud(view.hud, hud, lock, feet, glow, game.time);
 }

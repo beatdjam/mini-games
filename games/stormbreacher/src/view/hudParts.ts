@@ -5,7 +5,18 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CAMERA_TUNE, FCS_TUNE, type HudRingTune } from '../data/tune.ts';
 import type { ScreenPoint } from './hudPlace.ts';
 import { keepInside } from './hudPlace.ts';
-import { ammoLine, armorColor, armorStage, boostOpacity, gaugeSweep, reticleColor, type AmmoTier } from './hudRing.ts';
+import {
+  ammoCells,
+  ammoColor,
+  ammoFilled,
+  ammoShare,
+  armorColor,
+  armorStage,
+  boostOpacity,
+  gaugeSweep,
+  reticleColor,
+  type AmmoTier,
+} from './hudRing.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const DOT_RADIUS = 2.5; // px
@@ -289,40 +300,33 @@ export function reticleAt(cursor: { x: number; y: number } | null): { left: stri
   return { left: `${((x + 1) / 2) * 100}%`, top: `${((1 - y) / 2) * 100}%` };
 }
 
-// Layout D's aim mark (SB-2155, revised SB-2157): the centre dot and small circle, the armour's short arc on the left,
-// the boost's on the right, and one small line of ammo under it. It follows the cursor's point; `setPosition` pulls the
-// mark inward near an edge so neither the arcs nor the line leave the screen. `set` writes the marks' values, so a frame
-// only touches what changed.
+// Layout D's aim mark (SB-2155, revised SB-2157 and SB-2158): the centre dot and small circle, the armour's short arc on
+// the left, the boost's on the right, the main ammo as a short bar over it and the sub ammo as a row of cells under it.
+// It follows the cursor's point; `setPosition` pulls the mark inward near an edge so neither the arcs nor the bars leave
+// the screen. `set` writes the marks' values, so a frame only touches what changed.
 export interface ReticleMarkState {
   armor: number; // 0-1
   boost: number; // 0-1
   main: number; // rounds left
+  mainMax: number; // a full magazine
   sub: number; // rounds left
+  subMax: number; // a full magazine
   mainTier: AmmoTier;
   subTier: AmmoTier;
   locked: boolean;
   glow: number; // the armour's flash, 0-1
+  blink: number; // an empty bar's brightness, 0-1
 }
 
 export interface ReticleMarks {
   root: HTMLElement;
-  mainValue: HTMLSpanElement;
-  subValue: HTMLSpanElement;
+  main: HTMLElement; // the main ammo bar (data-hud `main` in hud.ts)
+  sub: HTMLElement; // the sub ammo bar (data-hud `sub` in hud.ts)
   setPosition(at: ScreenPoint): void;
   set(state: ReticleMarkState): void;
 }
 
-// The numbers take the warn colour at a quarter and the red at no rounds; the empty red reads hardest.
-function tierStyle(tune: HudRingTune['reticle']): Record<AmmoTier, { color: string; opacity: number }> {
-  return {
-    quiet: { color: HUD_COLOR.text, opacity: tune.number.opacity.quiet },
-    warn: { color: HUD_COLOR.amber, opacity: tune.number.opacity.warn },
-    empty: { color: HUD_COLOR.warn, opacity: tune.number.opacity.empty },
-  };
-}
-
 export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
-  const tier = tierStyle(tune);
   const root = document.createElement('div');
   root.style.cssText = 'position:absolute;inset:0;pointer-events:none';
   const rootSvg = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
@@ -363,18 +367,25 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
   const dot = svg('circle', { cx: 0, cy: 0, r: tune.dotRadius, fill: HUD_COLOR.dot });
   group.appendChild(dot);
 
-  const line = document.createElement('div');
-  line.style.cssText =
-    `position:absolute;box-sizing:border-box;width:${tune.number.width}px;height:${tune.number.height}px;` +
-    `font-size:${tune.number.size}px;line-height:${tune.number.height}px;text-align:center;white-space:nowrap;`;
-  const mainValue = document.createElement('span');
-  mainValue.style.color = tier.quiet.color;
-  mainValue.style.opacity = String(tier.quiet.opacity);
-  const subValue = document.createElement('span');
-  subValue.style.color = tier.quiet.color;
-  subValue.style.opacity = String(tier.quiet.opacity);
-  line.append(mainValue, document.createTextNode(' '), subValue);
-  root.appendChild(line);
+  // The main ammo over the mark: one track whose fill is the share of the magazine left.
+  const mainBar = document.createElement('div');
+  mainBar.style.cssText =
+    `position:absolute;box-sizing:border-box;width:${tune.ammo.main.width}px;` +
+    `height:${tune.ammo.main.thickness}px;background:${HUD_COLOR.track}`;
+  const mainFill = document.createElement('div');
+  mainFill.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:0%;background:${HUD_COLOR.bar}`;
+  mainBar.appendChild(mainFill);
+  root.appendChild(mainBar);
+
+  // The sub ammo under the mark: one cell a round up to `maxSegments`; a fuller magazine is one length like the main
+  // bar. The cells are built in `set`, once the full count is known.
+  const subBar = document.createElement('div');
+  subBar.style.cssText =
+    `position:absolute;box-sizing:border-box;width:${tune.ammo.sub.width}px;` +
+    `height:${tune.ammo.sub.thickness}px;display:flex;gap:${tune.ammo.sub.segmentGap}px;`;
+  const subFill = document.createElement('div');
+  subFill.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:0%;background:${HUD_COLOR.bar}`;
+  root.appendChild(subBar);
 
   let lastCenter: ScreenPoint | null = null;
   let lastLocked: boolean | null = null;
@@ -383,37 +394,61 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
   let lastArmorOpacity = -1;
   let lastBoostSweep = -1;
   let lastBoostOpacity = -1;
-  let lastMainText = '';
-  let lastSubText = '';
-  let lastMainTier: AmmoTier | null = null;
-  let lastSubTier: AmmoTier | null = null;
+  let lastMainShare = -1;
+  let lastMainColor = '';
+  let lastMainEmpty: boolean | null = null;
+  let lastMainBlink = -1;
+  let lastSubCells = -1;
+  let lastSubFilled = -1;
+  let lastSubShare = -1;
+  let lastSubColor = '';
+  let lastSubEmpty: boolean | null = null;
+  let lastSubBlink = -1;
+  let cells: HTMLDivElement[] = [];
+
+  const buildCells = (count: number): void => {
+    subBar.replaceChildren();
+    cells = [];
+    if (count <= 0) {
+      subBar.style.background = HUD_COLOR.track;
+      subBar.appendChild(subFill);
+      return;
+    }
+    subBar.style.background = 'transparent';
+    for (let i = 0; i < count; i++) {
+      const cell = document.createElement('div');
+      cell.style.cssText = `flex:1 1 0;height:100%;background:${HUD_COLOR.track}`;
+      subBar.appendChild(cell);
+      cells.push(cell);
+    }
+  };
 
   return {
     root,
-    mainValue,
-    subValue,
+    main: mainBar,
+    sub: subBar,
     setPosition(at) {
       const screen = { width: window.innerWidth, height: window.innerHeight };
-      const number = tune.number;
       const reach = tune.arc.radius + tune.arc.thickness / 2;
-      const size = reach * 2;
-      // the whole mark is pulled inward, so the arcs stay on the screen; the line is kept inside on its own below
-      const box = keepInside({ x: at.x - reach, y: at.y - reach }, size, size, screen, number.margin);
-      const center = { x: box.x + reach, y: box.y + reach };
+      const halfWidth = Math.max(reach, tune.ammo.main.width / 2, tune.ammo.sub.width / 2);
+      const above = reach + tune.ammo.main.gap + tune.ammo.main.thickness;
+      const below = reach + tune.ammo.sub.gap + tune.ammo.sub.thickness;
+      // the whole mark is pulled inward, so the arcs and both bars stay on the screen
+      const box = keepInside(
+        { x: at.x - halfWidth, y: at.y - above },
+        halfWidth * 2,
+        above + below,
+        screen,
+        tune.margin,
+      );
+      const center = { x: box.x + halfWidth, y: box.y + above };
       if (lastCenter !== null && lastCenter.x === center.x && lastCenter.y === center.y) return;
       lastCenter = center;
       group.setAttribute('transform', `translate(${center.x} ${center.y})`);
-      const below = center.y + number.gap;
-      const top = below + number.height > screen.height - number.margin ? center.y - number.gap - number.height : below;
-      const lineAt = keepInside(
-        { x: center.x - number.width / 2, y: top },
-        number.width,
-        number.height,
-        screen,
-        number.margin,
-      );
-      line.style.left = `${lineAt.x}px`;
-      line.style.top = `${lineAt.y}px`;
+      mainBar.style.left = `${center.x - tune.ammo.main.width / 2}px`;
+      mainBar.style.top = `${center.y - above}px`;
+      subBar.style.left = `${center.x - tune.ammo.sub.width / 2}px`;
+      subBar.style.top = `${center.y + below - tune.ammo.sub.thickness}px`;
     },
     set(state) {
       const locked = reticleColor(state.locked);
@@ -457,26 +492,69 @@ export function reticleMarks(tune: HudRingTune['reticle']): ReticleMarks {
         lastBoostOpacity = boostAlpha;
         boostArc.setAttribute('stroke-opacity', String(boostAlpha));
       }
-      const text = ammoLine(state.main, state.sub);
-      if (text.main !== lastMainText) {
-        lastMainText = text.main;
-        mainValue.textContent = text.main;
+
+      // The main bar: the share left as the fill's width; when empty the whole track turns red and blinks.
+      const mainEmpty = state.mainTier === 'empty';
+      const mainColor = ammoColor(state.mainTier);
+      if (mainColor !== lastMainColor || mainEmpty !== lastMainEmpty) {
+        lastMainColor = mainColor;
+        lastMainEmpty = mainEmpty;
+        mainBar.style.background = mainEmpty ? HUD_COLOR.warn : HUD_COLOR.track;
+        mainFill.style.background = mainColor;
       }
-      if (text.sub !== lastSubText) {
-        lastSubText = text.sub;
-        subValue.textContent = text.sub;
+      const mainShare = ammoShare(state.main, state.mainMax);
+      if (mainShare !== lastMainShare) {
+        lastMainShare = mainShare;
+        mainFill.style.width = `${mainShare * 100}%`;
+        mainFill.style.display = mainShare > 0 ? '' : 'none';
       }
-      if (state.mainTier !== lastMainTier) {
-        lastMainTier = state.mainTier;
-        const style = tier[state.mainTier];
-        mainValue.style.color = style.color;
-        mainValue.style.opacity = String(style.opacity);
+      const mainBlink = mainEmpty ? state.blink : 1;
+      if (mainBlink !== lastMainBlink) {
+        lastMainBlink = mainBlink;
+        mainBar.style.opacity = String(mainBlink);
       }
-      if (state.subTier !== lastSubTier) {
-        lastSubTier = state.subTier;
-        const style = tier[state.subTier];
-        subValue.style.color = style.color;
-        subValue.style.opacity = String(style.opacity);
+
+      // The sub bar: one cell a round, or the share as one length when the magazine is too full for cells.
+      const subEmpty = state.subTier === 'empty';
+      const subColor = ammoColor(state.subTier);
+      const subCells = ammoCells(state.subMax, tune.ammo.sub.maxSegments);
+      if (subCells !== lastSubCells) {
+        lastSubCells = subCells;
+        buildCells(subCells);
+        lastSubFilled = -1;
+        lastSubShare = -1;
+        lastSubColor = '';
+      }
+      if (subCells > 0) {
+        const filled = ammoFilled(state.sub, state.subMax, tune.ammo.sub.maxSegments);
+        if (filled !== lastSubFilled || subColor !== lastSubColor || subEmpty !== lastSubEmpty) {
+          lastSubFilled = filled;
+          lastSubColor = subColor;
+          lastSubEmpty = subEmpty;
+          for (let i = 0; i < cells.length; i++) {
+            cells[i].style.background = subEmpty ? HUD_COLOR.warn : i < filled ? subColor : HUD_COLOR.track;
+          }
+        }
+      } else {
+        if (subColor !== lastSubColor) {
+          lastSubColor = subColor;
+          subFill.style.background = subColor;
+        }
+        const subShare = ammoShare(state.sub, state.subMax);
+        if (subShare !== lastSubShare) {
+          lastSubShare = subShare;
+          subFill.style.width = `${subShare * 100}%`;
+          subFill.style.display = subShare > 0 ? '' : 'none';
+        }
+        if (subEmpty !== lastSubEmpty) {
+          lastSubEmpty = subEmpty;
+          subBar.style.background = subEmpty ? HUD_COLOR.warn : HUD_COLOR.track;
+        }
+      }
+      const subBlink = subEmpty ? state.blink : 1;
+      if (subBlink !== lastSubBlink) {
+        lastSubBlink = subBlink;
+        subBar.style.opacity = String(subBlink);
       }
     },
   };

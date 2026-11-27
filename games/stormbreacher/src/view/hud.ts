@@ -2,10 +2,10 @@
 // the top centre, the round radar at the top right, an arc along the aim circle (the armour on the left, the boost on the
 // right), the main and sub ammo under the circle, the last radio line at the bottom centre and a lock frame round the
 // target the aim is pulled toward. B (SB-2150) puts the ammo at the cursor and short gauge bars at the mech's feet; C puts
-// the gauges and the ammo in a row along the bottom. D (SB-2155, revised SB-2157) keeps B's other parts and draws the
-// armour and boost as short arcs at the cursor's left and right, with one small line of ammo under it. It reads HudModel
-// (logic/hud.ts) and draws it; it never writes the model. Heat is not drawn; the only warning is the shell's. The shades
-// and the emphasis are 仮.
+// the gauges and the ammo in a row along the bottom. D (SB-2155, revised SB-2157 and SB-2158) keeps B's other parts and
+// draws the armour and boost as short arcs at the cursor's left and right, the main ammo as a short bar above it and the
+// sub ammo as a row of cells below it. It reads HudModel (logic/hud.ts) and draws it; it never writes the model. Heat is
+// not drawn; the only warning is the shell's. The shades and the emphasis are 仮.
 import { isTouch, t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
@@ -15,7 +15,7 @@ import type { TargetKind } from '../data/types.ts';
 import type { HudAmmo, HudModel } from '../logic/hud.ts';
 import type { ScreenRect } from './camera.ts';
 import { keepInside, ndcToScreen, type ScreenPoint } from './hudPlace.ts';
-import { ammoTier } from './hudRing.ts';
+import { ammoBlink, ammoTier } from './hudRing.ts';
 import {
   BAR_GAUGE_HEIGHT,
   fillArcGauge,
@@ -180,9 +180,9 @@ export interface PlayHud {
   boost: ArcGauge;
   armorNode: HTMLElement; // the gauge's box: layout B puts it at the mech's feet
   boostNode: HTMLElement;
-  mainValue: HTMLSpanElement;
+  mainValue: HTMLElement;
   mainBox: HTMLElement; // the ammo's box: layout B puts it at the cursor
-  subValue: HTMLSpanElement;
+  subValue: HTMLElement;
   subBox: HTMLElement;
   feet: ScreenPoint | null; // the mech's feet on the screen (px), null while the camera is in front of them
   objective: HTMLElement;
@@ -375,10 +375,10 @@ function layOut(
   let marks: ReticleMarks | null = null;
   if (layout === 'd') {
     marks = reticleMarks(HUD_RING_TUNE.reticle);
-    marks.mainValue.dataset.hud = 'main';
-    marks.subValue.dataset.hud = 'sub';
-    mainValue = marks.mainValue;
-    subValue = marks.subValue;
+    marks.main.dataset.hud = 'main';
+    marks.sub.dataset.hud = 'sub';
+    mainValue = marks.main;
+    subValue = marks.sub;
     mainBox = marks.root;
     subBox = marks.root;
   } else {
@@ -598,13 +598,14 @@ function countText(count: { done: number; total: number } | null): string {
 // Writes one frame of the HUD. Only the values that changed are written; the radar's marks and the lock frame are put
 // down every frame. `lock` is the lock target's rectangle on the screen (view/camera.ts screenRect), null for none.
 // `feet` is the mech's feet on the screen (px) for layout B's gauges, null while the camera is in front of them. `glow`
-// is layout D's armour flash after a hit (0-1).
+// is layout D's armour flash after a hit (0-1) and `time` the game's clock, which drives an empty ammo bar's blink.
 export function drawHud(
   hud: PlayHud,
   model: HudModel,
   lock: ScreenRect | null,
   feet: ScreenPoint | null = null,
   glow = 0,
+  time = 0,
 ): void {
   // the arcs and the aims sit on the window's size, so a new height lays the parts out again
   if (window.innerHeight !== hud.height) {
@@ -629,11 +630,14 @@ export function drawHud(
       armor: model.armor,
       boost: model.boost,
       main: model.main.ammo,
+      mainMax: model.main.max,
       sub: model.sub.ammo,
-      mainTier: ammoTier(model.main.ammo, model.main.max, reticle.number.warnShare),
-      subTier: ammoTier(model.sub.ammo, model.sub.max, reticle.number.warnShare),
+      subMax: model.sub.max,
+      mainTier: ammoTier(model.main.ammo, model.main.max, reticle.ammo.warnShare),
+      subTier: ammoTier(model.sub.ammo, model.sub.max, reticle.ammo.warnShare),
       locked: lock !== null,
       glow,
+      blink: ammoBlink(time, reticle.ammo.blinkHz),
     });
   } else {
     const main = ammoText(model.main);
