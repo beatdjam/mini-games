@@ -5,7 +5,15 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CAMERA_TUNE, FCS_TUNE, type HudRingTune } from '../data/tune.ts';
 import type { ScreenPoint } from './hudPlace.ts';
 import { keepInside } from './hudPlace.ts';
-import { gaugeReading, gaugeSweep, reticleColor, type AmmoTier, type GaugeKind, type GaugeReading } from './hudRing.ts';
+import {
+  arcLowEndIsStart,
+  gaugeReading,
+  gaugeSweep,
+  reticleColor,
+  type AmmoTier,
+  type GaugeKind,
+  type GaugeReading,
+} from './hudRing.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const DOT_RADIUS = 2.5; // px
@@ -347,12 +355,14 @@ function gaugeStroke(d: string, width: number, color: string, linecap: 'round' |
   }) as SVGPathElement;
 }
 
-// One arc of the mark. It opens from its own middle as the gauge goes down. A sub gauge can be drawn as cells instead: one
-// arc a round, with a dark backing that keeps the divisions visible.
+// One arc of the mark. It drains like a level: what is left sits at the arc's lower end on the screen and the gauge goes
+// down from the top, on the left arc and the right one alike. A sub gauge can be drawn as cells instead: one arc a
+// round, lit from the lower end, with a dark backing that keeps the divisions visible.
 function buildArc(group: SVGGElement, mid: number, tune: HudRingTune['reticle']): GaugeVisual {
   const radius = tune.arc.radius;
   const open = tune.arc.openDeg;
   const start = mid - open / 2;
+  const fromStart = arcLowEndIsStart(start, open);
   const holder = svg('g', {}) as SVGGElement;
   group.appendChild(holder);
   // the thin dark edge behind the whole opening, so the track and the cells read over bright sand
@@ -421,7 +431,11 @@ function buildArc(group: SVGGElement, mid: number, tune: HudRingTune['reticle'])
           for (let i = 0; i < cells.length; i++) {
             cells[i].setAttribute(
               'stroke',
-              reading.empty ? HUD_COLOR.warn : i < reading.filled ? reading.color : HUD_COLOR.track,
+              reading.empty
+                ? HUD_COLOR.warn
+                : (fromStart ? i : cells.length - 1 - i) < reading.filled
+                  ? reading.color
+                  : HUD_COLOR.track,
             );
           }
         }
@@ -446,7 +460,7 @@ function buildArc(group: SVGGElement, mid: number, tune: HudRingTune['reticle'])
             fill.style.display = 'none';
           } else {
             fill.style.display = '';
-            fill.setAttribute('d', arcPath(0, 0, radius, start, sweep));
+            fill.setAttribute('d', arcPath(0, 0, radius, fromStart ? start : start + open - sweep, sweep));
           }
         }
       }

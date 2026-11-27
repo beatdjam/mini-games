@@ -254,7 +254,8 @@ export const HUD_RING_TUNE = {
     glowSec: 0.35, // s; how long the armour stays lit after a hit
     ammo: {
       warnShare: 0.25, // the share of a magazine at or below which a gauge takes the warn colour (0 is empty)
-      blinkHz: 2.5, // the red blink of an empty gauge (cycles a second)
+      blinkHz: 1, // the red blink of an empty gauge (cycles a second); slow, so it tells without shouting
+      blinkMin: 0.5, // the darkest the blink goes (0-1); the gauge never goes out, it only dims
     },
     margin: 8, // px, kept from the screen's edge by the arcs and the bars
   },

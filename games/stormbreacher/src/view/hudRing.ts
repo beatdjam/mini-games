@@ -45,10 +45,11 @@ export function ammoFilled(ammo: number, max: number, maxSegments: number): numb
   return Math.min(cells, Math.max(0, Math.round(ammo)));
 }
 
-// An empty bar's blink: 1 at the start, 0 half a cycle later and 1 again on the next cycle, so the red comes and goes.
-export function ammoBlink(elapsed: number, hz: number): number {
+// An empty gauge's blink: 1 at the start, `min` half a cycle later and 1 again on the next cycle, so the red dims and
+// comes back without going out.
+export function ammoBlink(elapsed: number, hz: number, min: number): number {
   if (hz <= 0) return 1;
-  return (Math.cos(elapsed * hz * Math.PI * 2) + 1) / 2;
+  return min + ((1 - min) * (Math.cos(elapsed * hz * Math.PI * 2) + 1)) / 2;
 }
 
 // The aim mark's colour: the lock colour while the aim is pulled toward a target, the ring colour otherwise.
@@ -163,4 +164,12 @@ export function gaugeReading(kind: GaugeKind, values: GaugeValues, style: GaugeS
     filled: ammoFilled(values.sub, values.subMax, style.maxSegments),
     empty: values.subTier === 'empty',
   };
+}
+
+// Whether an arc from `startDeg` sweeping `openDeg` (screen degrees: 0 to the right, growing clockwise because the
+// screen's y goes down) has its lower end on the screen at its start. The gauges fill from that lower end, so the left
+// arc and the right one drain the same way, from the top.
+export function arcLowEndIsStart(startDeg: number, openDeg: number): boolean {
+  const toRad = Math.PI / 180;
+  return Math.sin(startDeg * toRad) >= Math.sin((startDeg + openDeg) * toRad);
 }

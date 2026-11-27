@@ -11,6 +11,7 @@ import {
   ammoFilled,
   ammoShare,
   ammoTier,
+  arcLowEndIsStart,
   armorStage,
   boostOpacity,
   gaugeReading,
@@ -66,12 +67,13 @@ test('ammoColor keeps the gauge colour while quiet and warns amber then red', ()
   expect(ammoColor('empty')).toBe(HUD_COLOR.warn);
 });
 
-test('ammoBlink is full at the start, dark half a cycle later and full again on the next', () => {
-  expect(ammoBlink(0, 2.5)).toBe(1);
-  expect(ammoBlink(0.2, 2.5)).toBeCloseTo(0, 10); // half of a 0.4s cycle
-  expect(ammoBlink(0.4, 2.5)).toBeCloseTo(1, 10);
-  expect(ammoBlink(0.1, 2.5)).toBeCloseTo(0.5, 10);
-  expect(ammoBlink(1, 0)).toBe(1); // no speed, no blink
+test('ammoBlink is full at the start, dims to its least half a cycle later and is full again on the next', () => {
+  expect(ammoBlink(0, 1, 0.5)).toBe(1);
+  expect(ammoBlink(0.5, 1, 0.5)).toBeCloseTo(0.5, 10); // half of a 1s cycle: the least, never out
+  expect(ammoBlink(1, 1, 0.5)).toBeCloseTo(1, 10);
+  expect(ammoBlink(0.25, 1, 0.5)).toBeCloseTo(0.75, 10);
+  expect(ammoBlink(0.5, 1, 0)).toBeCloseTo(0, 10); // a least of 0 goes out, as before
+  expect(ammoBlink(1, 0, 0.5)).toBe(1); // no speed, no blink
 });
 
 test('ammoTier is warn at a quarter exactly and empty at no rounds', () => {
@@ -199,4 +201,12 @@ test('gaugeReading keeps the ammo rules in the E arcs and the F bars', () => {
   // E: the armour bar keeps the shades and glow of D's arc, and the boost bar its thin full gauge.
   expect(gaugeReading('armor', { ...VALUES, armor: 0.28, glow: 0 }, STYLE).color).toBe(HUD_COLOR.armorLow);
   expect(gaugeReading('boost', { ...VALUES, boost: 0.999 }, STYLE).opacity).toBe(0.85);
+});
+
+test('both side arcs fill from their lower end on the screen, so they drain from the top alike', () => {
+  const open = 96;
+  // the right arc (middle 0): it starts above and sweeps down, so its lower end is the far one
+  expect(arcLowEndIsStart(0 - open / 2, open)).toBe(false);
+  // the left arc (middle 180): it starts below and sweeps up, so its lower end is the start
+  expect(arcLowEndIsStart(180 - open / 2, open)).toBe(true);
 });

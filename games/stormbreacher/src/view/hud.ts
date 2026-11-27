@@ -656,7 +656,7 @@ export function drawHud(
       subTier: ammoTier(model.sub.ammo, model.sub.max, reticle.ammo.warnShare),
       locked: lock !== null,
       glow,
-      blink: ammoBlink(time, reticle.ammo.blinkHz),
+      blink: ammoBlink(time, reticle.ammo.blinkHz, reticle.ammo.blinkMin),
     });
   } else {
     const main = ammoText(model.main);
