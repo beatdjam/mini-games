@@ -525,8 +525,15 @@ const CUES = [
       { kind: 'radio', line: 'm1.fortress-gate' },
       // the wall's nest drops its three onto the open ground behind the mech as it goes in (SB-1830)
       { kind: 'spawn', wave: 'fortress-drop' },
-      // the three cover mechs go on to the yard through the sea gate; the checkpoint above is copied after all actions,
-      // so their next way is in the copy too
+    ],
+  },
+  {
+    id: 'gate-open',
+    // The wall's nest is down: the sea gate's shutter rolls up and the three cover mechs wait no longer but pour into
+    // the yard through the gate (SB-2300). They have no hit box, so they are not sent through a shut gate.
+    trigger: { kind: 'destroyed', targets: ['fortress-gun'] },
+    actions: [
+      { kind: 'radio', line: 'm1.gate-open' },
       { kind: 'allyMove', id: 'cover-b1', path: 'yard-run-1' },
       { kind: 'allyMove', id: 'cover-b2', path: 'yard-run-2' },
       { kind: 'allyMove', id: 'cover-b3', path: 'yard-run-3' },

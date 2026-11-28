@@ -170,6 +170,8 @@ export function showAlly(_hash: string) {
     sendToScript(game, { kind: 'ashore' });
     standAt(AT_GATE);
     sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
+    // the cover mechs go on to the yard when the wall's nest falls, not at the gate's area (SB-2300)
+    sendToScript(game, { kind: 'destroyed', target: 'fortress-gun' });
   });
   const enemyRow = document.createElement('div');
   enemyRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';

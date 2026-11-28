@@ -35,7 +35,7 @@ import {
 import { BATTERY_WAVE, GUN_TUNE, M1_SHUTTERS } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
-import { FORT_BLAST_TUNE, FORTRESS_GUN_TUNE, FORTRESS_TUNE, YARD_TUNE } from '../data/fortress.ts';
+import { FORT_BLAST_TUNE, FORTRESS_GUN_TUNE, FORTRESS_TUNE, GATE_SHUTTER, YARD_TUNE } from '../data/fortress.ts';
 import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
 import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
@@ -189,6 +189,7 @@ export type GameEvent =
     }
   | { kind: 'destroyed'; id: string }
   | { kind: 'shutterOpen'; target: string } // the shutter before this target opened
+  | { kind: 'gateOpen' } // the fortress's sea gate shutter rolled up (SB-2300)
   | { kind: 'spawned'; wave: string; count: number } // a wave's enemies were put out
   | { kind: 'enemyDown'; id: string; x: number; y: number; z: number } // an enemy's health reached 0
   | { kind: 'wardenDown'; id: string; x: number; z: number } // the mid boss's three seconds of smoke ended and it blew
@@ -533,11 +534,15 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   const front = hostile
     ? [mechBox(game.mech)]
     : [...aliveTargets.map(t => t.box), ...aliveEnemies.map(enemyBox), ...game.mines.map(mineBox)];
-  // An enemy's bullet also stops at a standing target (a pillbox's wall), after the props, and does it no harm.
+  // An enemy's bullet also stops at a standing target (a pillbox's wall), after the props, and does it no harm. The
+  // mech's bullet and an enemy's from the yard stop at the shut sea gate too (SB-2300); the gate's box comes after the
+  // props', so the prop box a hit names is unchanged.
   const walls = hostile ? game.targets.filter(target => target.hp > 0).map(target => target.box) : [];
+  const gate = gateShut(game) ? [gateBox()] : [];
   const hit = fireRayHit(bullet.x, bullet.y, bullet.z, bullet.dx, bullet.dy, bullet.dz, dist, [
     ...front,
     ...game.propBoxes,
+    ...gate,
     ...walls,
   ]);
   // A bullet heading down meets the ground (y = 0) where its height runs out, if that is within the stretch.
@@ -636,6 +641,7 @@ function damageTarget(game: GameModel, target: TargetState, damage: number): voi
   game.nav.grid = null;
   game.events.push({ kind: 'destroyed', id: target.id });
   checkShutters(game);
+  syncGate(game, true);
   sendToScript(game, { kind: 'destroyed', target: target.id });
 }
 
@@ -645,6 +651,60 @@ function checkShutters(game: GameModel): void {
   const hpOf = (id: string): number => game.targets.find(target => target.id === id)?.hp ?? 0;
   for (const target of openShutters(game.shutters, hpOf, game.script.flags))
     game.events.push({ kind: 'shutterOpen', target });
+}
+
+// The rect the shut sea gate stands on (SB-2300): the gate's width, a plate's thickness, and the wall's height, so the
+// mech, the enemies and their shots are stopped as the wall stops them.
+function gateRect(): GroundRect {
+  return {
+    x: GATE_SHUTTER.x,
+    z: GATE_SHUTTER.z,
+    halfW: GATE_SHUTTER.w / 2,
+    halfD: GATE_SHUTTER.d / 2,
+    yaw: 0,
+    top: GATE_SHUTTER.h,
+  };
+}
+
+// The place in `rects` of the sea gate's rect, or -1 when it is not there (open, or a map without the gate).
+function gateRectIndex(rects: readonly GroundRect[]): number {
+  return rects.findIndex(
+    rect =>
+      rect.x === GATE_SHUTTER.x &&
+      rect.z === GATE_SHUTTER.z &&
+      rect.halfW === GATE_SHUTTER.w / 2 &&
+      rect.halfD === GATE_SHUTTER.d / 2 &&
+      rect.yaw === 0,
+  );
+}
+
+// The box the shut gate stops a shot on.
+function gateBox(): Aabb {
+  return rectBox(gateRect());
+}
+
+// Whether the gate is still shut: any target in `opensWhen` stands.
+function gateShut(game: Pick<GameModel, 'targets'>): boolean {
+  return GATE_SHUTTER.opensWhen.some(id => (game.targets.find(target => target.id === id)?.hp ?? 0) > 0);
+}
+
+// Keeps the sea gate's rect in step with the nest (SB-2300): the gate is shut while any target in `opensWhen` stands, and
+// the rect leaves `rects` when they are all down. The gate is rebuilt from the targets' health, so a save or a checkpoint
+// needs nothing of its own: a suspend from before the gate gets the rect put back when the nest still stands. With
+// `report`, the frame's events hear the gate open.
+export function syncGate(
+  holder: Pick<GameModel, 'rects' | 'targets'> & Partial<Pick<GameModel, 'events'>>,
+  report = false,
+): void {
+  const open = !gateShut(holder);
+  const index = gateRectIndex(holder.rects);
+  if (!open) {
+    if (index < 0) holder.rects.push(gateRect());
+    return;
+  }
+  if (index < 0) return;
+  holder.rects.splice(index, 1);
+  if (report) holder.events?.push({ kind: 'gateOpen' });
 }
 
 // The height of the face a blast at (x, z) stands on: the ground, or the top of a prop or a target there (the seawall's
@@ -1005,7 +1065,7 @@ export function newGame(
       propRefs.push(prop);
     }
   });
-  return {
+  const game: GameModel = {
     time: 0,
     map,
     mission,
@@ -1064,6 +1124,9 @@ export function newGame(
     checkpoint: null,
     retries: 0,
   };
+  // the sea gate starts shut while the wall's nest stands (SB-2300); a map without the nest has no gate
+  syncGate(game);
+  return game;
 }
 
 // Hands one input to the script and keeps its events. Names the mission does not have are not sent: scriptInput throws
@@ -1464,6 +1527,8 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   // An old checkpoint kept a broken target's rect at the wall's height; the ground matches the low wreck once the
   // sortie is back.
   lowerBrokenTargetRects(next);
+  // a checkpoint from before the sea gate has no gate rect: the nest's health says whether it is shut (SB-2300)
+  syncGate(next);
   return next;
 }
 
@@ -2120,6 +2185,7 @@ function stepFrame(game: GameModel, given: GameInput, dt: number): void {
   stepAllyFire(game, span);
   stepAssist(game, span);
   checkShutters(game);
+  syncGate(game, true);
   checkWaves(game);
   for (const [id, area] of Object.entries(game.mission.areas)) {
     if (game.script.entered.includes(id)) continue;

@@ -7,7 +7,7 @@ import { M1 } from '../data/missions/m1.ts';
 import { PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import type { MapDef, MissionDef } from '../data/types.ts';
 import { newBattle } from './battle.ts';
-import { lowerBrokenTargetRects, type GameModel, type GameSnapshot } from './game.ts';
+import { lowerBrokenTargetRects, syncGate, type GameModel, type GameSnapshot } from './game.ts';
 import { newShutters } from './battery.ts';
 import { newNav } from './nav.ts';
 import { stream } from './rng.ts';
@@ -180,7 +180,13 @@ export function restoreSuspend(data: unknown): GameModel | null {
   };
   lowerBrokenTargetRects(game);
   addMissingShutters(game);
-  if (checkpoint !== null) addMissingShutters(checkpoint);
+  // The sea gate is rebuilt from the nest's health: an old save without the gate's rect gets it back while the nest
+  // stands, and one made after the nest fell stays open (SB-2300).
+  syncGate(game);
+  if (checkpoint !== null) {
+    addMissingShutters(checkpoint);
+    syncGate(checkpoint);
+  }
   // the shots and shells in flight are gone, so the mid boss starts its phase again (SB-1850)
   for (const enemy of game.enemies) if (enemy.warden) restartWarden(enemy.warden);
   return game;

@@ -17,6 +17,7 @@ import {
   retryFromCheckpoint,
   sendToScript,
   step,
+  syncGate,
   type GameInput,
   type GameModel,
 } from '../../src/logic/game.ts';
@@ -316,6 +317,11 @@ describe('the trickle in the sortie', () => {
   test('the yard’s spawn zone stays inside the walls and within reach', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
+    // The yard is fought after the wall's nest falls, so its gate's shutter is up (SB-2300); the mech stands in the gate.
+    const gun = game.targets.find(target => target.id === 'fortress-gun');
+    if (!gun) throw new Error('the hand map has no fortress-gun');
+    gun.hp = 0;
+    syncGate(game);
     const index = M1_SECTORS.findIndex(entry => entry.id === 'yard');
     const sector = M1_SECTORS[index];
     const points = trickleSpawns(game, index, FORTRESS_TUNE.seaWallZ, 60 * 120);

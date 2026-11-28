@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
 import { M1_SHUTTERS, type ShutterDef } from '../data/battery.ts';
 import { SKY_COLOR } from '../data/colors.ts';
-import { FORTRESS_SHUTTER_TUNE } from '../data/fortress.ts';
+import { FORTRESS_SHUTTER_TUNE, GATE_SHUTTER } from '../data/fortress.ts';
 import { PILLBOX_BREAK } from '../data/pillbox.ts';
 import { TARGET_SIZE, TILE_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { FADE_TUNE } from '../data/tune.ts';
@@ -33,6 +33,7 @@ export interface World {
   targets: Map<string, THREE.Mesh>; // the mission's targets by id
   targetGroup: THREE.Group; // every target and shutter, to take out when the world is built again
   shutters: Map<string, THREE.Mesh>; // the armour plate before a target, by the target's id; hidden once it is open
+  gate: THREE.Mesh | null; // the sea gate's plate (SB-2300); null on a map without the gate, hidden once it is open
   shore: THREE.Group; // the sea and the landing craft, to take out with them
   fade: FadeSet; // the low props that turn see-through when they stand between the camera and the mech (SB-2048)
   slots: Map<number, PropSlot>; // a breakable or blast-opened prop's place in map.props -> where it is drawn
@@ -115,6 +116,23 @@ export function buildWorld(map: MapDef, air = true): World {
     shutters.set(def.target, plate);
   }
 
+  // the sea gate's plate (SB-2300): as wide as the gate and as tall as the wall, with the winding machine on its top
+  // edge over the wall. It stands in the gate's opening and rolls up like the nest's plate when the nest falls.
+  let gate: THREE.Mesh | null = null;
+  if (map.targets.some(target => GATE_SHUTTER.opensWhen.some(id => id === target.id))) {
+    const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const plate = new THREE.Mesh(shutterPlateGeometry(GATE_SHUTTER.w, GATE_SHUTTER.h, GATE_SHUTTER.d), material);
+    plate.name = 'sb-gate-shutter';
+    const housing = new THREE.Mesh(shutterHousingGeometry(GATE_SHUTTER.w, GATE_SHUTTER.d), material);
+    housing.name = 'sb-gate-shutter-housing';
+    housing.position.y = GATE_SHUTTER.h / 2;
+    plate.add(housing);
+    plate.userData.baseY = 0;
+    plate.position.set(GATE_SHUTTER.x, GATE_SHUTTER.h / 2, GATE_SHUTTER.z);
+    targetGroup.add(plate);
+    gate = plate;
+  }
+
   // cameraBoxesOfRect runs over cameraBlockers' rects, which put the blocking props first in map.props' order, so the
   // boxes of rect i belong to blockingPropIndexes(map)[i]: the fade below takes the low props' boxes. The targets and
   // the three crafts' rects come after the props'.
@@ -141,6 +159,7 @@ export function buildWorld(map: MapDef, air = true): World {
     targets,
     targetGroup,
     shutters,
+    gate,
     shore,
     fade,
     slots,
@@ -151,9 +170,7 @@ export function buildWorld(map: MapDef, air = true): World {
 }
 
 // The nest's plate rolls up and the nest rises over FORTRESS_SHUTTER_TUNE.openSec once the shutter is open (SB-2051); shut,
-// the plate stands full and the nest sits sunk into the wall. The progress is the plate's own (`userData.open`): a plate
-// first seen open (a checkpoint or a suspend brings one back) starts fully open, and one seen shut starts at 0, so
-// the state needs nothing more than the shutter's `open`.
+// the plate stands full and the nest sits sunk into the wall.
 function rollShutter(
   world: World,
   game: GameModel,
@@ -162,21 +179,36 @@ function rollShutter(
   open: boolean,
   dt: number,
 ): void {
+  const k = rollPlate(plate, def.h, open, FORTRESS_SHUTTER_TUNE.openSec, dt);
+  const baseY = typeof plate.userData.baseY === 'number' ? plate.userData.baseY : 0;
+  const target = game.targets.find(item => item.id === def.target);
+  const mesh = world.targets.get(def.target);
+  if (mesh && target && target.hp > 0) mesh.position.y = baseY - FORTRESS_SHUTTER_TUNE.sink * (1 - k);
+}
+
+// Rolls a plate up under its fixed top edge over `sec` seconds (1 open, 0 shut) and returns the smooth share. The
+// progress is the plate's own (`userData.open`): a plate first seen open (a checkpoint or a suspend brings one back)
+// starts fully open, and one seen shut starts at 0, so the state needs nothing more than the game's own. The winding
+// machine over the plate keeps its height.
+function rollPlate(plate: THREE.Mesh, h: number, open: boolean, sec: number, dt: number): number {
   const before = typeof plate.userData.open === 'number' ? plate.userData.open : 1;
-  const sec = FORTRESS_SHUTTER_TUNE.openSec;
   const share = open ? Math.min(1, before + (sec <= 0 ? 1 : dt / sec)) : 0;
   plate.userData.open = share;
   const k = share * share * (3 - 2 * share); // smooth in and out
   const baseY = typeof plate.userData.baseY === 'number' ? plate.userData.baseY : 0;
   plate.visible = k < 1;
-  // the plate rolls up with its top edge fixed, and the machine over it keeps its own height
   plate.scale.y = Math.max(0.001, 1 - k);
-  plate.position.y = baseY + def.h - (def.h * plate.scale.y) / 2;
+  plate.position.y = baseY + h - (h * plate.scale.y) / 2;
   const housing = plate.children[0];
   if (housing) housing.scale.y = 1 / plate.scale.y;
-  const target = game.targets.find(item => item.id === def.target);
-  const mesh = world.targets.get(def.target);
-  if (mesh && target && target.hp > 0) mesh.position.y = baseY - FORTRESS_SHUTTER_TUNE.sink * (1 - k);
+  return k;
+}
+
+// The sea gate's plate rolls up once the wall's nest is down (SB-2300), at the nest's own plate's speed.
+function rollGate(world: World, game: GameModel, dt: number): void {
+  if (!world.gate) return;
+  const open = GATE_SHUTTER.opensWhen.every(id => (game.targets.find(target => target.id === id)?.hp ?? 0) <= 0);
+  rollPlate(world.gate, GATE_SHUTTER.h, open, GATE_SHUTTER.openSec, dt);
 }
 
 // Lowers and darkens every target whose health is gone, hides every shutter that is open, and every prop the game has
@@ -217,6 +249,7 @@ export function syncWorld(world: World, game: GameModel, dt: number): void {
     }
     rollShutter(world, game, plate, def, shutter.open, dt);
   }
+  rollGate(world, game, dt);
   for (const breakable of game.breakables) {
     if (breakable.hp > 0) continue;
     breakPropAt(world, breakable.prop);

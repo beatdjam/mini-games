@@ -313,7 +313,14 @@ test(
       return { x: ally.x, z: ally.z };
     });
 
+    // the gate's area alone does not send them through the shut gate: they wait on their C posts (SB-2300)
     sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
+    for (const id of COVERS) {
+      const ally = allyById(game.allies, id);
+      expect(ally.next).toBe(ally.way.length);
+    }
+    // the wall's nest falls and the gate opens: they take the way through it
+    sendToScript(game, { kind: 'destroyed', target: 'fortress-gun' });
     COVERS.forEach((id, i) => {
       const ally = allyById(game.allies, id);
       expect(ally.way[0]).toEqual(cPosts[i]);
@@ -330,6 +337,8 @@ test(
     breakPillboxes(game);
     runQuiet(game, 60 * 40);
     sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
+    // the shut gate waits for the wall's nest (SB-2300)
+    sendToScript(game, { kind: 'destroyed', target: 'fortress-gun' });
 
     const ally = allyById(game.allies, 'cover-b1');
     for (let i = 0; i < 60 * 25 && ally.z > -90; i++) runQuiet(game, 1);
