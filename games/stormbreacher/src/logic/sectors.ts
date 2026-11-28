@@ -27,6 +27,7 @@ export interface SectorsState {
 interface SectorFoe {
   id: string;
   z: number;
+  y?: number; // above 0 while it stands on a wall's top or falls from it (SB-2304)
   hp: number;
 }
 
@@ -60,7 +61,7 @@ export type SectorEvent =
   | { kind: 'sectorCleared'; sector: SectorId }
   | { kind: 'sectorSecured'; sector: SectorId }
   | { kind: 'sectorCounter'; sector: SectorId }
-  | { kind: 'sectorSpawn'; sector: SectorId; x: number; z: number }
+  | { kind: 'sectorSpawn'; sector: SectorId; x: number; z: number; y?: number }
   | { kind: 'sectorStable'; sector: SectorId; weak: boolean };
 
 export interface SectorHold {
@@ -225,6 +226,13 @@ export function goalsStanding(sector: Sector, view: SectorGoalView): boolean {
   return false;
 }
 
+// Whether an enemy still above the ground stands over one of the sector's own wall-top spawn rectangles (SB-2304), or
+// has dropped from it and is seaward of it. Its wall lies past the sector's landZ, so the z band alone would not count it.
+function onOwnWall(sector: Sector, enemy: SectorFoe): boolean {
+  if (enemy.y === undefined || enemy.y <= 0) return false;
+  return (sector.spawn ?? []).some(zone => zone.y !== undefined && enemy.z >= zone.minZ);
+}
+
 // Whether a sector has no living enemy left in it. Its enemies count from its landZ to seaMargin past its seaZ, so the
 // margin overlaps the sector seaward of it (an enemy there counts for both; the sectors are looked at front to back, so
 // the front one decides); the sector's goals have to be down too.
@@ -232,7 +240,8 @@ function sectorClear(sector: Sector, world: SectorWorld): boolean {
   if (world.mech.z > sector.seaZ - SECTOR_TUNE.enterDepth) return false;
   for (const enemy of world.enemies) {
     if (enemy.hp <= 0) continue;
-    if (enemy.z < sector.landZ || enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
+    if (enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
+    if (enemy.z < sector.landZ && !onOwnWall(sector, enemy)) continue;
     return false;
   }
   if (goalsStanding(sector, world)) return false;
@@ -258,8 +267,13 @@ function sectorSecured(crowd: Crowd, holdZ: number): boolean {
 // z is counterBack inland of the sector's land-side edge, and x runs evenly from -counterSpread to +counterSpread. A point
 // that a ground rect covers is moved 2m at a time along x, inside the rect's width for a zone; if it is still covered
 // after ten moves, a zone tries other depths inside the rect, and the last point tried is used if every one is covered,
-// so the counterattack always comes out.
-export function counterPoint(sector: Sector, index: number, rects: readonly GroundRect[]): { x: number; z: number } {
+// so the counterattack always comes out. A rectangle on a wall's top (SB-2304) is not held to the ground rects: the
+// point stands over that wall on purpose, and its y comes back with it.
+export function counterPoint(
+  sector: Sector,
+  index: number,
+  rects: readonly GroundRect[],
+): { x: number; z: number; y?: number } {
   const radius = ENEMIES[SECTOR_TUNE.counterKind].radius;
   const clear = (x: number, z: number): boolean => rects.every(rect => rectDistance(rect, x, z) > radius);
   const zones = sector.spawn;
@@ -269,14 +283,18 @@ export function counterPoint(sector: Sector, index: number, rects: readonly Grou
     const count = Math.floor((sector.counter - 1 - (index % zones.length)) / zones.length) + 1;
     const slot = Math.floor(index / zones.length);
     const base = zone.minX + ((zone.maxX - zone.minX) * (slot + 0.5)) / count;
-    let last = { x: base, z: (zone.minZ + zone.maxZ) / 2 };
+    // a rectangle with a height stands on its wall, so no ground rect can cover it
+    const raised = zone.y !== undefined;
+    const at = (x: number, z: number): { x: number; z: number; y?: number } =>
+      raised ? { x, z, y: zone.y } : { x, z };
+    let last = at(base, (zone.minZ + zone.maxZ) / 2);
     // the middle of the rect first; if that is covered even after sliding, other depths inside it
     for (const depth of ZONE_DEPTHS) {
       const z = zone.minZ + (zone.maxZ - zone.minZ) * depth;
       for (let move = 0; move <= COUNTER_SLIDES; move++) {
         const x = Math.min(base + move * 2, zone.maxX);
-        last = { x, z };
-        if (clear(x, z)) return last;
+        last = at(x, z);
+        if (raised || clear(x, z)) return last;
       }
     }
     return last;

@@ -7,7 +7,6 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { PROP_SIZE } from '../../src/data/props.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { FX_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import type { Prop } from '../../src/data/types.ts';
@@ -53,7 +52,7 @@ function soldierAt(z: number, alive = true): Soldier {
 
 function world(options: {
   mechZ?: number;
-  enemies?: readonly { id?: string; z: number; hp: number }[];
+  enemies?: readonly { id?: string; z: number; hp: number; y?: number }[];
   targets?: readonly { kind: string; hp: number }[];
   soldiers?: readonly Soldier[];
   rects?: SectorWorld['rects'];
@@ -64,7 +63,12 @@ function world(options: {
   crowd.soldiers = [...(options.soldiers ?? [])];
   return {
     mech: { z: options.mechZ ?? 0 },
-    enemies: (options.enemies ?? []).map((enemy, i) => ({ id: enemy.id ?? `enemy-${i}`, z: enemy.z, hp: enemy.hp })),
+    enemies: (options.enemies ?? []).map((enemy, i) => ({
+      id: enemy.id ?? `enemy-${i}`,
+      z: enemy.z,
+      hp: enemy.hp,
+      ...(enemy.y !== undefined ? { y: enemy.y } : {}),
+    })),
     targets: options.targets ?? [],
     rects: options.rects ?? [],
     battle: { crowd },
@@ -129,21 +133,6 @@ function runBeachCounter(state: SectorsState, dt = SECTOR_TUNE.counterEvery): Re
   return seen;
 }
 
-// The fortress walls that stand before the blast: the sea wall and the two side walls, but not the land wall the charge
-// takes down (SB-2285).
-function fortWallRects(): GroundRect[] {
-  const size = PROP_SIZE.fortWall;
-  return M1B_HAND.props
-    .filter(prop => prop.kind === 'fortWall' && prop.z !== FORTRESS_TUNE.landWallZ)
-    .map(prop => ({
-      x: prop.x,
-      z: prop.z,
-      halfW: (size.w * prop.scale) / 2,
-      halfD: (size.d * prop.scale) / 2,
-      yaw: prop.yaw,
-    }));
-}
-
 test('the mech has to go in before a sector is cleared', () => {
   const state = newSectors();
   const seaward = world({ mechZ: BEACH.seaZ - SECTOR_TUNE.enterDepth + 1 });
@@ -180,6 +169,26 @@ test('an enemy inland of the sector is not counted', () => {
   expect(stepSectors(state, world({ mechZ, enemies: [{ z: BEACH.landZ - 1, hp: 1 }] }), 1 / 60)).toEqual([
     { kind: 'sectorCleared', sector: 'beach' },
   ]);
+});
+
+// SB-2304: the wall's top lies landward of the gate's band, but an enemy standing on it (or dropping from it) still
+// counts for the sector that put it there.
+test('an enemy on the wall’s top or dropping from it holds the gate and cband from being cleared', () => {
+  for (const id of ['cband', 'gate']) {
+    const index = M1_SECTORS.findIndex(sector => sector.id === id);
+    const sector = M1_SECTORS[index];
+    const mechZ = sector.seaZ - SECTOR_TUNE.enterDepth - 1;
+    const wallZ = FORTRESS_TUNE.seaWallZ - 1.5;
+    const before = (): SectorsState =>
+      stateWith(M1_SECTORS.map((_, i): SectorPhase => (i < index ? 'stable' : 'idle')));
+    const perched = [{ z: wallZ, y: FORTRESS_TUNE.wallH, hp: 1 }];
+    expect(stepSectors(before(), world({ mechZ, enemies: perched }), 1 / 60), `${id} perched`).toEqual([]);
+    // on the ground inland of the sector, the same z does not count
+    const grounded = [{ z: wallZ, hp: 1 }];
+    expect(stepSectors(before(), world({ mechZ, enemies: grounded }), 1 / 60), `${id} grounded`).toEqual([
+      { kind: 'sectorCleared', sector: id },
+    ]);
+  }
 });
 
 test('the pillbox line counts the pillboxes that still stand', () => {
@@ -385,26 +394,27 @@ test('a sector without spawn rectangles keeps its counterattack on the old band'
   }
 });
 
-test('a sector with spawn rectangles puts its counterattack inside them, clear of the fortress walls', () => {
-  const walls = fortWallRects();
-  expect(walls.length).toBeGreaterThan(0);
+// SB-2304: the cband and gate's counterattack comes out on the sea wall's top, over the wall, so the ground rects do
+// not hold it back.
+test('a sector with spawn rectangles puts its counterattack inside them, on the sea wall’s top', () => {
   for (const id of ['cband', 'gate'] as const) {
     const sector = M1_SECTORS.find(entry => entry.id === id)!;
     expect(sector.spawn, id).toBeDefined();
     for (let index = 0; index < sector.counter; index++) {
-      const point = counterPoint(sector, index, walls);
+      const point = counterPoint(sector, index, []);
       const inZone = sector.spawn!.some(
         zone => point.x >= zone.minX && point.x <= zone.maxX && point.z >= zone.minZ && point.z <= zone.maxZ,
       );
       expect(inZone, `${id} ${index} at ${point.x},${point.z}`).toBe(true);
-      for (const wall of walls) {
-        expect(rectDistance(wall, point.x, point.z), `${id} ${index} inside a wall`).toBeGreaterThan(0);
-      }
+      expect(point.y, `${id} ${index} height`).toBe(FORTRESS_TUNE.wallH);
+      // the gate is x -6..6 and the nest's box x 12..28: no point stands in either
+      expect(Math.abs(point.x), `${id} ${index} over the gate`).toBeGreaterThan(6);
+      expect(point.x < 12 || point.x > 28, `${id} ${index} in the nest`).toBe(true);
     }
   }
   // the gate's six come out at six different x, so they do not stand on one another
   const gate = M1_SECTORS.find(entry => entry.id === 'gate')!;
-  const xs = Array.from({ length: gate.counter }, (_, index) => counterPoint(gate, index, walls).x);
+  const xs = Array.from({ length: gate.counter }, (_, index) => counterPoint(gate, index, []).x);
   expect(new Set(xs).size).toBe(gate.counter);
   // the yard has a spawn rectangle but no counterattack of its own
   const yard = M1_SECTORS.find(entry => entry.id === 'yard')!;
@@ -414,14 +424,16 @@ test('a sector with spawn rectangles puts its counterattack inside them, clear o
 
 test('a covered middle of a spawn rectangle moves to another depth inside it, and still comes out', () => {
   const cband = M1_SECTORS.find(entry => entry.id === 'cband')!;
-  const zone = cband.spawn![0];
+  // a rectangle at ground level: a wall-top one is let over the ground rects on purpose (SB-2304)
+  const zone = { minX: -96, maxX: -40, minZ: -64, maxZ: -45 };
   // a rect over the middle of the rectangle, wide enough to cover every slide at that depth
   const cover = { x: (zone.minX + zone.maxX) / 2, z: (zone.minZ + zone.maxZ) / 2, halfW: 500, halfD: 0.5, yaw: 0 };
-  const point = counterPoint(cband, 0, [cover]);
+  const point = counterPoint({ ...cband, spawn: [zone] }, 0, [cover]);
   expect(point.x).toBeGreaterThanOrEqual(zone.minX);
   expect(point.x).toBeLessThanOrEqual(zone.maxX);
   expect(point.z).toBeGreaterThanOrEqual(zone.minZ);
   expect(point.z).toBeLessThanOrEqual(zone.maxZ);
+  expect(point.y).toBeUndefined();
   // it tried another depth inside the rectangle (the old band lies outside it) and is clear of the cover
   expect(rectDistance(cover, point.x, point.z)).toBeGreaterThan(ENEMIES[SECTOR_TUNE.counterKind].radius);
 });
