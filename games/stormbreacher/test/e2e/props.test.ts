@@ -220,11 +220,13 @@ test('a sortie draws every target of the map, the battery’s parts among them',
   if (!game) throw new Error('the sortie has not started');
   const map = game.map;
   const group = find('targets');
-  // the targets, and a plate for each shutter; the warning lights and the two smokes (over a suppressed muzzle and over a
-  // nest) hang in the same group but are not targets
+  // the targets, and a plate for each shutter and the sea gate's (SB-2300); the warning lights and the two smokes (over a
+  // suppressed muzzle and over a nest) hang in the same group but are not targets
   const effects = ['sb-pillbox-warn', 'sb-pillbox-smoke', 'sb-nest-smoke'];
   const children = group?.children.filter(child => !effects.includes(child.name));
-  expect(children).toHaveLength(map.targets.length + game.shutters.length);
+  const gates = group?.children.filter(child => child.name === 'sb-gate-shutter').length ?? 0;
+  expect(gates).toBe(1);
+  expect(children).toHaveLength(map.targets.length + game.shutters.length + gates);
   for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
     expect(
       group?.children.some(child => child.name === id),
