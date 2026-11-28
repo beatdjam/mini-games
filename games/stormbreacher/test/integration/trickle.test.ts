@@ -6,7 +6,7 @@ import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
+import { M1_SECTORS, SECTOR_TUNE, WALL_SPAWN_TUNE } from '../../src/data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../../src/data/trickle.ts';
 import { QUARTER_TUNE } from '../../src/data/tune.ts';
 import { rectDistance, type GroundRect } from '../../src/logic/collide.ts';
@@ -74,7 +74,12 @@ function takeCp1(game: GameModel): void {
 
 // Puts one sector in front with the mech in it, runs, and gives the places of the trickle's enemies as they come out.
 // Each is taken down as soon as it is read, so the living cap never stands in the budget's way.
-function trickleSpawns(game: GameModel, index: number, mechZ: number, frames: number): { x: number; z: number }[] {
+function trickleSpawns(
+  game: GameModel,
+  index: number,
+  mechZ: number,
+  frames: number,
+): { x: number; z: number; y: number }[] {
   clearInfantry(game);
   sleepScripted(game);
   game.armor = Number.MAX_SAFE_INTEGER;
@@ -84,13 +89,13 @@ function trickleSpawns(game: GameModel, index: number, mechZ: number, frames: nu
   game.sectors!.phase.fill('stable');
   game.sectors!.phase[index] = 'advancing';
   const seen = new Set<string>();
-  const points: { x: number; z: number }[] = [];
+  const points: { x: number; z: number; y: number }[] = [];
   for (let frame = 0; frame < frames; frame++) {
     step(game, idle, DT);
     for (const enemy of game.enemies) {
       if (enemy.wave !== TRICKLE_WAVE || seen.has(enemy.id)) continue;
       seen.add(enemy.id);
-      points.push({ x: enemy.x, z: enemy.z });
+      points.push({ x: enemy.x, z: enemy.z, y: enemy.y });
       enemy.hp = 0;
     }
   }
@@ -298,8 +303,8 @@ describe('the trickle in the sortie', () => {
     expect(game.trickle!.spent.reduce((sum, count) => sum + count, 0)).toBe(spent);
   }, 30000);
 
-  // SB-2282: the cband and gate come out either side of the fortress, not from inside it or beyond its walls.
-  test('the cband and gate put their trickle out clear of the fortress and within reach', () => {
+  // SB-2304: the cband and gate come out on the sea wall's top, clear of the gate and the fortress nest.
+  test('the cband and gate put their trickle out on the sea wall’s top', () => {
     for (const id of ['cband', 'gate']) {
       seed(7);
       const game = newPlayGame(M1B_HAND);
@@ -307,8 +312,68 @@ describe('the trickle in the sortie', () => {
       const sector = M1_SECTORS[index];
       const points = trickleSpawns(game, index, sector.holdZ, 60 * 90);
       expect(points.length, id).toBe(sector.budget);
-      checkSpawnPoints(game, points, id);
+      const zones = sector.spawn!;
+      for (const point of points) {
+        expect(point.y, id).toBe(FORTRESS_TUNE.wallH);
+        expect(
+          zones.some(
+            zone => point.x >= zone.minX && point.x <= zone.maxX && point.z >= zone.minZ && point.z <= zone.maxZ,
+          ),
+          `${id} at ${point.x},${point.z}`,
+        ).toBe(true);
+        expect(Math.abs(point.x), `${id} at ${point.x} over the gate`).toBeGreaterThan(6);
+        expect(point.x < 12 || point.x > 28, `${id} at ${point.x} in the nest`).toBe(true);
+      }
     }
+  }, 30000);
+
+  // SB-2304: the enemy is seen on the wall first, then drops to the wall's seaward side, and never shows beyond the
+  // fortress's sides (the old rectangles out at |x| 40..96 are gone).
+  test('a cband trickle enemy perches on the wall’s top and drops to its seaward ground', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const index = M1_SECTORS.findIndex(entry => entry.id === 'cband');
+    const cband = M1_SECTORS[index];
+    clearInfantry(game);
+    holdAlliesFire(game);
+    sleepScripted(game);
+    game.armor = Number.MAX_SAFE_INTEGER;
+    game.mech.x = 0;
+    game.mech.y = 0;
+    game.mech.z = cband.holdZ;
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[index] = 'advancing';
+
+    let watched: string | null = null;
+    let start: { x: number; z: number } | null = null;
+    let topFrames = 0;
+    let landed: { x: number; z: number } | null = null;
+    for (let frame = 0; frame < 60 * 10 && landed === null; frame++) {
+      step(game, idle, DT);
+      for (const enemy of game.enemies) {
+        if (enemy.wave !== TRICKLE_WAVE || enemy.hp <= 0 || Math.abs(enemy.x) > 36) continue;
+        if (watched === null) {
+          watched = enemy.id;
+          start = { x: enemy.x, z: enemy.z };
+          expect(enemy.y, enemy.id).toBe(FORTRESS_TUNE.wallH);
+        }
+        if (enemy.id !== watched) continue;
+        if (enemy.y === FORTRESS_TUNE.wallH) {
+          topFrames++;
+          // it stands still on the wall, not walking out over the edge while it waits
+          expect(enemy.x).toBeCloseTo(start!.x, 6);
+          expect(enemy.z).toBeCloseTo(start!.z, 6);
+        } else if (enemy.y === 0) {
+          landed = { x: enemy.x, z: enemy.z };
+        }
+      }
+    }
+    expect(watched).not.toBeNull();
+    expect(topFrames / 60).toBeGreaterThanOrEqual(WALL_SPAWN_TUNE.perchSec - 0.05);
+    expect(landed).not.toBeNull();
+    // +z is the sea: the wall's seaward face is -68, and it lands past it
+    expect(landed!.z).toBeGreaterThan(FORTRESS_TUNE.seaWallZ + FORTRESS_TUNE.wallT / 2);
+    expect(Math.abs(landed!.x)).toBeLessThanOrEqual(36);
   }, 30000);
 
   // The yard is shut in by the walls: the zone lies inside them, and only points out of the view from the mech come out.

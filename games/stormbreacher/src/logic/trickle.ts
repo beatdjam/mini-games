@@ -3,7 +3,7 @@
 // functions, so a node test runs them without a page (game.ts is not imported).
 import type { Rng } from '@engine/core/index.ts';
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
-import { M1_SECTORS, SECTOR_TUNE, type SpawnZone } from '../data/sectors.ts';
+import { M1_SECTORS, SECTOR_TUNE, WALL_SPAWN_TUNE, type SpawnZone } from '../data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../data/trickle.ts';
 import { QUARTER_TUNE } from '../data/tune.ts';
 import type { MapBounds } from '../data/types.ts';
@@ -43,6 +43,7 @@ export interface TrickleFoe {
 export interface TricklePoint {
   x: number;
   z: number;
+  y?: number; // the height it comes out at (m); left out for the ground
   sector: number; // the place in M1_SECTORS whose budget was spent
 }
 
@@ -80,8 +81,8 @@ function scriptedFoeIn(sectorIndex: number, world: TrickleWorld): boolean {
 }
 
 // A point from the sector's own rectangles: one draw picks the rectangle by its share of the area, then x and z are
-// drawn inside it (SB-2282).
-function spawnInZones(zones: readonly SpawnZone[], rng: Rng): { x: number; z: number } {
+// drawn inside it (SB-2282). A rectangle with a height (the wall's top, SB-2304) gives its own y back.
+function spawnInZones(zones: readonly SpawnZone[], rng: Rng): { x: number; z: number; y?: number } {
   let total = 0;
   for (const zone of zones) total += (zone.maxX - zone.minX) * (zone.maxZ - zone.minZ);
   const pick = rng.rand(0, total);
@@ -94,7 +95,11 @@ function spawnInZones(zones: readonly SpawnZone[], rng: Rng): { x: number; z: nu
       break;
     }
   }
-  return { x: rng.rand(chosen.minX, chosen.maxX), z: rng.rand(chosen.minZ, chosen.maxZ) };
+  return {
+    x: rng.rand(chosen.minX, chosen.maxX),
+    z: rng.rand(chosen.minZ, chosen.maxZ),
+    ...(chosen.y !== undefined ? { y: chosen.y } : {}),
+  };
 }
 
 // Moves the trickle on by one frame. When an enemy may come, a point for it is drawn from `rng` and given back; making
@@ -121,15 +126,20 @@ export function stepTrickle(state: TrickleState, world: TrickleWorld, rng: Rng, 
   for (let try_ = 0; try_ < TRICKLE_TUNE.tries; try_++) {
     let x: number;
     let z: number;
+    let y: number | undefined;
     if (sector.spawn !== undefined && sector.spawn.length > 0) {
-      ({ x, z } = spawnInZones(sector.spawn, rng));
+      ({ x, z, y } = spawnInZones(sector.spawn, rng));
     } else {
       z = sector.landZ - TRICKLE_TUNE.spawnBack - rng.rand(0, TRICKLE_TUNE.spawnDepth);
       x = rng.rand(-TRICKLE_TUNE.spawnSpread, TRICKLE_TUNE.spawnSpread);
     }
-    if (insideQuad(sight, x, z)) continue;
-    if (Math.hypot(x - world.mech.x, z - world.mech.z) < TRICKLE_TUNE.minDist) continue;
-    if (world.rects.some(rect => rectDistance(rect, x, z) <= radius)) continue;
+    // A point on a wall's top (SB-2304) is meant to be seen: it may lie in the view and over its own wall, and is held
+    // only to the shorter `minMechDist` from the mech. The map's edges still hold.
+    const raised = y !== undefined;
+    const minDist = raised ? WALL_SPAWN_TUNE.minMechDist : TRICKLE_TUNE.minDist;
+    if (!raised && insideQuad(sight, x, z)) continue;
+    if (Math.hypot(x - world.mech.x, z - world.mech.z) < minDist) continue;
+    if (!raised && world.rects.some(rect => rectDistance(rect, x, z) <= radius)) continue;
     if (
       x < world.bounds.minX + radius ||
       x > world.bounds.maxX - radius ||
@@ -140,7 +150,7 @@ export function stepTrickle(state: TrickleState, world: TrickleWorld, rng: Rng, 
     }
     state.spent[index] = (state.spent[index] ?? 0) + 1;
     state.t = rng.rand(TRICKLE_TUNE.intervalMin, TRICKLE_TUNE.intervalMax);
-    return { x, z, sector: index };
+    return { x, z, ...(y !== undefined ? { y } : {}), sector: index };
   }
   state.t = TRICKLE_TUNE.retryT;
   return null;

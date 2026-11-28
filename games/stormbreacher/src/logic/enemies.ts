@@ -29,6 +29,7 @@ export interface EnemyState {
   z: number;
   y: number; // the height of its feet (m); above 0 only while it falls in from a wave that comes in high
   vy: number; // how fast it falls (m/s, up is +)
+  perchT: number; // the seconds it stands on a wall's top before it falls (s); 0 for anything else (SB-2304)
   yaw: number; // the way it faces, in the mech's sense (the front is (-sin yaw, -cos yaw))
   hp: number; // the health left; 0 stays after it falls
   fallenT: number; // the seconds since it fell; 0 while it lives (the trickle's fallen are taken out after a while, SB-2230)
@@ -85,6 +86,7 @@ export function newEnemy(
     z,
     y,
     vy: 0,
+    perchT: 0,
     yaw: 0,
     hp: def.hp,
     fallenT: 0,
@@ -245,6 +247,11 @@ export function stepEnemy(
   if (enemy.y > 0) {
     // only a wave that comes in high falls; a nest is put on the ground
     if (def.static === true) return null;
+    // one put on a wall's top stands there a moment first, so it is seen before it leaps (SB-2304)
+    if (enemy.perchT > 1e-9) {
+      enemy.perchT = Math.max(0, enemy.perchT - dt);
+      return null;
+    }
     fall(enemy, world, dt);
     return null;
   }

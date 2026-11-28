@@ -42,7 +42,7 @@ import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { FORTRESS_GUN_FLAG, M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
-import { M1_SECTORS, SECTOR_TUNE, SUPPORT_TUNE, type SectorId } from '../data/sectors.ts';
+import { M1_SECTORS, SECTOR_TUNE, SUPPORT_TUNE, WALL_SPAWN_TUNE, type SectorId } from '../data/sectors.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
@@ -208,7 +208,7 @@ export type GameEvent =
   | { kind: 'sectorCleared'; sector: SectorId } // a sector's enemies are all down; the infantry moves up to it (SB-2210)
   | { kind: 'sectorSecured'; sector: SectorId } // enough infantry has reached the sector's hold line; it is secured (SB-2210)
   | { kind: 'sectorCounter'; sector: SectorId } // the sector's securing brought a counterattack (SB-2220)
-  | { kind: 'sectorSpawn'; sector: SectorId; x: number; z: number } // one counterattack enemy comes out here (SB-2220)
+  | { kind: 'sectorSpawn'; sector: SectorId; x: number; z: number; y?: number } // one counterattack enemy comes out here (SB-2220); y for the wall's top (SB-2304)
   | { kind: 'sectorStable'; sector: SectorId; weak: boolean } // the counterattack is beaten off; the sector is stable (SB-2220)
   | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
   | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
@@ -1988,7 +1988,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
           stream('trickle'),
           dt,
         );
-        if (spawn !== null) spawnTrickle(game, spawn.x, spawn.z);
+        if (spawn !== null) spawnTrickle(game, spawn.x, spawn.z, spawn.y);
         clearFallenTrickle(game);
       }
     }
@@ -2033,19 +2033,21 @@ function spawnSectorCounter(game: GameModel, event: Extract<GameEvent, { kind: '
   if (index < 0) return;
   const wave = `counter-${event.sector}`;
   const id = `${wave}-${game.sectors.counterIds[index].length + 1}`;
-  const enemy = newEnemy(id, wave, SECTOR_TUNE.counterKind, event.x, event.z);
+  const enemy = newEnemy(id, wave, SECTOR_TUNE.counterKind, event.x, event.z, event.y);
   enemy.awake = true;
+  if (event.y !== undefined && event.y > 0) enemy.perchT = WALL_SPAWN_TUNE.perchSec;
   game.enemies.push(enemy);
   game.sectors.counterIds[index].push(id);
 }
 
 // Puts out one enemy of the trickle (SB-2230): the trickle chose the point and spent its sector's budget, the game makes
 // the enemy awake and names it by how many the trickle has put out so far, so the names do not collide.
-function spawnTrickle(game: GameModel, x: number, z: number): void {
+function spawnTrickle(game: GameModel, x: number, z: number, y?: number): void {
   if (game.trickle === null) return;
   const count = game.trickle.spent.reduce((sum, spent) => sum + spent, 0);
-  const enemy = newEnemy(`${TRICKLE_WAVE}-${count}`, TRICKLE_WAVE, TRICKLE_TUNE.kind, x, z);
+  const enemy = newEnemy(`${TRICKLE_WAVE}-${count}`, TRICKLE_WAVE, TRICKLE_TUNE.kind, x, z, y);
   enemy.awake = true;
+  if (y !== undefined && y > 0) enemy.perchT = WALL_SPAWN_TUNE.perchSec;
   game.enemies.push(enemy);
 }
 

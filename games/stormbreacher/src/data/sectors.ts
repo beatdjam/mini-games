@@ -3,6 +3,7 @@
 // is down, and digs in at the sector's hold line once enough of them have arrived. +z is the sea, so a sector runs from
 // its seaZ (the larger z) to its landZ.
 import type { EnemyKind } from './enemies.ts';
+import { FORTRESS_TUNE } from './fortress.ts';
 import { PAYOFF_TUNE } from './payoff.ts';
 import { BATTLE_TUNE } from './tune.ts';
 import type { TargetKind } from './types.ts';
@@ -16,7 +17,43 @@ export interface SpawnZone {
   maxX: number;
   minZ: number;
   maxZ: number;
+  y?: number; // the height its enemies are put at (m), for a rectangle on a wall's top; left out for the ground
 }
+
+// The sea wall's top the cband and gate come out on (SB-2304): landward of the wall's middle by `wallZInset`, clear of
+// the gate (x -6..6) and of the fortress nest (x 12..28). They stand on the wall for `perchSec` before they drop, so the
+// leap is seen. 仮。遊んで直す.
+export const WALL_SPAWN_TUNE = {
+  wallZInset: 1.5, // how far landward of the wall's middle their rectangles stand (m)
+  depth: 1, // the rectangles' depth along z (m)
+  perchSec: 0.6, // how long an enemy stands on the wall's top before it falls (s)
+  minMechDist: 12, // how close to the mech a trickle point on the wall's top may be, at least (m); keeps it off the mech's head
+} as const;
+
+const WALL_TOP_Z = FORTRESS_TUNE.seaWallZ - WALL_SPAWN_TUNE.wallZInset;
+const WALL_TOP_SPAWN: readonly SpawnZone[] = [
+  {
+    minX: -33,
+    maxX: -9,
+    minZ: WALL_TOP_Z - WALL_SPAWN_TUNE.depth / 2,
+    maxZ: WALL_TOP_Z + WALL_SPAWN_TUNE.depth / 2,
+    y: FORTRESS_TUNE.wallH,
+  },
+  {
+    minX: 29,
+    maxX: 33,
+    minZ: WALL_TOP_Z - WALL_SPAWN_TUNE.depth / 2,
+    maxZ: WALL_TOP_Z + WALL_SPAWN_TUNE.depth / 2,
+    y: FORTRESS_TUNE.wallH,
+  },
+  {
+    minX: 8,
+    maxX: 10,
+    minZ: WALL_TOP_Z - WALL_SPAWN_TUNE.depth / 2,
+    maxZ: WALL_TOP_Z + WALL_SPAWN_TUNE.depth / 2,
+    y: FORTRESS_TUNE.wallH,
+  },
+];
 
 // A goal of a sector (SB-2283): the sector is not cleared while it stands. A target still has health, a flag is not
 // raised yet, or the mid boss is not down.
@@ -90,7 +127,7 @@ export const M1_SECTORS: readonly Sector[] = [
   },
   // The latter half, past the pillbox line (SB-2280). The yard, the plug and the magazine have no counterattack of their
   // own: the script's waves stand in for it. 仮。遊んで直す.
-  // The open ground seaward of the seawall's ends, either side of the fortress. 仮。遊んで直す.
+  // The sea wall's top above the fortress, so they are seen coming out of the fortress and dropping to the sea. 仮。遊んで直す.
   {
     id: 'cband',
     seaZ: -40,
@@ -98,10 +135,7 @@ export const M1_SECTORS: readonly Sector[] = [
     holdZ: -47,
     counter: 4,
     budget: 14,
-    spawn: [
-      { minX: -96, maxX: -40, minZ: -64, maxZ: -45 },
-      { minX: 40, maxX: 96, minZ: -64, maxZ: -45 },
-    ],
+    spawn: WALL_TOP_SPAWN,
   },
   {
     id: 'gate',
@@ -110,10 +144,7 @@ export const M1_SECTORS: readonly Sector[] = [
     holdZ: -60,
     counter: 6,
     budget: 12,
-    spawn: [
-      { minX: -96, maxX: -40, minZ: -64, maxZ: -56 },
-      { minX: 40, maxX: 96, minZ: -64, maxZ: -56 },
-    ],
+    spawn: WALL_TOP_SPAWN,
     goals: [{ kind: 'target', target: 'fortressGun' }],
   },
   // The yard's inside, clear of its walls; the cover there is taken out by the rects' check. 仮。遊んで直す.
