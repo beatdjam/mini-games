@@ -1851,7 +1851,10 @@ function stepBattleLayer(game: GameModel, dt: number): void {
         } else if (event.kind === 'sectorSecured') {
           queueRadio(game, 'm1.sector-secured');
         } else if (event.kind === 'sectorCounter') {
-          queueRadio(game, 'm1.sector-counter');
+          // A sector whose counter is 0 has the script's waves in place of a counterattack, so it says nothing (SB-2280)
+          if (M1_SECTORS.some(entry => entry.id === event.sector && entry.counter > 0)) {
+            queueRadio(game, 'm1.sector-counter');
+          }
         } else if (event.kind === 'sectorSpawn') {
           spawnSectorCounter(game, event);
         } else {

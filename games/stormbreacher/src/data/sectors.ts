@@ -1,11 +1,13 @@
-// The sectors of M1's front (SB-2210): the beach, the two hedgehog lines and the pillbox line. The infantry moves up a
-// sector when the mech has gone in and every enemy of it is down, and digs in at the sector's hold line once enough of
-// them have arrived. +z is the sea, so a sector runs from its seaZ (the larger z) to its landZ.
+// The sectors of M1's front (SB-2210, SB-2280): the beach, the two hedgehog lines and the pillbox line, and on past it
+// through the fortress to the magazine. The infantry moves up a sector when the mech has gone in and every enemy of it
+// is down, and digs in at the sector's hold line once enough of them have arrived. +z is the sea, so a sector runs from
+// its seaZ (the larger z) to its landZ.
 import type { EnemyKind } from './enemies.ts';
 import { PAYOFF_TUNE } from './payoff.ts';
 import { BATTLE_TUNE } from './tune.ts';
 
-export type SectorId = 'beach' | 'line1' | 'line2' | 'pillboxes';
+export type SectorId =
+  'beach' | 'line1' | 'line2' | 'pillboxes' | 'cband' | 'gate' | 'yard' | 'plug' | 'field1' | 'field2' | 'magazine';
 
 export interface Sector {
   id: SectorId;
@@ -53,11 +55,20 @@ export const SUPPORT_TUNE = {
   suppressMove: 0.55, // how much of its walk speed the enemy keeps while suppressed
 };
 
-// The four sectors, front to back. The beach's hold sits just seaward of line 1's hedgehogs (z 129..145); the pillbox
+// The eleven sectors, front to back. The beach's hold sits just seaward of line 1's hedgehogs (z 129..145); the pillbox
 // line's is the hold the battle layer waited at before the sectors came (BATTLE_TUNE.holdZ).
 export const M1_SECTORS: readonly Sector[] = [
   { id: 'beach', seaZ: 170, landZ: 129, holdZ: 132, counter: 3, budget: 8 },
   { id: 'line1', seaZ: 129, landZ: 62, holdZ: 80, counter: 4, budget: 12 },
   { id: 'line2', seaZ: 62, landZ: -11, holdZ: BATTLE_TUNE.holdLine2Z, counter: 6, budget: 16 },
   { id: 'pillboxes', seaZ: -11, landZ: -40, holdZ: BATTLE_TUNE.holdZ, counter: 8, budget: 20 },
+  // The latter half, past the pillbox line (SB-2280). The yard, the plug and the magazine have no counterattack of their
+  // own: the script's waves stand in for it. 仮。遊んで直す.
+  { id: 'cband', seaZ: -40, landZ: -55, holdZ: -47, counter: 4, budget: 14 },
+  { id: 'gate', seaZ: -55, landZ: -70, holdZ: -60, counter: 6, budget: 12 },
+  { id: 'yard', seaZ: -70, landZ: -100, holdZ: -85, counter: 0, budget: 6 },
+  { id: 'plug', seaZ: -100, landZ: -125, holdZ: -96, counter: 0, budget: 0 },
+  { id: 'field1', seaZ: -125, landZ: -175, holdZ: -150, counter: 6, budget: 18 },
+  { id: 'field2', seaZ: -175, landZ: -225, holdZ: -200, counter: 8, budget: 20 },
+  { id: 'magazine', seaZ: -225, landZ: -255, holdZ: -232, counter: 0, budget: 12 },
 ];

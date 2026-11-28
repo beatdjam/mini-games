@@ -134,7 +134,7 @@ test('securing a sector stops its trickle and hands the next sector the front', 
 });
 
 test('with every sector secured nothing comes out', () => {
-  const w = world({ sectors: stateWith(['stable', 'secured', 'counter', 'stable']) });
+  const w = world({ sectors: stateWith(M1_SECTORS.map((): SectorPhase => 'stable')) });
   expect(spawnNow(w)).toBeNull();
 });
 

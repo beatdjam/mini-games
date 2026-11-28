@@ -8,7 +8,7 @@ import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.t
 import { newGame, restartGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { seed } from '../../src/logic/rng.ts';
-import { arrivedSoldiers } from '../../src/logic/sectors.ts';
+import { arrivedSoldiers, sectorHold } from '../../src/logic/sectors.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { newPlayGame } from './playGame.ts';
 
@@ -239,5 +239,91 @@ describe('the sectors of M1', () => {
     expect(kinds.has('sectorSecured')).toBe(false);
     expect([...lines].some(line => line.startsWith('m1.sector'))).toBe(false);
     expect(game.battle.crowd.holdZ).toBe(SECTOR_TUNE.startHoldZ);
+  });
+});
+
+// SB-2280: the front runs on past the pillbox line to the magazine, and the securing, the counterattack and the
+// waiting line go on there too.
+describe('the sectors past the pillbox line', () => {
+  const CBAND = M1_SECTORS.find(entry => entry.id === 'cband')!;
+  const YARD = M1_SECTORS.find(entry => entry.id === 'yard')!;
+
+  // Puts every living soldier at a sector's hold line, walking (no post), so the sector is secured on the next frame.
+  function lineAtHold(game: GameModel, holdZ: number): void {
+    for (const soldier of game.battle.crowd.soldiers) {
+      soldier.alive = true;
+      soldier.post = null;
+      soldier.z = holdZ;
+    }
+  }
+
+  test('a new game has eleven sectors, all the enemy’s land', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    expect(game.sectors?.phase).toHaveLength(11);
+    expect(game.sectors?.phase.every(phase => phase === 'idle')).toBe(true);
+  });
+
+  test('the cband is cleared and secured in the sortie, and its counterattack is called', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    // the sectors before it are behind the line, so cband is the front
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[4] = 'idle';
+    enterSector(game, 'cband');
+    step(game, idle, DT);
+    expect(game.sectors?.phase[4]).toBe('advancing');
+    expect(said(game, 'm1.sector-cleared')).toBe(true);
+
+    lineAtHold(game, CBAND.holdZ);
+    game.radio = null;
+    game.radioQueue.length = 0;
+    step(game, idle, DT);
+    expect(game.sectors?.phase[4]).toBe('counter');
+    expect(said(game, 'm1.sector-secured')).toBe(true);
+    expect(said(game, 'm1.sector-counter')).toBe(true);
+  });
+
+  test('a later sector with no counterattack of its own says nothing about one', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[6] = 'advancing';
+    lineAtHold(game, YARD.holdZ);
+    game.radio = null;
+    game.radioQueue.length = 0;
+    step(game, idle, DT);
+    expect(game.sectors?.phase[6]).toBe('counter');
+    expect(said(game, 'm1.sector-secured')).toBe(true);
+    expect(said(game, 'm1.sector-counter')).toBe(false);
+    // the next frame it is stable, and the radio says so
+    game.radio = null;
+    game.radioQueue.length = 0;
+    step(game, idle, DT);
+    expect(game.sectors?.phase[6]).toBe('stable');
+    expect(said(game, 'm1.sector-stable')).toBe(true);
+  });
+
+  test('the infantry’s hold line is the cband’s once it is cleared', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    game.sectors!.phase.fill('idle');
+    for (let i = 0; i < 4; i++) game.sectors!.phase[i] = 'stable';
+    game.sectors!.phase[4] = 'secured';
+    const open = (M1B_HAND.blasts ?? []).filter(point => point.line !== null).map(point => point.id);
+    expect(sectorHold(game.sectors, open, M1B_HAND.blasts ?? [])).toEqual({ holdZ: CBAND.holdZ, held: true });
+  });
+
+  test('a suspend keeps all eleven sectors', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[4] = 'advancing';
+    game.sectors!.phase[10] = 'counter';
+    game.sectors!.counterLeft[10] = 3;
+    const back = restoreSuspend(JSON.parse(JSON.stringify(suspendOf(game))));
+    if (back === null) throw new Error('the suspend was not read');
+    expect(back.sectors).toEqual(game.sectors);
+    expect(back.sectors?.phase).toHaveLength(11);
   });
 });

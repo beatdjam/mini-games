@@ -72,6 +72,13 @@ const SECTOR_RANGES: Record<string, TuneRange> = {
   'sectors.1.holdZ': { min: 60, max: 150, step: 1 },
   'sectors.2.holdZ': { min: 0, max: 100, step: 1 },
   'sectors.3.holdZ': { min: -30, max: 10, step: 1 },
+  'sectors.4.holdZ': { min: -77, max: -17, step: 1 },
+  'sectors.5.holdZ': { min: -90, max: -30, step: 1 },
+  'sectors.6.holdZ': { min: -115, max: -55, step: 1 },
+  'sectors.7.holdZ': { min: -126, max: -66, step: 1 },
+  'sectors.8.holdZ': { min: -180, max: -120, step: 1 },
+  'sectors.9.holdZ': { min: -230, max: -170, step: 1 },
+  'sectors.10.holdZ': { min: -262, max: -202, step: 1 },
 };
 
 const SECTOR_LABELS: Record<string, string> = {
@@ -79,6 +86,13 @@ const SECTOR_LABELS: Record<string, string> = {
   'sectors.1.holdZ': '待ち線: 線1(z)',
   'sectors.2.holdZ': '待ち線: 線2(z)',
   'sectors.3.holdZ': '待ち線: トーチカ線(z)',
+  'sectors.4.holdZ': '待ち線: 遮蔽帯(z)',
+  'sectors.5.holdZ': '待ち線: 門(z)',
+  'sectors.6.holdZ': '待ち線: 中庭(z)',
+  'sectors.7.holdZ': '待ち線: 栓(z)',
+  'sectors.8.holdZ': '待ち線: 野外1(z)',
+  'sectors.9.holdZ': '待ち線: 野外2(z)',
+  'sectors.10.holdZ': '待ち線: 弾薬庫(z)',
 };
 
 const BUTTON_STYLE =

@@ -217,4 +217,27 @@ describe('the trickle in the sortie', () => {
     expect(game.trickle).toBeNull();
     expect(game.enemies.some(enemy => enemy.wave === TRICKLE_WAVE)).toBe(false);
   });
+
+  // SB-2280: the latter half of the front has its own budgets too.
+  test('the cband’s budget runs out, and then nothing more comes', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const cband = M1_SECTORS.find(entry => entry.id === 'cband')!;
+    const cbandIndex = M1_SECTORS.findIndex(entry => entry.id === 'cband');
+    clearInfantry(game);
+    game.armor = Number.MAX_SAFE_INTEGER;
+    sleepScripted(game);
+    // the sectors before the cband are behind the line, so it is the front and its budget is open
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[cbandIndex] = 'advancing';
+    for (let frame = 0; frame < 60 * 90; frame++) {
+      step(game, idle, DT);
+      // the spawned ones are taken down each frame, so the living cap does not stand in the budget's way
+      for (const enemy of game.enemies) if (enemy.wave === TRICKLE_WAVE && enemy.hp > 0) enemy.hp = 0;
+    }
+    expect(game.trickle?.spent[cbandIndex]).toBe(cband.budget);
+    const spent = game.trickle!.spent.reduce((sum, count) => sum + count, 0);
+    run(game, idle, 60 * 20);
+    expect(game.trickle!.spent.reduce((sum, count) => sum + count, 0)).toBe(spent);
+  }, 30000);
 });
