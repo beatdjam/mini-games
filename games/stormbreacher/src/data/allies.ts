@@ -49,6 +49,25 @@ export function allyKitOf(id: string): AllyKit {
   return ALLY_KITS[id] ?? 'sniper';
 }
 
+// The allies' fire that tells (SB-2301, 仮): each standing ally shoots the nearest enemy the infantry's support fire would
+// pick, within its kit's range, at its kit's pace, and a hit takes a share of the enemy's health and suppresses it the
+// way an infantry shot does. A sniper reaches far, fires slowly and hits hard; a scout is short-ranged and light. The
+// tracer's look follows the shot: the sniper's is faster and drawn as a thicker line (more parallel tracers), the scout's
+// is the one the allies showed before. The values are provisional.
+export interface AllyFireTune {
+  range: number; // how far the kit's shot reaches (m)
+  every: number; // seconds between two of its shots (s)
+  share: number; // the share of the target's full health one shot takes (0-1)
+  tracerSpeed: number; // how fast the tracer flies (m/s)
+  tracerLines: number; // how many parallel tracers a shot draws; 2 reads as thicker (lines)
+  tracerGap: number; // how far the parallel tracers stand apart (m)
+}
+
+export const ALLY_FIRE_TUNE: Record<AllyKit, AllyFireTune> = {
+  sniper: { range: 85, every: 2.4, share: 0.35, tracerSpeed: 150, tracerLines: 2, tracerGap: 0.14 },
+  scout: { range: 55, every: 0.8, share: 0.08, tracerSpeed: 80, tracerLines: 1, tracerGap: 0 },
+};
+
 export type AllyShape = 'run' | 'wreck';
 
 // The allies' support fire made visible (SB-2024). While a `suppress` window runs, tracers fly at the silenced nests

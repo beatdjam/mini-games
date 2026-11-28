@@ -106,8 +106,9 @@ export function planSounds(input: SoundInput): SoundCue[] {
         ask('enemyGun', { x: event.fromX, z: event.fromZ });
         break;
       case 'supportFire':
-        // the infantry's support rifle (SB-2262), from the soldier that fired; the frame's limit keeps a burst from
-        // piling up
+      case 'allyFire':
+        // the infantry's support rifle (SB-2262), from the soldier that fired; an ally's shot (SB-2301) reuses the note, from
+        // the mech. The frame's limit keeps a burst from piling up
         ask('supportFire', event.from);
         break;
       case 'wardenDown':

@@ -6,7 +6,7 @@ import { YARD_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { sendToScript, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
-import { newPlayGame } from './playGame.ts';
+import { holdAlliesFire, newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const IDLE: GameInput = {
@@ -116,6 +116,8 @@ test(
   () => {
     const killsAt = (depotDown: boolean, seconds: number): number => {
       const game = newPlayGame(M1B_HAND);
+      // the assist alone is counted: the allies' fire would bring yard enemies down too (SB-2301)
+      holdAlliesFire(game);
       if (depotDown) sendToScript(game, { kind: 'destroyed', target: 'depot' });
       enterYard(game);
       expect(game.assist?.left).toBe(depotDown ? YARD_TUNE.assistEveryDepot : YARD_TUNE.assistEvery);
@@ -148,6 +150,8 @@ test(
       afterCp1(game);
       walkTo(game, 'fortress-approach');
       enterYard(game);
+      // this test reads where the survivors stand: their new fire would clear the yard and send them on to its middle (SB-2301)
+      holdAlliesFire(game);
       run(game, Math.round(60 * 35));
       const survivors = game.allies.filter(ally => ally.id.startsWith('cover-') && !ally.down);
       expect(survivors.map(ally => ally.id).sort()).toEqual(['cover-b1', 'cover-b2', 'cover-b3']);

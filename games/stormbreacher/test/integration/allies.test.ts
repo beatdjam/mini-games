@@ -1,10 +1,13 @@
 import { expect, test } from 'vitest';
-import { ALLY_TUNE } from '../../src/data/allies.ts';
+import { ALLY_FIRE_TUNE, ALLY_TUNE } from '../../src/data/allies.ts';
 import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { CRAFT_TUNE } from '../../src/data/craft.ts';
+import { ENEMIES } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
+import { SUPPORT_TUNE } from '../../src/data/sectors.ts';
 import type { AllyState } from '../../src/logic/allies.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import {
   newGame,
   retryFromCheckpoint,
@@ -17,7 +20,7 @@ import {
 import { seed } from '../../src/logic/rng.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
-import { newPlayGame } from './playGame.ts';
+import { clearInfantry, newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const IDLE: GameInput = {
@@ -151,7 +154,7 @@ test(
 );
 
 test(
-  'the allies take no part in the mech, the shots or the shells: the game goes the same without them',
+  'the allies’ fire touches only the enemies: the mech, the shots and the targets go the same without them',
   () => {
     const play = (withAllies: boolean) => {
       seed(11);
@@ -171,7 +174,9 @@ test(
     expect(a.game.armor).toBe(b.game.armor);
     expect(a.game.bullets).toEqual(b.game.bullets);
     expect(a.game.targets).toEqual(b.game.targets);
-    expect(a.events).toEqual(b.events);
+    // the new part is the enemies: an ally's shot is reported, and the mech's own fight does not change because of it
+    expect(a.events.some(event => event.kind === 'allyFire')).toBe(true);
+    expect(b.events.some(event => event.kind === 'allyFire')).toBe(false);
   },
   LONG,
 );
@@ -453,3 +458,52 @@ test(
   },
   LONG,
 );
+
+// SB-2301: an ally's shot takes health now. A sniper 60 m from an enemy takes its kit's share, suppresses it, and reports
+// the tracer from its own chest to the enemy's.
+test('a standing sniper’s shot takes an enemy’s health, suppresses it and reports the tracer', () => {
+  seed(7);
+  const game = newPlayGame(M1B_HAND);
+  clearInfantry(game);
+  game.sectors = null;
+  game.trickle = null;
+  game.armor = Number.MAX_SAFE_INTEGER;
+  const sniper = allyById(game.allies, 'cover-b1');
+  game.allies = [sniper];
+  sniper.x = 0;
+  sniper.y = 0;
+  sniper.z = 100;
+  sniper.next = sniper.way.length;
+  sniper.down = false;
+  sniper.fireT = 0;
+  const target = newEnemy('ally-fire-target', 'ally-fire', 'grunt', 0, 40);
+  target.awake = true;
+  game.enemies = [target];
+  const full = ENEMIES.grunt.hp;
+
+  step(game, IDLE, DT);
+  expect(target.hp).toBeCloseTo(full - full * ALLY_FIRE_TUNE.sniper.share, 6);
+  expect(target.suppressT).toBeCloseTo(SUPPORT_TUNE.suppressSec, 6);
+  const shot = game.events.find(event => event.kind === 'allyFire');
+  expect(shot).toBeDefined();
+  if (shot !== undefined && shot.kind === 'allyFire') {
+    expect(shot.id).toBe('cover-b1');
+    expect(shot.kit).toBe('sniper');
+    expect(shot.from).toEqual({ x: 0, y: sniper.y + ALLY_TUNE.fireHeight, z: 100 });
+    expect(shot.to.z).toBeCloseTo(target.z, 6);
+  }
+});
+
+test('the allies hold their fire during the landing cutscene', () => {
+  const game = newGame(M1B_HAND);
+  step(game, IDLE, 0); // the intro puts them aboard
+  expect(game.script.cutscene).not.toBeNull();
+  const sniper = allyById(game.allies, 'cover-b1');
+  sniper.fireT = 0;
+  const target = newEnemy('ally-fire-target', 'ally-fire', 'grunt', sniper.x, sniper.z - 60);
+  target.awake = true;
+  game.enemies = [target];
+  for (let i = 0; i < 10; i++) step(game, IDLE, DT);
+  expect(game.events.some(event => event.kind === 'allyFire')).toBe(false);
+  expect(target.hp).toBe(ENEMIES.grunt.hp);
+});

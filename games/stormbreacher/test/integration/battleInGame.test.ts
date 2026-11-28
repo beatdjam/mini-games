@@ -20,7 +20,7 @@ import { type Soldier } from '../../src/logic/crowd.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { sectorHold } from '../../src/logic/sectors.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
-import { newPlayGame } from './playGame.ts';
+import { holdAlliesFire, newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const idle: GameInput = {
@@ -154,6 +154,8 @@ describe('the battle layer in the game', () => {
   function infantryField(posted: boolean): { game: GameModel; soldier: Soldier } {
     seed(7);
     const game = newPlayGame(M1B_HAND);
+    // these tests read the enemy's fire at the infantry: the allies' fire would put the enemy down first (SB-2301)
+    holdAlliesFire(game);
     game.trickle = null;
     if (game.sectors !== null) game.sectors.phase.fill('stable');
     game.battleTune = { ...game.battleTune, allyWaves: 0, allySpeed: 0.5, shellEvery: 0 };

@@ -18,7 +18,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { hudModel } from '../../src/logic/hud.ts';
-import { clearInfantry, newPlayGame } from './playGame.ts';
+import { clearInfantry, holdAlliesFire, newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 
@@ -56,8 +56,10 @@ function runBlow(game: GameModel): MeleeEvent | null {
 // The mech on the beach from playGame, facing the land, with `kind` at `dist` metres along `deg` from its front.
 function withEnemyAt(kind: 'grunt' | 'heavy' | 'emplacement', deg: number, dist: number): GameModel {
   const game = newPlayGame(M1B_HAND);
-  // these tests read the fist alone: the infantry's support fire would put the enemy down first (SB-2240)
+  // these tests read the fist alone: the infantry's support fire would put the enemy down first (SB-2240), and so would
+  // the allies' fire now that it tells (SB-2301)
   clearInfantry(game);
+  holdAlliesFire(game);
   game.mech.yaw = 0;
   const rad = (deg * Math.PI) / 180;
   game.enemies = [

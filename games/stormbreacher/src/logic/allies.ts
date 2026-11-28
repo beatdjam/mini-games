@@ -23,6 +23,7 @@ export interface AllyState {
   fate: AllyFate | null; // null for an ally that lives on
   called: boolean; // true once it has called on the radio before its fate
   down: boolean; // true once it has fallen; it does not move again
+  fireT: number; // the seconds until its next shot (SB-2301; kept in the suspend with the allies)
 }
 
 // An ally standing at the first point of its way, facing the second.
@@ -39,6 +40,7 @@ export function newAlly(id: string, way: readonly GroundSpot[], fate: AllyFate |
     fate,
     called: false,
     down: false,
+    fireT: 0,
   };
   if (way.length > 1) ally.yaw = faceTo(way[0], way[1]);
   return ally;

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
 import { BLAST_LIFT, boomShakeAt, landBlastHeight, type BoomKind } from '../data/boom.ts';
-import { COVER_TUNE } from '../data/allies.ts';
+import { ALLY_FIRE_TUNE, COVER_TUNE } from '../data/allies.ts';
 import {
   MELEE_SPARK_COLOR,
   PILLBOX_DEFLECT_COLOR,
@@ -579,6 +579,27 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number): void {
         { x: event.from.x, y: SUPPORT_TRACER_HEIGHT, z: event.from.z },
         { x: dx * k, y: dy * k, z: dz * k },
       );
+    } else if (event.kind === 'allyFire') {
+      // An ally shot an enemy (SB-2301): the tracer leaves the mech at the height the game gave and flies at its kit's
+      // speed. The sniper's is drawn as a few parallel lines standing a little apart, so it reads thicker than the
+      // scout's; the same frame's `enemyDown` draws the fall itself.
+      const tune = ALLY_FIRE_TUNE[event.kit];
+      const dx = event.to.x - event.from.x;
+      const dy = event.to.y - event.from.y;
+      const dz = event.to.z - event.from.z;
+      const length = Math.hypot(dx, dy, dz) || 1;
+      const k = tune.tracerSpeed / length;
+      const across = Math.hypot(dx, dz) || 1;
+      const px = -dz / across;
+      const pz = dx / across;
+      const half = (tune.tracerLines - 1) / 2;
+      for (let line = 0; line < tune.tracerLines; line++) {
+        const off = (line - half) * tune.tracerGap;
+        view.battle.tracer(
+          { x: event.from.x + px * off, y: event.from.y, z: event.from.z + pz * off },
+          { x: dx * k, y: dy * k, z: dz * k },
+        );
+      }
     } else if (event.kind === 'battleFell') {
       // The losses the view counts for the pop (SB-2272): the enemy's fire and the shells. The steady fall is not news.
       if (event.by !== 'other') fallCount++;
