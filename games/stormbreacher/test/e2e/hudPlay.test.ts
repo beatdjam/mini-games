@@ -3,6 +3,7 @@ import { page } from 'vitest/browser';
 import { el, runSystems, t } from '@engine/core/index.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { TOUCH_DEFAULTS } from '../../src/data/touch.ts';
 import { FEEDBACK_TUNE } from '../../src/data/tune.ts';
 import { currentGame, currentPlayView, startSortie, showResult } from '../../src/app/play.ts';
 import { aimPointOf } from '../../src/view/play.ts';
@@ -109,6 +110,8 @@ test('the front gauge sits at the right edge under the radar, and the plaza has 
   startSortie();
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
+  steps(1); // the first frame starts the landing's cutscene, which hides the HUD
+  sendToScript(game, { kind: 'skip' });
   steps(1);
   const gauge = el('#sbPlayHud [data-hud="gauge"]');
   expect(gauge.hasAttribute('hidden'), 'the sortie has a front gauge').toBe(false);
@@ -199,6 +202,8 @@ test('the infantry loss pop sits under the front gauge and goes after its second
   game.battle.crowd.bounds = null;
   const view = currentPlayView();
   if (!view) throw new Error('the sortie has no view');
+  steps(1); // the first frame starts the landing's cutscene, which hides the HUD and the pop with it
+  sendToScript(game, { kind: 'skip' });
   steps(1);
   const pop = el('#sbPlayHud [data-hud="pop"]');
   expect(pop.hidden).toBe(true);
@@ -214,6 +219,11 @@ test('the infantry loss pop sits under the front gauge and goes after its second
   expect(box.top - gauge.bottom).toBeCloseTo(FEEDBACK_TUNE.popGap, 0);
   expect(box.right).toBeCloseTo(gauge.right, 0);
   expect(box.top).toBeGreaterThanOrEqual(dial.bottom - 1);
+  // the touch screen's default boost button (right edge) is below both the gauge and the pop
+  const boost = TOUCH_DEFAULTS.boost;
+  const boostTop = boost.y * window.innerHeight - (boost.b * boost.s) / 2;
+  expect(gauge.bottom).toBeLessThanOrEqual(boostTop);
+  expect(box.bottom).toBeLessThanOrEqual(boostTop);
 
   steps(Math.ceil(FEEDBACK_TUNE.popSec * 60) + 3);
   expect(pop.hidden).toBe(true);

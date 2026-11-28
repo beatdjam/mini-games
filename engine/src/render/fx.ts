@@ -27,6 +27,7 @@ interface Particle {
   vy: number;
   vz: number;
   g: number;
+  size: number; // the grain's scale on top of its life curve (1 unless burst is given a size)
 }
 interface Fireball {
   m: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
@@ -39,7 +40,7 @@ for (let i = 0; i < PART_POOL; i++) {
   const m = new THREE.Mesh(FX_GEO.part, basicMat(0xffffff));
   m.visible = false;
   dynGroup.add(m);
-  parts.push({ mesh: m, life: 0, max: 1, vx: 0, vy: 0, vz: 0, g: PART_GRAVITY });
+  parts.push({ mesh: m, life: 0, max: 1, vx: 0, vy: 0, vz: 0, g: PART_GRAVITY, size: 1 });
 }
 let partIdx = 0; // next particle to reuse (ring)
 let balls: Fireball[] = [];
@@ -52,6 +53,7 @@ export function burst(
   spd: number,
   life?: number,
   grav?: number,
+  size = 1,
 ) {
   for (let k = 0; k < n; k++) {
     partIdx = (partIdx + 1) % parts.length;
@@ -69,6 +71,7 @@ export function burst(
     p.life = (life || PART_LIFE) * rand(0.6, 1.2);
     p.max = p.life;
     p.g = grav === undefined ? PART_GRAVITY : grav;
+    p.size = size;
   }
 }
 export function updateParts(dt: number) {
@@ -91,7 +94,7 @@ export function updateParts(dt: number) {
       p.vz *= 0.6;
     }
     const s = p.life / p.max;
-    p.mesh.scale.setScalar(p.g < 0 ? 1.8 - s : 0.3 + s);
+    p.mesh.scale.setScalar((p.g < 0 ? 1.8 - s : 0.3 + s) * p.size);
   }
 }
 export function fireball(x: number, y: number, z: number, radius: number, color: number) {

@@ -287,14 +287,17 @@ export function fallNear(crowd: Crowd, x: number, z: number, radius: number, sha
   return fell;
 }
 
-// Whether a soldier has taken its ground (SB-2271): posted in a secured sector, or one that has stood at the waiting
-// line. Such a soldier is the harder target: the enemies pick it after the ones still walking, and a shot does less.
-export function isPosted(soldier: Soldier): boolean {
-  return soldier.post !== null || soldier.waited;
+// Whether a soldier has taken its ground (SB-2271): posted in a secured sector, or standing at the waiting line now.
+// Such a soldier is the harder target: the enemies pick it after the ones still walking, and a shot does less. `waited`
+// is not enough: it stays true for good, so a soldier that has walked on from the line (or lost its post to
+// releasePosts) would stay hard while it walks in the open. A held soldier stands exactly at crowd.holdZ.
+export function isPosted(crowd: Crowd, soldier: Soldier): boolean {
+  if (soldier.post !== null) return true;
+  return soldier.waited && crowd.holdZ !== null && Math.abs(soldier.z - crowd.holdZ) < 1e-6;
 }
 
 // Puts a fall down on a soldier: the one way the health, a shell or an enemy's shot takes one out (SB-2271).
-function putDown(crowd: Crowd, soldier: Soldier): void {
+export function putDown(crowd: Crowd, soldier: Soldier): void {
   soldier.alive = false;
   soldier.deadT = 0;
   crowd.fallen++;
@@ -320,7 +323,7 @@ export function hurtNear(
   for (const soldier of crowd.soldiers) {
     if (!soldier.alive || distXZ({ x, z }, soldier) > radius) continue;
     if (rng.next() >= chance) continue;
-    soldier.hp -= isPosted(soldier) ? damageProne : damage;
+    soldier.hp -= isPosted(crowd, soldier) ? damageProne : damage;
     if (soldier.hp > 0) continue;
     putDown(crowd, soldier);
     fell.push(soldier);

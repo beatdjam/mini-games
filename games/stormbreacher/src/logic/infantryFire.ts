@@ -6,7 +6,7 @@ import { distXZ, type Rng } from '@engine/core/index.ts';
 import { ENEMIES, ENEMY_CHEST, type EnemyKind } from '../data/enemies.ts';
 import { SOLDIER_POSE } from '../data/soldiers.ts';
 import { INFANTRY_TUNE, type InfantryTune } from '../data/tune.ts';
-import { isPosted, type Crowd, type Soldier } from './crowd.ts';
+import { isPosted, putDown, type Crowd, type Soldier } from './crowd.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 
 // What the fire needs to know of the enemy that fired: where it stands and what kind it is.
@@ -32,13 +32,21 @@ export function targetsInfantry(rng: Rng, tune: InfantryTune = INFANTRY_TUNE): b
   return rng.next() < tune.targetShare;
 }
 
+// Whether a prop stands between the enemy's chest and the soldier's body.
+function blocked(enemy: InfantryShooter, soldier: Soldier, propBoxes: readonly Aabb[]): boolean {
+  const chest = ENEMIES[enemy.kind].height * ENEMY_CHEST;
+  const dx = soldier.x - enemy.x;
+  const dy = SOLDIER_POSE.bodyY - chest;
+  const dz = soldier.z - enemy.z;
+  return fireRayHit(enemy.x, chest, enemy.z, dx, dy, dz, Math.hypot(dx, dy, dz), propBoxes) !== null;
+}
+
 // The soldier an enemy may aim at: living, within its fireRange, with no prop between the enemy's chest and the soldier.
 // One still walking comes before one that has taken its ground (a post or the waiting line), and the nearest of that
 // group is taken. With no soldier in reach, null. A mid boss does not aim at the infantry (SB-2271).
 export function pickInfantry(crowd: Crowd, enemy: InfantryShooter, propBoxes: readonly Aabb[]): Soldier | null {
   if (enemy.kind === 'warden') return null;
   const def = ENEMIES[enemy.kind];
-  const chest = def.height * ENEMY_CHEST;
   let walking: Soldier | null = null;
   let walkingDist = Infinity;
   let posted: Soldier | null = null;
@@ -47,12 +55,8 @@ export function pickInfantry(crowd: Crowd, enemy: InfantryShooter, propBoxes: re
     if (!soldier.alive) continue;
     const dist = distXZ(enemy, soldier);
     if (dist > def.fireRange) continue;
-    const dx = soldier.x - enemy.x;
-    const dy = SOLDIER_POSE.bodyY - chest;
-    const dz = soldier.z - enemy.z;
-    const length = Math.hypot(dx, dy, dz);
-    if (fireRayHit(enemy.x, chest, enemy.z, dx, dy, dz, length, propBoxes) !== null) continue;
-    if (isPosted(soldier)) {
+    if (blocked(enemy, soldier, propBoxes)) continue;
+    if (isPosted(crowd, soldier)) {
       if (dist < postedDist) {
         posted = soldier;
         postedDist = dist;
@@ -83,7 +87,12 @@ export function fireAtInfantry(
   const damage = tune.shotDamage[enemy.kind];
   const targets =
     enemy.kind === 'emplacement'
-      ? crowd.soldiers.filter(soldier => soldier.alive && distXZ(soldier, picked) <= tune.sweepRadius)
+      ? crowd.soldiers.filter(
+          soldier =>
+            soldier.alive &&
+            distXZ(soldier, picked) <= tune.sweepRadius &&
+            (soldier === picked || !blocked(enemy, soldier, propBoxes)),
+        )
       : [picked];
   const shots: InfantryShot[] = [];
   for (const soldier of targets) {
@@ -93,12 +102,10 @@ export function fireAtInfantry(
       shots.push({ soldier, hp: soldier.hp, targeted, hit: false, downed: false });
       continue;
     }
-    soldier.hp -= damage * (isPosted(soldier) ? tune.postedMul : 1);
+    soldier.hp -= damage * (isPosted(crowd, soldier) ? tune.postedMul : 1);
     const downed = soldier.hp <= 0;
     if (downed) {
-      soldier.alive = false;
-      soldier.deadT = 0;
-      crowd.fallen++;
+      putDown(crowd, soldier);
     }
     shots.push({ soldier, hp: soldier.hp, targeted, hit: true, downed });
   }

@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
 import { ENEMIES } from '../../src/data/enemies.ts';
 import { INFANTRY_TUNE, type InfantryTune } from '../../src/data/tune.ts';
-import { newCrowd, type Crowd, type Soldier } from '../../src/logic/crowd.ts';
+import { isPosted, newCrowd, type Crowd, type Soldier } from '../../src/logic/crowd.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
 import { fireAtInfantry, pickInfantry, targetsInfantry, type InfantryShooter } from '../../src/logic/infantryFire.ts';
 
@@ -29,6 +29,9 @@ function soldierAt(x: number, z: number, changes: Partial<Soldier> = {}): Soldie
 function crowdOf(...soldiers: Soldier[]): Crowd {
   const crowd = newCrowd();
   crowd.soldiers = soldiers;
+  // the waiting line stands where the soldiers that waited are: at their z, or 0 in these small crowds
+  const waiter = soldiers.find(soldier => soldier.waited);
+  if (waiter !== undefined) crowd.holdZ = waiter.z;
   return crowd;
 }
 
@@ -48,6 +51,30 @@ test('a soldier still walking is picked before one that has taken its ground', (
   // with the walking soldier out of reach, the posted one is picked
   walking.x = ENEMIES.grunt.fireRange + 1;
   expect(pickInfantry(crowd, grunt(), [])).toBe(posted);
+});
+
+test('a soldier that waited once but walks on from the line is a walking target again', () => {
+  const crowd = crowdOf(soldierAt(0, -10, { waited: true }));
+  const soldier = crowd.soldiers[0];
+  expect(isPosted(crowd, soldier)).toBe(true);
+  // the line moves inland: it is no longer at the line, so it is picked and hurt as a walking soldier
+  crowd.holdZ = -50;
+  expect(isPosted(crowd, soldier)).toBe(false);
+  crowd.holdZ = null;
+  expect(isPosted(crowd, soldier)).toBe(false);
+  // a posted one stays posted whatever the line does
+  soldier.post = { x: 0, z: -10 };
+  expect(isPosted(crowd, soldier)).toBe(true);
+});
+
+test('a machine-gun nest’s sweep does not reach a soldier behind a prop', () => {
+  const hit = tuneWith({ hitChance: 1 });
+  const picked = soldierAt(0, -10);
+  const hidden = soldierAt(2.5, -10);
+  const wall: Aabb = { minX: 1.5, maxX: 3.5, minY: 0, maxY: 3, minZ: -6, maxZ: -4 };
+  const shots = fireAtInfantry(crowdOf(picked, hidden), { kind: 'emplacement', x: 0, z: 0 }, [wall], createRng(1), hit);
+  expect(shots.map(shot => shot.soldier)).toEqual([picked]);
+  expect(hidden.hp).toBe(INFANTRY_TUNE.hp);
 });
 
 test('a soldier out of range or behind a prop is not picked', () => {

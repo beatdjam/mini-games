@@ -44,7 +44,7 @@ const MARK_MATCH = 2;
 // from battleMarks. The geometry is a unit triangle with its point at the bottom, so the instance's scale is its size.
 function markMesh(capacity: number): THREE.InstancedMesh {
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0.5, 0, 0.5, 0.5, 0, 0, -0.5, 0], 3));
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0.5, 0, 0, -0.5, 0, 0.5, 0.5, 0], 3));
   const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false });
   const mesh = new THREE.InstancedMesh(geometry, material, capacity);
   mesh.name = MARK_MESH_NAME;
@@ -459,6 +459,7 @@ export function buildBattle(
         FEEDBACK_TUNE.sparkSpeed,
         FEEDBACK_TUNE.sparkLife,
         FEEDBACK_TUNE.sparkGravity,
+        FEEDBACK_TUNE.sparkSize,
       );
     }
   }

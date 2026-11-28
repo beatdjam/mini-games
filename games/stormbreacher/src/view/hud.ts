@@ -363,7 +363,7 @@ function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = nul
   // The infantry loss pop (SB-2272): under the gauge's foot, at the right edge, right-aligned with the gauge.
   const popBox = place(root, spec.pop.css, 'pop');
   popBox.style.top = `${GAUGE_TOP + gaugeHeight(window.innerHeight) + FEEDBACK_TUNE.popGap}px`;
-  const popText = span('', PLAY_HUD_TEXT.pop.text, HUD_COLOR.warn);
+  const popText = span('', PLAY_HUD_TEXT.pop.text, HUD_COLOR.amber);
   popBox.appendChild(popText);
   popBox.hidden = true;
 
@@ -630,6 +630,11 @@ function drawFrontGauge(hud: PlayHud, gauge: HudModel['gauge']): void {
   if (last.gaugeIsolation !== gauge.isolation) {
     last.gaugeIsolation = gauge.isolation;
     hud.gauge.mech.style.background = GAUGE_MECH_COLOR[gauge.isolation];
+    // isolated: a bright rim, so the red reads over the dark red of the enemy's land
+    hud.gauge.mech.style.boxShadow =
+      gauge.isolation === 'isolated'
+        ? `0 0 0 1px ${HUD_COLOR.text}, 0 0 0 2px ${HUD_COLOR.markShadow}`
+        : `0 0 0 1px ${HUD_COLOR.markShadow}`;
   }
 }
 

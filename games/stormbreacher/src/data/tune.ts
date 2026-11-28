@@ -250,7 +250,7 @@ export type HudRingTune = typeof HUD_RING_TUNE;
 // data/sectors.ts): inland of it the mech is out of the infantry's cover. It is written out here because data/sectors.ts
 // reads this file, so this one cannot read it back; a unit test keeps the two equal.
 export const GAUGE_TUNE = {
-  height: 260, // px, the gauge's height at baseHeight
+  height: 150, // px, the gauge's height at baseHeight: it ends above the touch boost button (y 378 at 720) with the loss pop under it
   baseHeight: 720, // px, the window height the sizes are written for
   warnGap: 30, // m inland of the front where the mech's mark starts to change colour
   isolatedGap: 57, // m inland of the front where the mark turns red (SUPPORT_TUNE.range)
@@ -371,7 +371,8 @@ export const FEEDBACK_TUNE = {
   markSize: 1.2, // the mark's width and height (m; 仮): about 24 px at the default quarter camera
   markLift: 0.4, // how far above the soldier's head the mark's point sits (m; 仮)
   markRedShare: 0.5, // the health share at or below which a hurt soldier's mark is fully red (仮)
-  sparkHeight: 1, // how high above the feet a hit sparks (m; 仮)
+  sparkHeight: 1.6, // how high above the feet a hit sparks: the head's height (m; 仮)
+  sparkSize: 2.5, // the grain's scale against the engine's default grain (仮)
   sparkGap: 0.4, // the least gap between two hit sparks on the same soldier (s; 仮)
   sparkCount: 3, // the sparks of one hit (仮)
   sparkSpeed: 4, // how fast they fly (m/s; 仮)
@@ -379,7 +380,7 @@ export const FEEDBACK_TUNE = {
   sparkGravity: 6, // how fast they fall (m/s²; 仮)
   downRadioGap: 15, // the least gap between two man-down calls from one sector (s; 仮)
   popSec: 2.5, // how long the loss pop stays when no new loss comes (s; 仮)
-  popGap: 8, // how far below the front gauge's foot the pop sits (px; 仮)
+  popGap: 6, // how far below the front gauge's foot the pop sits (px; 仮)
 };
 
 // The battle layer of the main sortie. #view-fx keeps FX_TUNE, so the tools can still compare 150/300/450.

@@ -312,6 +312,7 @@ test('a shell takes the health of the soldiers near it, less from a posted one, 
     soldier.z = 0;
   });
   crowd.soldiers[1].waited = true;
+  crowd.holdZ = 0; // the waiting line it stands at
   crowd.soldiers[3].x = 30;
   const fell = hurtNear(crowd, 0, 0, 7, 1, INFANTRY_TUNE.shellDamage, INFANTRY_TUNE.shellDamageProne, rng);
   expect(fell.map(soldier => soldier.x)).toEqual([0, 6]);
