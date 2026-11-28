@@ -259,7 +259,7 @@ export const GAUGE_TUNE = {
   edgeOverhang: 4, // px, how far the front line and the boundaries reach past the gauge's sides
   frontThickness: 3, // px, the front line's thickness
   boundaryThickness: 1, // px, a sector boundary's thickness
-  mechSize: 7, // px, the mech's diamond's side
+  mechSize: 6, // px, the mech's diamond's side (turned, its diagonal is 8.5px; the smallest sector is 5.3px at `height`)
 } as const;
 
 export type GaugeTune = typeof GAUGE_TUNE;

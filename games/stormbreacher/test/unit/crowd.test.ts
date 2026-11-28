@@ -412,12 +412,22 @@ test('a soldier that meets the wall slides along it on one axis', () => {
   const tune = noWallTune();
   const { crowd, rng } = oneSoldier(tune, -25, -76);
   const soldier = crowd.soldiers[0];
-  // a place beside the wall: it may not cut the corner, but it may slide along the wall
+  // a soldier on the landward side of the wall (already through) with a place off to the side: it slides along the wall's
+  // landward face on x rather than stopping, and it is never sent back round through the gate
   soldier.post = { x: -40, z: -60 };
   for (let i = 0; i < 120; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, SEA_WALLS);
   expect(insideWall(SEA_WALLS, soldier.x, soldier.z)).toBe(false);
   expect(soldier.z).toBeLessThan(-74.5); // it is by the wall's landward face, not back where it started
   expect(soldier.x).toBeLessThan(-26); // it moved along x while z stayed by the wall
+});
+
+test('a soldier just behind the wall, off to the side of the gate, is through and walks on landward', () => {
+  const tune = noWallTune();
+  const { crowd, rng } = oneSoldier(tune, 9, -75);
+  const soldier = crowd.soldiers[0];
+  soldier.post = { x: 9, z: -95 };
+  for (let i = 0; i < 60 * 10; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, SEA_WALLS);
+  expect(soldier.z, `at (${soldier.x}, ${soldier.z})`).toBeLessThan(-94);
 });
 
 test('a posted soldier behind the wall reaches its post through the gate', () => {
@@ -430,13 +440,21 @@ test('a posted soldier behind the wall reaches its post through the gate', () =>
   expect(soldier.z).toBeCloseTo(-95, 6);
 });
 
-test('with no walls the crowd walks exactly as before, so the old tests stay as they were', () => {
+// The numbers are what stepCrowd gave before SB-2284 (taken from the code at its parent commit), so a change to the walk
+// with no walls shows here and not only against itself.
+test('with no walls the crowd walks exactly as it did before the walls, a posted soldier included', () => {
   const tune = tuneWith({ allyDeathRate: 2, allyWaves: 0 });
-  const plain = run(7, 120, tune);
-  const crowd = newCrowd();
-  const rng = createRng(7);
-  spawnWave(crowd, rng, BOUNDS, 10, tune);
-  for (let i = 0; i < 120; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, []);
-  expect(crowd.soldiers).toEqual(plain.soldiers);
-  expect(crowd.fallen).toBe(plain.fallen);
+  for (const walls of [undefined, []]) {
+    const crowd = newCrowd();
+    const rng = createRng(7);
+    spawnWave(crowd, rng, BOUNDS, 10, tune);
+    crowd.soldiers[0].post = { x: -30, z: 100 };
+    for (let i = 0; i < 120; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, walls);
+    const first = crowd.soldiers[0];
+    expect(first.x).toBeCloseTo(-92.957984, 5);
+    expect(first.z).toBeCloseTo(166.597595, 5);
+    expect(crowd.fallen).toBe(8);
+    expect(crowd.soldiers.reduce((sum, soldier) => sum + soldier.x, 0)).toBeCloseTo(27.826601, 4);
+    expect(crowd.soldiers.reduce((sum, soldier) => sum + soldier.z, 0)).toBeCloseTo(1660.843917, 4);
+  }
 });

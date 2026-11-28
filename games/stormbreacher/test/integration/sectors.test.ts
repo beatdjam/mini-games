@@ -56,6 +56,11 @@ function blowLine(game: GameModel, id: string): void {
   sendToScript(game, { kind: 'blast', id });
 }
 
+// The sectors cleared this frame, so a failed check shows which ones.
+function clearedNow(game: GameModel): string[] {
+  return game.events.flatMap(event => (event.kind === 'sectorCleared' ? [event.sector] : []));
+}
+
 function said(game: GameModel, line: string): boolean {
   return game.radio?.line === line || game.radioQueue.some(item => item.line === line);
 }
@@ -408,14 +413,14 @@ describe('the sectors past the pillbox line', () => {
     enterSector(game, 'gate');
     step(game, idle, DT);
     expect(game.sectors?.phase[index]).toBe('idle');
-    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'gate')).toBe(false);
+    expect(clearedNow(game)).toEqual([]);
 
     const gun = game.targets.find(target => target.kind === 'fortressGun');
     if (gun === undefined) throw new Error('the map has no fortress gun');
     gun.hp = 0;
     enterSector(game, 'gate');
     step(game, idle, DT);
-    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'gate')).toBe(true);
+    expect(clearedNow(game)).toEqual(['gate']);
     expect(game.sectors?.phase[index]).toBe('advancing');
   });
 
@@ -433,7 +438,7 @@ describe('the sectors past the pillbox line', () => {
     game.script.wardenDown = true;
     enterSector(game, 'plug');
     step(game, idle, DT);
-    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'plug')).toBe(true);
+    expect(clearedNow(game)).toEqual(['plug']);
     expect(game.sectors?.phase[index]).toBe('advancing');
   });
 
@@ -446,7 +451,7 @@ describe('the sectors past the pillbox line', () => {
     enterSector(game, 'magazine');
     step(game, idle, DT);
     expect(game.sectors?.phase[index]).toBe('idle');
-    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'magazine')).toBe(false);
+    expect(clearedNow(game)).toEqual([]);
 
     for (const target of game.targets) {
       if (target.kind === 'gun') target.hp = 0;
@@ -456,7 +461,7 @@ describe('the sectors past the pillbox line', () => {
     expect(magazine.hp).toBeGreaterThan(0);
     enterSector(game, 'magazine');
     step(game, idle, DT);
-    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'magazine')).toBe(true);
+    expect(clearedNow(game)).toEqual(['magazine']);
     expect(game.sectors?.phase[index]).toBe('advancing');
   });
 
@@ -470,7 +475,7 @@ describe('the sectors past the pillbox line', () => {
     // the gate is behind the line, and the later sectors are still the enemy's: the yard is the front
     game.sectors!.phase.fill('idle');
     for (let i = 0; i < index; i++) game.sectors!.phase[i] = 'stable';
-    game.script.flags.push('yard-3-clear');
+    game.script.flags.push('yard-1-clear', 'yard-2-clear', 'yard-3-clear');
     game.trickle = null;
     game.enemies = [];
     game.armor = Number.MAX_SAFE_INTEGER;
@@ -495,16 +500,27 @@ describe('the sectors past the pillbox line', () => {
     let securedAt = 0;
     for (let frame = 0; frame < 60 * 60; frame++) {
       step(game, idle, DT);
-      for (const soldier of game.battle.crowd.soldiers) {
-        if (!soldier.alive) continue;
-        for (const wall of walls) expect(rectDistance(wall, soldier.x, soldier.z)).toBeGreaterThan(0);
-      }
+      game.battle.crowd.soldiers.forEach((soldier, who) => {
+        if (!soldier.alive) return;
+        walls.forEach((wall, which) => {
+          const at = `frame ${frame}, soldier ${who} at (${soldier.x.toFixed(1)}, ${soldier.z.toFixed(1)}), wall ${which}`;
+          expect(rectDistance(wall, soldier.x, soldier.z), at).toBeGreaterThan(0);
+        });
+      });
       if (securedAt === 0 && game.events.some(event => event.kind === 'sectorSecured' && event.sector === 'yard')) {
         securedAt = frame + 1;
       }
     }
     expect(securedAt).toBeGreaterThan(0);
     expect(['counter', 'stable']).toContain(game.sectors?.phase[index]);
+    // every posted soldier gets to its post inside the yard: none is left pressed against a wall on the way
+    const posted = game.battle.crowd.soldiers.filter(soldier => soldier.alive && soldier.post !== null);
+    expect(posted.length).toBeGreaterThan(0);
+    for (const soldier of posted) {
+      const post = soldier.post!;
+      const at = `soldier at (${soldier.x.toFixed(1)}, ${soldier.z.toFixed(1)}), post (${post.x.toFixed(1)}, ${post.z.toFixed(1)})`;
+      expect(Math.hypot(soldier.x - post.x, soldier.z - post.z), at).toBeLessThan(1);
+    }
     // the gate costs the line some time, but it gets in well inside a minute
     expect(securedAt / 60).toBeLessThan(60);
   }, 20_000);

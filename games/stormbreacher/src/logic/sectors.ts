@@ -139,8 +139,8 @@ function standable(rects: readonly GroundRect[], x: number, z: number): boolean 
 
 // The places `count` soldiers post at in a secured sector (SB-2262): the seaward side of the sector's cover first (out of
 // the land enemy's sight), spread along the sector's width, and then the sector's hold line across the map's width when
-// there is not enough cover. The points are distinct, inside the sector and the map (never in the sea), and clear of the
-// blocking rects, sorted by x. Pure, so a node test can read the choice.
+// there is not enough cover. The points are distinct, inside the sector and the map (never in the sea) and its `postRange`
+// when it has one, and clear of the blocking rects, sorted by x. Pure, so a node test can read the choice.
 export function sectorPosts(
   sector: Sector,
   bounds: MapBounds,
@@ -152,8 +152,9 @@ export function sectorPosts(
   if (want === 0) return [];
   const minZ = Math.max(Math.min(sector.landZ, sector.seaZ), bounds.minZ);
   const maxZ = Math.min(Math.max(sector.landZ, sector.seaZ), bounds.maxZ);
-  const minX = bounds.minX + POST_EDGE;
-  const maxX = bounds.maxX - POST_EDGE;
+  // a sector inside the fortress keeps its posts between the walls (its `postRange`), where the sea gate leads
+  const minX = Math.max(bounds.minX + POST_EDGE, sector.postRange?.minX ?? -Infinity);
+  const maxX = Math.min(bounds.maxX - POST_EDGE, sector.postRange?.maxX ?? Infinity);
   const covers = coverRects(sector, rects, props)
     .map(cover => {
       const post = coverPost(cover);
@@ -363,8 +364,8 @@ function closedLineHoldZ(blasts: readonly string[], blastPoints: readonly BlastL
 
 // Where the infantry waits now: the last sector that is advancing or further on, or the water's edge before the first.
 // A sector hold that stands inland of a defence line the mech has not opened yet is pulled back to 6m seaward of that
-// line, so the infantry waits before it and pours through the hole once a blast opens it. It waits until the pillbox
-// line is secured and then walks on, as it did once `pillboxes-down` raised.
+// line, so the infantry waits before it and pours through the hole once a blast opens it. It waits until the last
+// sector (the magazine) is secured and then walks on.
 export function sectorHold(
   state: SectorsState | null,
   blasts: readonly string[],

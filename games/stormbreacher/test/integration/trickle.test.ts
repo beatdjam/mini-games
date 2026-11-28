@@ -4,11 +4,12 @@
 import { describe, expect, test } from 'vitest';
 import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { PROP_SIZE } from '../../src/data/props.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../../src/data/trickle.ts';
 import { QUARTER_TUNE } from '../../src/data/tune.ts';
-import { rectDistance } from '../../src/logic/collide.ts';
+import { rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import {
   NAV_RADIUS,
@@ -97,7 +98,17 @@ function trickleSpawns(game: GameModel, index: number, mechZ: number, frames: nu
 
 // The points where the trickle came out: none inside a fortress wall, and every one walkable to from the mech.
 function checkSpawnPoints(game: GameModel, points: readonly { x: number; z: number }[], label: string): void {
-  const walls = game.rects.filter(rect => rect.top === FORTRESS_TUNE.wallH);
+  // the fortress's wall pieces, taken from the map's props (not by the height of a rect, which other things share)
+  const size = PROP_SIZE.fortWall;
+  const walls: GroundRect[] = M1B_HAND.props
+    .filter(prop => prop.kind === 'fortWall')
+    .map(prop => ({
+      x: prop.x,
+      z: prop.z,
+      halfW: (size.w * prop.scale) / 2,
+      halfD: (size.d * prop.scale) / 2,
+      yaw: prop.yaw,
+    }));
   const grid = buildNavGrid(game.rects, game.map.bounds, NAV_RADIUS);
   const field = buildNavField(grid, game.mech.x, game.mech.z);
   for (const point of points) {
@@ -298,12 +309,15 @@ describe('the trickle in the sortie', () => {
   }, 30000);
 
   // The yard is shut in by the walls: the zone lies inside them, and only points out of the view from the mech come out.
+  // The mech stands at the sea gate, so the yard is mostly out of its view and the whole budget comes out (at the hold
+  // line, z -85, the yard is in view and next to nothing does).
   test('the yard’s spawn zone stays inside the walls and within reach', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
     const index = M1_SECTORS.findIndex(entry => entry.id === 'yard');
     const sector = M1_SECTORS[index];
-    const points = trickleSpawns(game, index, sector.holdZ, 60 * 120);
+    const points = trickleSpawns(game, index, FORTRESS_TUNE.seaWallZ, 60 * 120);
+    expect(points.length).toBeGreaterThan(0);
     expect(points.length).toBeLessThanOrEqual(sector.budget);
     checkSpawnPoints(game, points, 'yard');
   }, 30000);

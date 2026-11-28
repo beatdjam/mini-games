@@ -112,6 +112,10 @@ export function stepTrickle(state: TrickleState, world: TrickleWorld, rng: Rng, 
   // While the front sector is idle, the trickle only fills in behind its scripted enemies; once they are down, it stops,
   // so the sector can be cleared. While it is advancing the pressure goes on.
   if (world.sectors.phase[index] === 'idle' && !scriptedFoeIn(index, world)) return null;
+  // a sector with a trap of its own (the yard) keeps its trickle back until the mech has gone in
+  if (world.sectors.phase[index] === 'idle' && sector.trickleOnEntry === true) {
+    if (world.mech.z > sector.seaZ - SECTOR_TUNE.enterDepth) return null;
+  }
   const sight = viewGround(world.mech, QUARTER_TUNE, TRICKLE_TUNE.viewAspect, TRICKLE_TUNE.viewMargin);
   const radius = ENEMIES[TRICKLE_TUNE.kind].radius;
   for (let try_ = 0; try_ < TRICKLE_TUNE.tries; try_++) {

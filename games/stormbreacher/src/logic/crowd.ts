@@ -176,7 +176,7 @@ function gateWaypoint(
   let nearest = Infinity;
   for (const candidate of gates) {
     if (toZ >= candidate.z) continue; // the target is on the gate's sea side: no way through needed
-    if (fromZ <= candidate.z - halfT - CROWD_WALL_TUNE.gateMargin) continue; // through already
+    if (fromZ <= candidate.z - halfT) continue; // through already: past the wall's landward face
     const near = Math.abs(fromX - candidate.x);
     if (near >= nearest) continue;
     nearest = near;
@@ -282,13 +282,8 @@ export function stepCrowd(
         const aimZ = gate === null ? dz : gate.z - soldier.z;
         const aimDist = gate === null ? dist : Math.hypot(aimX, aimZ);
         const k = aimDist === 0 || walk >= aimDist ? 1 : walk / aimDist;
-        let x = soldier.x + aimX * k;
-        const z = soldier.z + aimZ * k;
         if (aimDist > 0) soldier.yaw = Math.atan2(-aimX, -aimZ);
-        if (bounds !== null) {
-          x = clamp(x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
-        }
-        moveClear(walls, soldier, x, z);
+        moveClear(walls, soldier, soldier.x + aimX * k, soldier.z + aimZ * k);
       } else {
         soldier.x = soldier.post.x;
         soldier.z = soldier.post.z;

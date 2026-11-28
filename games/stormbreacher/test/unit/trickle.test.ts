@@ -4,7 +4,7 @@ import type { Rng } from '@engine/core/index.ts';
 import { expect, test } from 'vitest';
 import { ENEMIES, type EnemyKind } from '../../src/data/enemies.ts';
 import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
-import { M1_SECTORS } from '../../src/data/sectors.ts';
+import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../../src/data/trickle.ts';
 import { QUARTER_TUNE } from '../../src/data/tune.ts';
 import type { MapBounds } from '../../src/data/types.ts';
@@ -22,7 +22,8 @@ const RADIUS = ENEMIES[TRICKLE_TUNE.kind].radius;
 
 function stateWith(phases: readonly SectorPhase[]) {
   const state = newSectors();
-  state.phase = [...phases];
+  // the sectors behind the ones given are still the enemy's
+  state.phase = M1_SECTORS.map((_, i): SectorPhase => phases[i] ?? 'idle');
   return state;
 }
 
@@ -212,7 +213,7 @@ test('the spawn zones keep every point inside them and out of the fortress walls
 test('a point inside the view is dropped from a spawn zone as well', () => {
   const index = M1_SECTORS.findIndex(sector => sector.id === 'cband');
   const w = sectorWorld(index, -47);
-  const sight = viewGround(w.mech, QUARTER_TUNE, TRICKLE_TUNE.viewAspect, 0);
+  const sight = viewGround(w.mech, QUARTER_TUNE, TRICKLE_TUNE.viewAspect, TRICKLE_TUNE.viewMargin);
   // the left end of the band is in the view from the cband's middle, so the draws below would pass through it
   expect(insideQuad(sight, -40, -47)).toBe(true);
   let found = 0;
@@ -327,9 +328,33 @@ test('while the front sector is idle its standing goals keep the trickle coming'
   expect(spawnNow(idleSectorWorld(magazine, { targets: [{ kind: 'magazine', hp: 1 }] }))).toBeNull();
 
   const yard = M1_SECTORS.findIndex(sector => sector.id === 'yard');
-  expect(spawnNow(idleSectorWorld(yard))).not.toBeNull();
-  expect(spawnNow(idleSectorWorld(yard, { flags: ['yard-3-clear'] }))).toBeNull();
+  const flags = ['yard-1-clear', 'yard-2-clear', 'yard-3-clear'];
+  const inside = { x: 0, y: 0, z: M1_SECTORS[yard].seaZ - SECTOR_TUNE.enterDepth - 1 };
+  expect(anySpawn(idleSectorWorld(yard, { mech: inside }))).toBe(true);
+  expect(anySpawn(idleSectorWorld(yard, { mech: inside, flags }))).toBe(false);
 });
+
+// SB-2286: the yard's trap is its own, so the trickle does not shut the yard in before the mech has gone in.
+test('the yard keeps its trickle back until the mech is in it', () => {
+  const yard = M1_SECTORS.findIndex(sector => sector.id === 'yard');
+  const sector = M1_SECTORS[yard];
+  const outside = { x: 0, y: 0, z: sector.seaZ - SECTOR_TUNE.enterDepth + 1 };
+  const inside = { x: 0, y: 0, z: sector.seaZ - SECTOR_TUNE.enterDepth - 1 };
+  expect(anySpawn(idleSectorWorld(yard, { mech: outside })), 'mech outside').toBe(false);
+  expect(anySpawn(idleSectorWorld(yard, { mech: inside })), 'mech inside').toBe(true);
+  // a sector without the flag keeps coming out while idle, wherever the mech is
+  const magazine = M1_SECTORS.findIndex(entry => entry.id === 'magazine');
+  expect(M1_SECTORS[magazine].trickleOnEntry).toBeUndefined();
+});
+
+// Whether a point comes out in some seed's draw (a point near the mech or in its view is dropped, so one seed may not).
+function anySpawn(w: TrickleWorld): boolean {
+  for (let n = 1; n <= 60; n++) {
+    seed(n);
+    if (spawnNow(w) !== null) return true;
+  }
+  return false;
+}
 
 test('nothing comes out while paused', () => {
   const w = world({ paused: true });

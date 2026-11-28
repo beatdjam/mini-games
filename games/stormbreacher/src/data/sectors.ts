@@ -32,6 +32,8 @@ export interface Sector {
   budget: number; // the enemies the trickle may put out while this sector is the front (count, SB-2230)
   spawn?: readonly SpawnZone[]; // where its trickle comes out, drawn by area (SB-2282); left out for TRICKLE_TUNE's band
   goals?: readonly SectorGoal[]; // what keeps the sector from being cleared besides its enemies (SB-2283)
+  trickleOnEntry?: boolean; // whether the trickle waits for the mech to go in before it comes out while the sector is idle (the yard's trap)
+  postRange?: { minX: number; maxX: number }; // the x range its soldiers may take posts in; left out for the map's width
 }
 
 // The values the sectors run on. Provisional, to be settled by eye in the sortie.
@@ -123,9 +125,27 @@ export const M1_SECTORS: readonly Sector[] = [
     counter: 0,
     budget: 6,
     spawn: [{ minX: -26, maxX: 26, minZ: -120, maxZ: -76 }],
-    goals: [{ kind: 'flag', name: 'yard-3-clear' }],
+    // the yard's walls close its sides: a post outside them could not be reached through the sea gate
+    postRange: { minX: -26, maxX: 26 },
+    // the trap's waves are the yard's own: no trickle shuts in the yard before the mech has gone in
+    trickleOnEntry: true,
+    // each wave's own flag: yard-3 can go down while yard-2 still stands at the land gate, outside the yard's band
+    goals: [
+      { kind: 'flag', name: 'yard-1-clear' },
+      { kind: 'flag', name: 'yard-2-clear' },
+      { kind: 'flag', name: 'yard-3-clear' },
+    ],
   },
-  { id: 'plug', seaZ: -100, landZ: -125, holdZ: -96, counter: 0, budget: 0, goals: [{ kind: 'wardenDown' }] },
+  {
+    id: 'plug',
+    seaZ: -100,
+    landZ: -125,
+    holdZ: -96,
+    counter: 0,
+    budget: 0,
+    goals: [{ kind: 'wardenDown' }],
+    postRange: { minX: -26, maxX: 26 },
+  },
   { id: 'field1', seaZ: -125, landZ: -175, holdZ: -150, counter: 6, budget: 18 },
   { id: 'field2', seaZ: -175, landZ: -225, holdZ: -200, counter: 8, budget: 20 },
   {

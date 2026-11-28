@@ -412,7 +412,7 @@ test('a sector with spawn rectangles puts its counterattack inside them, clear o
   expect(yard.counter).toBe(0);
 });
 
-test('a counterattack point in a spawn rectangle slides inside it, and still comes out when covered', () => {
+test('a covered middle of a spawn rectangle moves to another depth inside it, and still comes out', () => {
   const cband = M1_SECTORS.find(entry => entry.id === 'cband')!;
   const zone = cband.spawn![0];
   // a rect over the middle of the rectangle, wide enough to cover every slide at that depth
@@ -422,7 +422,7 @@ test('a counterattack point in a spawn rectangle slides inside it, and still com
   expect(point.x).toBeLessThanOrEqual(zone.maxX);
   expect(point.z).toBeGreaterThanOrEqual(zone.minZ);
   expect(point.z).toBeLessThanOrEqual(zone.maxZ);
-  // it tried another depth inside the rectangle rather than going out of it
+  // it tried another depth inside the rectangle (the old band lies outside it) and is clear of the cover
   expect(rectDistance(cover, point.x, point.z)).toBeGreaterThan(ENEMIES[SECTOR_TUNE.counterKind].radius);
 });
 
@@ -533,6 +533,21 @@ test('a post is never in a wall, in the sea or outside the sector', () => {
   for (const post of sectorPosts(sector, M1B_HAND.bounds, wall, [], 3)) {
     expect(Math.abs(post.x) >= 10 || Math.abs(post.z - sector.holdZ) >= 3).toBe(true);
   }
+});
+
+test('a sector inside the fortress keeps its posts between the walls, however many soldiers there are', () => {
+  for (const id of ['yard', 'plug'] as const) {
+    const sector = M1_SECTORS.find(entry => entry.id === id)!;
+    const range = sector.postRange!;
+    expect(range, id).toBeDefined();
+    for (const post of sectorPosts(sector, M1B_HAND.bounds, [], [], 20)) {
+      expect(post.x, `${id} post at ${post.x}, ${post.z}`).toBeGreaterThanOrEqual(range.minX);
+      expect(post.x, `${id} post at ${post.x}, ${post.z}`).toBeLessThanOrEqual(range.maxX);
+    }
+  }
+  // a sector without a range spreads over the map's width, as before
+  const beach = sectorPosts(M1_SECTORS[0], M1B_HAND.bounds, [], [], 6);
+  expect(Math.max(...beach.map(post => post.x))).toBeGreaterThan(40);
 });
 
 test('soldiers left posted in an earlier sector are not counted against the next sector, and one always walks on', () => {
@@ -657,15 +672,21 @@ test('the gate counts the fortress gun that still stands', () => {
   ]);
 });
 
-test('the yard counts its three waves: it is not cleared until yard-3-clear stands', () => {
+test('the yard counts its three waves: it is not cleared until all three flags stand', () => {
   const index = M1_SECTORS.indexOf(YARD);
   const waiting = advancedTo(index);
   waiting.phase[index] = 'idle';
   expect(stepSectors(waiting, atTheFrontOf(YARD), 1 / 60)).toEqual([]);
   expect(waiting.phase[index]).toBe('idle');
+  // the third wave down with the second still up (it comes out at the land gate, outside the yard's band): not cleared
+  const partly = advancedTo(index);
+  partly.phase[index] = 'idle';
+  expect(stepSectors(partly, atTheFrontOf(YARD, { flags: ['yard-1-clear', 'yard-3-clear'] }), 1 / 60)).toEqual([]);
+  expect(partly.phase[index]).toBe('idle');
   const done = advancedTo(index);
   done.phase[index] = 'idle';
-  expect(stepSectors(done, atTheFrontOf(YARD, { flags: ['yard-3-clear'] }), 1 / 60)).toEqual([
+  const all = ['yard-1-clear', 'yard-2-clear', 'yard-3-clear'];
+  expect(stepSectors(done, atTheFrontOf(YARD, { flags: all }), 1 / 60)).toEqual([
     { kind: 'sectorCleared', sector: 'yard' },
   ]);
 });
