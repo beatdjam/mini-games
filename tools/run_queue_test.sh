@@ -268,6 +268,7 @@ ok "result を .tasks/ に写す" "[ -f '$T2/10-chore-one.result.md' ]"
 ok "実装のログは oc-<番号>.log" "grep -q 'fake run 10-' '$R2/.wt/t10/.tasks/oc-10.log'"
 ok "終わったあとのロックが残らない" "[ ! -e '$T2/.worktree.lock' ] && [ ! -e '$T2/.start.lock' ] && [ ! -e '$T2/.queue.lock' ]"
 ok "状態のページの最後が「終わり」まで書かれる（間引かれない）" "[ -f '$D/state1.md' ] && grep -q -- '---- 終わり ----' '$D/state1.md'"
+ok "プロンプトに、テストを裏（バックグラウンド）に回さない決まりが入る" "grep -q 'テスト・e2e・撮影は、裏（バックグラウンド）に回さず、前で流して終わるまで待つ' '$D/state1/prompts'"
 
 # 土台の票は、WIP のコミットの後に次が始まる（次の票は土台の WIP から始まる）。
 # commit を遅らせて（pre-commit で 7 秒眠る）、その間に親の巡が回るようにする。

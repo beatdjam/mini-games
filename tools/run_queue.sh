@@ -395,7 +395,7 @@ work() { # 番号 レーン 土台
   for b in context draft; do [ -d "$T/$b" ] && cp -R "$T/$b" "$wt/.tasks/"; done
   for r in "$T"/*.result.md; do [ -f "$r" ] && [ ! -f "$wt/.tasks/$(basename "$r")" ] && cp "$r" "$wt/.tasks/"; done
 
-  prompt=".tasks/$name.md の票をやって"
+  prompt=".tasks/$name.md の票をやって。テスト・e2e・撮影は、裏（バックグラウンド）に回さず、前で流して終わるまで待つ。1回のコマンドが2分を超えそうなら、コマンドの時間の上限（timeout）を 600000 ms に延ばして呼ぶか、unit と integration に分ける・ファイルを半分ずつに分けるなど、2分以内で終わる単位に分けて流す。裏に回ったと出たら、その場で止めて、同じテストを分けて前で流し直す"
   if [ "${refs[*]}" != origin/master ]; then
     prompt="${prompt}。この票が前提にしている前の票は、まだ master に入っていない。このブランチの土台（WIP（未レビュー）のコミット）に入っている。「master に入っているか」は、作業ツリーのコードに入っていれば満たしたとみなしてよい"
   fi
