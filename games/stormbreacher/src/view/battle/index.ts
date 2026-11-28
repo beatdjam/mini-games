@@ -7,23 +7,54 @@
 import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { burst, camera, disposeTree, scene } from '@engine/render/index.ts';
-import type { FxTune } from '../../data/tune.ts';
+import { FEEDBACK_COLOR } from '../../data/colors.ts';
 import { DROID_TUNE } from '../../data/droids.ts';
+import { FEEDBACK_TUNE, INFANTRY_TUNE, type FxTune } from '../../data/tune.ts';
 import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import { newBattle, stepBattle, type BattleState } from '../../logic/battle.ts';
 import type { GroundRect } from '../../logic/collide.ts';
-import { MAX_SOLDIERS, crowdCounts, fallNear, spawnWave, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
+import {
+  MAX_SOLDIERS,
+  crowdCounts,
+  fallNear,
+  spawnWave,
+  type Crowd,
+  type CrowdCounts,
+  type Soldier,
+} from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
 import { blastFaceHeight, type GameEvent } from '../../logic/game.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
+import { markColor, markSize, sparkReady } from '../battleMarks.ts';
 import { droidMatricesChanged, selectNearSoldiers, showDroid, writeDroid } from '../droidPose.ts';
 import { shellBurst } from '../hazards.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
 
 const FALL_DUST_COLOR = 0x766a58; // the dust a falling ally raises
 const FALL_DUST = 4; // the pieces of that dust
+
+const MARK_MESH_NAME = 'sb-battle-marks'; // the marks over the soldiers that are aimed at
+// How near a hit event's point the soldier it belongs to may have stepped before the frame was drawn (m). The battle
+// moves the soldiers after the enemy's fire has named them, so the two do not meet exactly.
+const MARK_MATCH = 2;
+
+// The marks over the soldiers that are aimed at: one camera-facing downward triangle per soldier, its colour and size
+// from battleMarks. The geometry is a unit triangle with its point at the bottom, so the instance's scale is its size.
+function markMesh(capacity: number): THREE.InstancedMesh {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0.5, 0, 0, -0.5, 0, 0.5, 0.5, 0], 3));
+  const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false });
+  const mesh = new THREE.InstancedMesh(geometry, material, capacity);
+  mesh.name = MARK_MESH_NAME;
+  const color = new THREE.Color(0xffffff);
+  for (let i = 0; i < capacity; i++) mesh.setColorAt(i, color);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  mesh.count = 0;
+  return mesh;
+}
 
 const SMOKE_RISE = 1.4; // how fast a puff rises (m/s)
 const SMOKE_GROW = 2.2; // how much bigger a puff gets by the end
@@ -133,6 +164,8 @@ export function buildBattle(
   const smoke = smokeMesh(tune.smokeMax);
   const smokeCapacity = Math.max(1, Math.round(tune.smokeMax));
   const tracers = tracerMesh();
+  const markCapacity = Math.max(1, Math.round(FEEDBACK_TUNE.maxMarks));
+  const marks = markMesh(markCapacity);
   const planeGroups = Array.from({ length: MAX_PLANES }, () => planeGroup());
   const craterCapacity = Math.max(1, Math.round(tune.craters) + Math.round(tune.craterCap));
   const craterParts = craterMeshes(craterCapacity);
@@ -143,6 +176,7 @@ export function buildBattle(
     farSoldiers.heads,
     smoke,
     tracers,
+    marks,
     ...planeGroups,
     craterParts.discs,
     craterParts.rims,
@@ -161,6 +195,7 @@ export function buildBattle(
   const forward = new THREE.Vector3(0, 0, 1);
   const heading = new THREE.Vector3();
   const puffColor = new THREE.Color();
+  const markTint = new THREE.Color();
   const freshColor = new THREE.Color(tune.smokeColor);
   const darkColor = new THREE.Color(tune.smokeDark);
 
@@ -316,6 +351,10 @@ export function buildBattle(
   // the view's own mark of which soldiers take the close form this frame, kept between frames (SB-2085)
   const nearFlags = new Uint8Array(MAX_SOLDIERS);
   const nearList: number[] = [];
+  // The marks' own clock and the last spark of each soldier (SB-2272): the view's state, not the game's.
+  let markTime = 0;
+  const lastSpark = new WeakMap<Soldier, number>();
+  const marked: { soldier: Soldier; dist: number }[] = [];
 
   function drawSoldiers(held: boolean) {
     const list = crowd.soldiers;
@@ -353,6 +392,76 @@ export function buildBattle(
     showDroid(farSoldiers, farCount);
     droidMatricesChanged(nearSoldiers);
     droidMatricesChanged(farSoldiers);
+  }
+
+  // The mark over each soldier that is aimed at, nearest to the camera first, up to maxMarks: a small downward triangle
+  // facing the camera, amber while the soldier is whole and redder as its health falls (SB-2272).
+  function drawMarks() {
+    const list = crowd.soldiers;
+    const n = Math.min(list.length, MAX_SOLDIERS);
+    marked.length = 0;
+    for (let i = 0; i < n; i++) {
+      const soldier = list[i];
+      if (!soldier.alive || soldier.targetedT <= 0) continue;
+      const dx = soldier.x - camera.position.x;
+      const dz = soldier.z - camera.position.z;
+      marked.push({ soldier, dist: dx * dx + dz * dz });
+    }
+    marked.sort((a, b) => a.dist - b.dist);
+    const count = Math.min(marked.length, markCapacity);
+    const size = markSize();
+    const y = DROID_TUNE.height + FEEDBACK_TUNE.markLift + size / 2;
+    for (let i = 0; i < count; i++) {
+      const soldier = marked[i].soldier;
+      dummy.position.set(soldier.x, y, soldier.z);
+      dummy.quaternion.copy(camera.quaternion);
+      dummy.scale.setScalar(size);
+      dummy.updateMatrix();
+      marks.setMatrixAt(i, dummy.matrix);
+      markTint.setHex(markColor(soldier.hp / INFANTRY_TUNE.hp));
+      marks.setColorAt(i, markTint);
+    }
+    showInstances(marks, count);
+    marks.instanceMatrix.needsUpdate = true;
+    if (marks.instanceColor) marks.instanceColor.needsUpdate = true;
+  }
+
+  // The soldier a hit event belongs to: the nearest one to the event's point. The battle moves the soldiers after the
+  // enemy's fire names them, so the point and the soldier may be a step apart by the time the frame is drawn.
+  function nearestSoldier(x: number, z: number): Soldier | null {
+    let best: Soldier | null = null;
+    let bestDist = MARK_MATCH * MARK_MATCH;
+    for (const soldier of crowd.soldiers) {
+      const dx = soldier.x - x;
+      const dz = soldier.z - z;
+      const dist = dx * dx + dz * dz;
+      if (dist > bestDist) continue;
+      bestDist = dist;
+      best = soldier;
+    }
+    return best;
+  }
+
+  // A small spark at the chest of each soldier a shot has just hit, at most one per soldier in sparkGap seconds (SB-2272).
+  function sparkHits(events: readonly GameEvent[]) {
+    for (const event of events) {
+      if (event.kind !== 'infantryHit') continue;
+      const soldier = nearestSoldier(event.x, event.z);
+      if (soldier === null) continue;
+      if (!sparkReady(lastSpark.get(soldier) ?? null, markTime)) continue;
+      lastSpark.set(soldier, markTime);
+      burst(
+        soldier.x,
+        FEEDBACK_TUNE.sparkHeight,
+        soldier.z,
+        FEEDBACK_COLOR.spark,
+        FEEDBACK_TUNE.sparkCount,
+        FEEDBACK_TUNE.sparkSpeed,
+        FEEDBACK_TUNE.sparkLife,
+        FEEDBACK_TUNE.sparkGravity,
+        FEEDBACK_TUNE.sparkSize,
+      );
+    }
   }
 
   function drawSmoke() {
@@ -401,10 +510,12 @@ export function buildBattle(
 
   // The view's own share of a frame, once the battle's state is where the game put it.
   function drawFrame(dt: number, mech: { x: number; y: number; z: number }, held: boolean) {
+    markTime += dt;
     stepSmoke(dt);
     stepTracers(dt, mech);
     stepPlanes(dt);
     drawSoldiers(held);
+    drawMarks();
     drawSmoke();
     drawTracers();
     drawPlanes();
@@ -433,6 +544,7 @@ export function buildBattle(
     },
     draw(dt, mech, held, events) {
       let shake = 0;
+      sparkHits(events);
       for (const event of events) {
         if (event.kind === 'battleFell') {
           burst(event.x, 0.5, event.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);

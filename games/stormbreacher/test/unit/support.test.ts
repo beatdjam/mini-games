@@ -6,6 +6,7 @@ import { createRng } from '@engine/core/index.ts';
 import { ENEMIES } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { SECTOR_TUNE, SUPPORT_TUNE } from '../../src/data/sectors.ts';
+import { INFANTRY_TUNE } from '../../src/data/tune.ts';
 import { newCrowd, type Crowd, type Soldier } from '../../src/logic/crowd.ts';
 import { newEnemy, type EnemyState } from '../../src/logic/enemies.ts';
 import { seed } from '../../src/logic/rng.ts';
@@ -27,7 +28,20 @@ const idle: GameInput = {
 };
 
 function soldierAt(x: number, z: number): Soldier {
-  return { x, z, yaw: 0, alive: true, deadT: 0, phase: 0, squad: 0, fallAt: null, waited: true, post: null };
+  return {
+    x,
+    z,
+    yaw: 0,
+    alive: true,
+    deadT: 0,
+    phase: 0,
+    squad: 0,
+    fallAt: null,
+    waited: true,
+    post: null,
+    hp: INFANTRY_TUNE.hp,
+    targetedT: 0,
+  };
 }
 
 function crowdOf(count: number): Crowd {

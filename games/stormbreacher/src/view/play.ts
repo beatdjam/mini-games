@@ -48,7 +48,7 @@ import { feelBoom, feelDamage, feelEvents, feelMelee, feelStep, newFeel, spawnDu
 import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.ts';
 import { buildGunfireView, drawGunfire, spawnImpact, spawnMuzzleFlash, type GunfireView } from './gunfire.ts';
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
-import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
+import { buildPlayHud, drawHud, stepFallPop, type PlayHud } from './hud.ts';
 import { hitGlow } from './hudRing.ts';
 import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
@@ -435,6 +435,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number): void {
   const shots: { weapon: WeaponId; x: number; y: number; z: number }[] = [];
   let kill = false;
   let meleeHit = false;
+  // The infantry that fell to the enemy this frame, for the loss pop under the front gauge (SB-2272).
+  let fallCount = 0;
   // the blast and the shake its distance from the mech asks for; a close blast also whitens the screen. A shell that
   // falls past the map's front edge lands in the sea, so it lifts a water column and takes the water's colours.
   const blast = (kind: BoomKind, x: number, y: number, z: number) => {
@@ -577,6 +579,9 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number): void {
         { x: event.from.x, y: SUPPORT_TRACER_HEIGHT, z: event.from.z },
         { x: dx * k, y: dy * k, z: dz * k },
       );
+    } else if (event.kind === 'battleFell') {
+      // The losses the view counts for the pop (SB-2272): the enemy's fire and the shells. The steady fall is not news.
+      if (event.by !== 'other') fallCount++;
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw, view.quarter.tune.azimuth);
@@ -727,5 +732,6 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number): void {
   const glow = view.hudGlowFrom === null ? 0 : hitGlow(game.time - view.hudGlowFrom, HUD_RING_TUNE.reticle.glowSec);
   if (view.hudGlowFrom !== null && glow <= 0) view.hudGlowFrom = null;
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
+  stepFallPop(view.hud, fallCount, dt, cutscene !== null || game.sectors === null);
   drawHud(view.hud, hud, lock, glow, game.time);
 }

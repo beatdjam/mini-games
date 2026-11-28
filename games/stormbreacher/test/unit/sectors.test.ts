@@ -5,7 +5,7 @@ import { expect, test } from 'vitest';
 import { LANG, createRng } from '@engine/core/index.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
-import { FX_TUNE } from '../../src/data/tune.ts';
+import { FX_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import type { Prop } from '../../src/data/types.ts';
 import { newCrowd, stepCrowd, type Soldier } from '../../src/logic/crowd.ts';
 import type { GroundRect } from '../../src/logic/collide.ts';
@@ -30,7 +30,20 @@ const BLASTS = M1B_HAND.blasts ?? [];
 const LINE1_Z = BLASTS.find(point => point.id === 'l1-a')?.line ?? 0;
 
 function soldierAt(z: number, alive = true): Soldier {
-  return { x: 0, z, yaw: 0, alive, deadT: 0, phase: 0, squad: 0, fallAt: null, waited: false, post: null };
+  return {
+    x: 0,
+    z,
+    yaw: 0,
+    alive,
+    deadT: 0,
+    phase: 0,
+    squad: 0,
+    fallAt: null,
+    waited: false,
+    post: null,
+    hp: INFANTRY_TUNE.hp,
+    targetedT: 0,
+  };
 }
 
 function world(options: {

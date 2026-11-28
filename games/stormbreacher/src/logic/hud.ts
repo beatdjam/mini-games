@@ -5,7 +5,8 @@ import { CHARGE_TUNE } from '../data/charge.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { CALLOUT_TUNE, RADIO_TUNE, OBJECTIVE_COUNT } from '../data/script.ts';
 import { TARGET_CHARGE_ONLY, TARGET_HP } from '../data/props.ts';
-import { HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { M1_SECTORS } from '../data/sectors.ts';
+import { GAUGE_TUNE, HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import { WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { blastTarget, nearBlast, targetStands } from './blasts.ts';
@@ -13,8 +14,10 @@ import { pillboxShot } from './blastMarks.ts';
 import type { Aabb } from './fire.ts';
 import { armoured } from './battery.ts';
 import { frontOf } from './front.ts';
+import { gaugeRatio, gaugeSpan, isolation, sectorFills, type SectorFill, type Isolation } from './frontGauge.ts';
 import { enemyBox, type GameModel } from './game.ts';
 import { inCircle } from './hazards.ts';
+import { sectorHold } from './sectors.ts';
 import type { WeaponState } from './weapons.ts';
 
 export interface HudAmmo {
@@ -43,6 +46,15 @@ export interface HudFront {
   b: HudRadarPoint;
 }
 
+// The front gauge (SB-2270): the whole front as one line, 0 at the sea's edge and 1 at the pillbox line's land side.
+export interface HudGauge {
+  mech: number; // the mech's place on the gauge
+  front: number; // the line the allies hold on the same gauge
+  fills: SectorFill[]; // one fill a sector, front to back
+  isolation: Isolation; // how far inland of the front the mech stands
+  marks: number[]; // the sector boundaries' places on the gauge
+}
+
 export interface HudModel {
   boost: number; // 0-1, the mech's gauge
   armor: number; // 0-1, game.armor / MECH_TUNE.armor
@@ -56,6 +68,7 @@ export interface HudModel {
   enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp; a charge-only target (a pillbox) is never shown
   radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange, and the pillboxes' blast points
   front: HudFront; // the line the allies hold, as two points across the map (SB-2010)
+  gauge: HudGauge | null; // the whole front as one line with the mech's and the front's places (SB-2270); null in the plaza
   headline: string | null; // the short heading a milestone puts up (`m1.breach`), or null
   warning: 'shell' | null; // 'shell' while the mech stands inside a warned shell's blast, else null
   use: { key: 'hud.use'; progress: number } | null; // the use prompt near a blast point; progress is the hold, 0-1
@@ -107,6 +120,22 @@ function radarFront(game: GameModel, yaw: number): HudFront {
   return {
     a: { angle: a.angle, dist: a.dist / range },
     b: { angle: b.angle, dist: b.dist / range },
+  };
+}
+
+// The front gauge (SB-2270), built from the sectors' phases and the waiting line. The plaza has no sectors, so it has no
+// gauge. The marks are the sectors' own edges, so they and the fills always agree.
+function gaugeOf(game: GameModel): HudGauge | null {
+  if (game.sectors === null) return null;
+  const { fromZ, toZ } = gaugeSpan(M1_SECTORS);
+  const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
+  const fills = sectorFills(game.sectors.phase, M1_SECTORS);
+  return {
+    mech: gaugeRatio(game.mech.z, fromZ, toZ),
+    front: gaugeRatio(hold.holdZ, fromZ, toZ),
+    fills,
+    isolation: isolation(game.mech.z, hold.holdZ, GAUGE_TUNE),
+    marks: fills.slice(1).map(fill => fill.from),
   };
 }
 
@@ -210,6 +239,7 @@ export function hudModel(game: GameModel, viewYaw?: number): HudModel {
     lock,
     radar,
     front: radarFront(game, yaw),
+    gauge: gaugeOf(game),
     headline: headlineOf(game),
     warning,
     callout,

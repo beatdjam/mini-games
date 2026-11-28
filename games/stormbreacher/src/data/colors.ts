@@ -115,6 +115,11 @@ export const HUD_COLOR = {
   armorHigh: '#7fe3c0',
   armorMid: '#ffcf6a',
   armorLow: '#ff5a4a',
+  // the front gauge's three fills (SB-2270, 仮): the enemy's land darkest, a secured sector amber between, a stable one
+  // the gauges' cyan. The three are chosen to read apart in brightness and not only in hue.
+  gaugeEnemy: '#4a3c3b',
+  gaugeSecured: '#c08a48',
+  gaugeStable: '#54e8ff',
 };
 
 // The enemies wear the enemy row of PROTO_PALETTES (SB-2083): dark grey armour, near-black joints, red accents and red
@@ -174,6 +179,14 @@ export const PILLBOX_DEFLECT_COLOR = 0xffe080;
 // The sparks a mech's fist throws off an enemy's armour (仮). Warm metal, close to the pillbox's deflect sparks but a
 // little deeper, so a blow reads apart from a ricochet.
 export const MELEE_SPARK_COLOR = 0xffb84d;
+
+// The marks and sparks of the infantry's being under fire (SB-2272, 仮): the mark over a soldier that is aimed at, the
+// same mark once it has been hurt (the blend goes to this red as its health falls), and the spark of a hit.
+export const FEEDBACK_COLOR = {
+  mark: 0xffcf6a,
+  markHit: 0xff5a4a,
+  spark: 0xffa04a,
+};
 
 // The look of a shot (SB-1450, 仮): the muzzle's flash, the tracer's band and the sparks and smoke of an impact. The
 // mech's are yellow-white and the enemies' red-orange, so which way a shot goes reads at a glance.

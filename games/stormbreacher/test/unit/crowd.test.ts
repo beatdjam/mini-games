@@ -1,11 +1,12 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { FX_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../src/data/tune.ts';
+import { FX_TUNE, INFANTRY_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../src/data/tune.ts';
 import {
   DEAD_LINGER,
   catchUp,
   crowdCounts,
   fallNear,
+  hurtNear,
   newCrowd,
   spawnWave,
   stepCrowd,
@@ -276,4 +277,68 @@ test('a wave comes in just behind the mech once it is past the sea edge, and at 
   stepCrowd(plain, rng, DT, FX_TUNE, false, 20);
   spawnWave(plain, rng, BOUNDS, 6, FX_TUNE);
   for (const soldier of plain.soldiers) expect(soldier.z).toBeGreaterThan(BOUNDS.maxZ - 12);
+});
+
+test('a new soldier starts with the infantry health and no target on it', () => {
+  const crowd = newCrowd();
+  spawnWave(crowd, createRng(1), BOUNDS, 3, FX_TUNE);
+  expect(crowd.soldiers).toHaveLength(3);
+  for (const soldier of crowd.soldiers) {
+    expect(soldier.hp).toBe(INFANTRY_TUNE.hp);
+    expect(soldier.targetedT).toBe(0);
+  }
+});
+
+test('a soldier’s target mark counts down as the crowd walks', () => {
+  const crowd = newCrowd();
+  const rng = createRng(2);
+  const tune = tuneWith({ allyDeathRate: 0, allyWaves: 0 });
+  spawnWave(crowd, rng, BOUNDS, 1, tune);
+  crowd.soldiers[0].targetedT = 1;
+  stepCrowd(crowd, rng, DT, tune);
+  expect(crowd.soldiers[0].targetedT).toBeCloseTo(1 - DT, 6);
+  for (let i = 0; i < 60; i++) stepCrowd(crowd, rng, DT, tune);
+  expect(crowd.soldiers[0].targetedT).toBe(0);
+});
+
+test('a shell takes the health of the soldiers near it, less from a posted one, and the outside stay whole', () => {
+  const crowd = newCrowd();
+  const rng = createRng(4);
+  const tune = tuneWith({ allyDeathRate: 0, allyWaves: 0 });
+  spawnWave(crowd, rng, BOUNDS, 4, tune);
+  // a line of soldiers 3 m apart at z 0; the second has taken its ground, the last is outside the shell
+  crowd.soldiers.forEach((soldier, i) => {
+    soldier.x = i * 3;
+    soldier.z = 0;
+  });
+  crowd.soldiers[1].waited = true;
+  crowd.holdZ = 0; // the waiting line it stands at
+  crowd.soldiers[3].x = 30;
+  const fell = hurtNear(crowd, 0, 0, 7, 1, INFANTRY_TUNE.shellDamage, INFANTRY_TUNE.shellDamageProne, rng);
+  expect(fell.map(soldier => soldier.x)).toEqual([0, 6]);
+  expect(crowd.soldiers[0].alive).toBe(false);
+  expect(crowd.soldiers[0].hp).toBeLessThanOrEqual(0);
+  expect(crowd.soldiers[2].alive).toBe(false);
+  // the posted soldier is prone: the shell takes the smaller damage
+  expect(crowd.soldiers[1].alive).toBe(true);
+  expect(crowd.soldiers[1].hp).toBe(INFANTRY_TUNE.hp - INFANTRY_TUNE.shellDamageProne);
+  // the one outside the radius is untouched
+  expect(crowd.soldiers[3].alive).toBe(true);
+  expect(crowd.soldiers[3].hp).toBe(INFANTRY_TUNE.hp);
+  expect(crowd.fallen).toBe(2);
+
+  // a second shell takes the prone soldier down, and the outside one still stands
+  const again = hurtNear(crowd, 0, 0, 7, 1, INFANTRY_TUNE.shellDamage, INFANTRY_TUNE.shellDamageProne, rng);
+  expect(again).toEqual([crowd.soldiers[1]]);
+  expect(crowd.soldiers[1].alive).toBe(false);
+  expect(crowd.soldiers[3].hp).toBe(INFANTRY_TUNE.hp);
+});
+
+test('a shell with no radius or no share leaves every soldier whole', () => {
+  const crowd = newCrowd();
+  const rng = createRng(5);
+  spawnWave(crowd, rng, BOUNDS, 3, tuneWith({ allyDeathRate: 0, allyWaves: 0 }));
+  expect(hurtNear(crowd, 0, 0, 0, 1, INFANTRY_TUNE.shellDamage, INFANTRY_TUNE.shellDamageProne, rng)).toEqual([]);
+  expect(hurtNear(crowd, 0, 170, 100, 0, INFANTRY_TUNE.shellDamage, INFANTRY_TUNE.shellDamageProne, rng)).toEqual([]);
+  for (const soldier of crowd.soldiers) expect(soldier.hp).toBe(INFANTRY_TUNE.hp);
 });

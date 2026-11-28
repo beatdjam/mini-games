@@ -3,7 +3,7 @@
 // run them. +z is the sea and -z is the land, as on the map.
 import { clamp, distXZ, type Rng } from '@engine/core/index.ts';
 import type { MapBounds, SpawnPoint } from '../data/types.ts';
-import type { FxTune } from '../data/tune.ts';
+import { INFANTRY_TUNE, type FxTune } from '../data/tune.ts';
 
 // A hard cap on the soldiers in the list, so the view's instanced mesh is always big enough. The first wave plus the
 // waves after it can reach it; from then on a new wave brings no one until the fallen are gone.
@@ -34,6 +34,8 @@ export interface Soldier {
   fallAt: SpawnPoint | null; // the machine-gun nest it falls near (null keeps it walking)
   waited: boolean; // true once it has stood at the waiting line; it does not fall to the steady loss after that
   post: { x: number; z: number } | null; // where it is posted in a secured sector; null while it walks with the wave
+  hp: number; // the health left; 0 or less puts it down (SB-2271)
+  targetedT: number; // the seconds it still counts as aimed at; counts down in stepCrowd (s; SB-2271)
 }
 
 export interface Crowd {
@@ -47,6 +49,7 @@ export interface Crowd {
   holdT: number; // seconds the line has been held, for the growing loss; Battle.advance sets it back to 0 at each new line (s; SB-2020)
   fallen: number; // how many have fallen so far
   through: number; // how many have reached the line so far
+  manDownAt: number[]; // the game time of the last man-down call from each sector, so one sector does not repeat it too soon (SB-2272)
 }
 
 export interface CrowdCounts {
@@ -68,6 +71,7 @@ export function newCrowd(): Crowd {
     holdT: 0,
     fallen: 0,
     through: 0,
+    manDownAt: [],
   };
 }
 
@@ -109,6 +113,8 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
         fallAt: i < falls ? { x: nest.x, z: nest.z } : null,
         waited: false,
         post: null,
+        hp: INFANTRY_TUNE.hp,
+        targetedT: 0,
       });
       added++;
     }
@@ -127,6 +133,8 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
       fallAt: null,
       waited: false,
       post: null,
+      hp: INFANTRY_TUNE.hp,
+      targetedT: 0,
     });
     added++;
   }
@@ -183,6 +191,7 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
       if (soldier.deadT >= DEAD_LINGER) crowd.soldiers.splice(i, 1);
       continue;
     }
+    if (soldier.targetedT > 0) soldier.targetedT = Math.max(0, soldier.targetedT - span);
 
     // A posted soldier walks to its place in a secured sector and stops there, facing the land (SB-2262). It stays when
     // the line moves on, so the ground the infantry took keeps its soldiers.
@@ -273,6 +282,50 @@ export function fallNear(crowd: Crowd, x: number, z: number, radius: number, sha
     soldier.alive = false;
     soldier.deadT = 0;
     crowd.fallen++;
+    fell.push(soldier);
+  }
+  return fell;
+}
+
+// Whether a soldier has taken its ground (SB-2271): posted in a secured sector, or standing at the waiting line now.
+// Such a soldier is the harder target: the enemies pick it after the ones still walking, and a shot does less. `waited`
+// is not enough: it stays true for good, so a soldier that has walked on from the line (or lost its post to
+// releasePosts) would stay hard while it walks in the open. A held soldier stands exactly at crowd.holdZ.
+export function isPosted(crowd: Crowd, soldier: Soldier): boolean {
+  if (soldier.post !== null) return true;
+  return soldier.waited && crowd.holdZ !== null && Math.abs(soldier.z - crowd.holdZ) < 1e-6;
+}
+
+// Puts a fall down on a soldier: the one way the health, a shell or an enemy's shot takes one out (SB-2271).
+export function putDown(crowd: Crowd, soldier: Soldier): void {
+  soldier.alive = false;
+  soldier.deadT = 0;
+  crowd.fallen++;
+}
+
+// Takes `damage` (`damageProne` for a posted or waiting soldier) off the living soldiers within `radius` of (x, z), each
+// with a chance of `share`: a shell's doing (SB-2271). A soldier whose health reaches 0 falls, as it does at `fallNear`.
+// A radius or a share of 0 leaves them all up. Gives back the ones that fell this frame, for the view to put dust on
+// them.
+export function hurtNear(
+  crowd: Crowd,
+  x: number,
+  z: number,
+  radius: number,
+  share: number,
+  damage: number,
+  damageProne: number,
+  rng: Rng,
+): Soldier[] {
+  const fell: Soldier[] = [];
+  if (radius <= 0 || share <= 0) return fell;
+  const chance = Math.min(1, share);
+  for (const soldier of crowd.soldiers) {
+    if (!soldier.alive || distXZ({ x, z }, soldier) > radius) continue;
+    if (rng.next() >= chance) continue;
+    soldier.hp -= isPosted(crowd, soldier) ? damageProne : damage;
+    if (soldier.hp > 0) continue;
+    putDown(crowd, soldier);
     fell.push(soldier);
   }
   return fell;

@@ -4,14 +4,18 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.ts';
+import { FEEDBACK_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import {
   newGame,
+  queueManDownRadio,
   retryFromCheckpoint,
   sendToScript,
   step,
   type GameInput,
   type GameModel,
 } from '../../src/logic/game.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
+import { type Soldier } from '../../src/logic/crowd.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { sectorHold } from '../../src/logic/sectors.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
@@ -142,5 +146,98 @@ describe('the battle layer in the game', () => {
     expect(game.checkpoint?.id).toBe('cp1');
     const again = retryFromCheckpoint(game);
     expect(again.battle.crowd.holdZ).toBe(sectorHold(again.sectors, again.script.blasts, M1B_HAND.blasts ?? []).holdZ);
+  });
+
+  // A game whose sectors are all stable, so the infantry walks landward past the water's edge with no line holding it.
+  // The battle has one soldier and one awake grunt, and no new wave, shell or trickle to move the test.
+  function infantryField(posted: boolean): { game: GameModel; soldier: Soldier } {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    game.trickle = null;
+    if (game.sectors !== null) game.sectors.phase.fill('stable');
+    game.battleTune = { ...game.battleTune, allyWaves: 0, allySpeed: 0.5, shellEvery: 0 };
+    game.mech.x = 0;
+    game.mech.y = 0;
+    game.mech.z = 146;
+    const soldier = game.battle.crowd.soldiers[0];
+    game.battle.crowd.soldiers = [soldier];
+    soldier.x = 0;
+    soldier.z = posted ? 160 : 169;
+    soldier.hp = INFANTRY_TUNE.hp;
+    soldier.alive = true;
+    soldier.waited = posted;
+    soldier.post = posted ? { x: 0, z: 160 } : null;
+    soldier.targetedT = 0;
+    const grunt = newEnemy('grunt-test', 'test', 'grunt', 0, 155);
+    grunt.awake = true;
+    game.enemies = [grunt];
+    return { game, soldier };
+  }
+
+  test('an enemy’s fire takes a walking soldier’s health away and puts it down, while the mech is still shot at', () => {
+    const { game, soldier } = infantryField(false);
+    const full = soldier.hp;
+    const armor = game.armor;
+    let hurt = false;
+    let fell = false;
+    let mechHurt = false;
+    for (let frame = 0; frame < 60 * 40 && !fell; frame++) {
+      step(game, idle, DT);
+      if (soldier.hp < full) hurt = true;
+      if (game.events.some(event => event.kind === 'battleFell' && event.by === 'fire')) fell = true;
+      if (game.armor < armor) mechHurt = true;
+    }
+    expect(hurt).toBe(true);
+    expect(soldier.alive).toBe(false);
+    expect(fell).toBe(true);
+    // the shots that go at the mech are still there
+    expect(mechHurt).toBe(true);
+  });
+
+  test('a posted soldier near the same enemy loses less health in the same time', () => {
+    // A run of its own each time: both start from the same seed, so the enemy's shots and rolls line up.
+    function lostOver(posted: boolean): number {
+      const { game, soldier } = infantryField(posted);
+      const full = soldier.hp;
+      for (let frame = 0; frame < 60 * 20; frame++) step(game, idle, DT);
+      return full - soldier.hp;
+    }
+    const walkingLost = lostOver(false);
+    const postedLost = lostOver(true);
+    expect(walkingLost).toBeGreaterThan(0);
+    expect(postedLost).toBeGreaterThan(0);
+    expect(postedLost).toBeLessThan(walkingLost);
+  });
+
+  test('a man-down call goes out once per sector until the gap has passed, and never for a steady fall', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    game.radioQueue = [];
+    game.radio = null;
+    const lines = () => game.radioQueue.map(entry => entry.line);
+    const fall = (z: number, by: 'fire' | 'shell' | 'other'): void => {
+      game.events = [{ kind: 'battleFell', x: 0, z, by }];
+      queueManDownRadio(game);
+    };
+
+    // the beach (z 140): the first fall calls, a second inside the gap keeps quiet
+    game.time = 0;
+    fall(140, 'fire');
+    expect(lines()).toEqual(['m1.man-down']);
+    game.time = 5;
+    fall(140, 'shell');
+    expect(lines()).toEqual(['m1.man-down']);
+    // past the gap, the beach may call again
+    game.time = FEEDBACK_TUNE.downRadioGap;
+    fall(140, 'shell');
+    expect(lines()).toEqual(['m1.man-down', 'm1.man-down']);
+    // another sector is still free, even at once
+    game.time = FEEDBACK_TUNE.downRadioGap + 1;
+    fall(100, 'fire');
+    expect(lines()).toEqual(['m1.man-down', 'm1.man-down', 'm1.man-down']);
+    // and a steady fall is not news
+    game.time = 60;
+    fall(100, 'other');
+    expect(lines()).toHaveLength(3);
   });
 });

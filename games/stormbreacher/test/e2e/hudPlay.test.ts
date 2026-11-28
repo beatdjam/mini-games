@@ -3,8 +3,11 @@ import { page } from 'vitest/browser';
 import { el, runSystems, t } from '@engine/core/index.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { TOUCH_DEFAULTS } from '../../src/data/touch.ts';
+import { FEEDBACK_TUNE } from '../../src/data/tune.ts';
 import { currentGame, currentPlayView, startSortie, showResult } from '../../src/app/play.ts';
 import { aimPointOf } from '../../src/view/play.ts';
+import { stepFallPop } from '../../src/view/hud.ts';
 import { boot } from '../../src/app/boot.ts';
 import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
@@ -103,6 +106,30 @@ test('the use prompt says how to plant a charge at a blast point, and the touch 
   expect(button.classList.contains('on')).toBe(false);
 });
 
+test('the front gauge sits at the right edge under the radar, and the plaza has none', () => {
+  startSortie();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  steps(1); // the first frame starts the landing's cutscene, which hides the HUD
+  sendToScript(game, { kind: 'skip' });
+  steps(1);
+  const gauge = el('#sbPlayHud [data-hud="gauge"]');
+  expect(gauge.hasAttribute('hidden'), 'the sortie has a front gauge').toBe(false);
+
+  const box = gauge.getBoundingClientRect();
+  const dial = el('#sbPlayHud [data-hud="radar"]').getBoundingClientRect();
+  expect(box.left).toBeGreaterThan(window.innerWidth / 2);
+  expect(box.right).toBeLessThanOrEqual(window.innerWidth);
+  // it starts at or below the radar's foot, so the two do not overlap
+  expect(box.top).toBeGreaterThanOrEqual(dial.bottom - 1);
+  expect(box.bottom).toBeLessThan(window.innerHeight);
+
+  // the plaza has no sectors, so no gauge
+  game.sectors = null;
+  runSystems(1 / 60);
+  expect(gauge.hasAttribute('hidden'), 'the plaza has no gauge').toBe(true);
+});
+
 test('the lock frame shows only while the aim is pulled toward a target', () => {
   startSortie();
   const game = currentGame();
@@ -164,4 +191,40 @@ test('the lock frame shows only while the aim is pulled toward a target', () => 
     tune.lag = lag;
     game.enemies = others;
   }
+});
+
+test('the infantry loss pop sits under the front gauge and goes after its seconds', () => {
+  startSortie();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  // keep the battle from adding losses of its own while the pop's clock runs
+  game.battle.crowd.soldiers = [];
+  game.battle.crowd.bounds = null;
+  const view = currentPlayView();
+  if (!view) throw new Error('the sortie has no view');
+  steps(1); // the first frame starts the landing's cutscene, which hides the HUD and the pop with it
+  sendToScript(game, { kind: 'skip' });
+  steps(1);
+  const pop = el('#sbPlayHud [data-hud="pop"]');
+  expect(pop.hidden).toBe(true);
+
+  stepFallPop(view.hud, 1, 0);
+  steps(1);
+  expect(pop.hidden).toBe(false);
+  expect(pop.textContent).toContain(t('hud.infantryFall'));
+  const box = pop.getBoundingClientRect();
+  const gauge = el('#sbPlayHud [data-hud="gauge"]').getBoundingClientRect();
+  const dial = el('#sbPlayHud [data-hud="radar"]').getBoundingClientRect();
+  // right-aligned with the gauge and just under its foot, clear of the radar
+  expect(box.top - gauge.bottom).toBeCloseTo(FEEDBACK_TUNE.popGap, 0);
+  expect(box.right).toBeCloseTo(gauge.right, 0);
+  expect(box.top).toBeGreaterThanOrEqual(dial.bottom - 1);
+  // the touch screen's default boost button (right edge) is below both the gauge and the pop
+  const boost = TOUCH_DEFAULTS.boost;
+  const boostTop = boost.y * window.innerHeight - (boost.b * boost.s) / 2;
+  expect(gauge.bottom).toBeLessThanOrEqual(boostTop);
+  expect(box.bottom).toBeLessThanOrEqual(boostTop);
+
+  steps(Math.ceil(FEEDBACK_TUNE.popSec * 60) + 3);
+  expect(pop.hidden).toBe(true);
 });
