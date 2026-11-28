@@ -3,7 +3,7 @@
 // functions, so a node test runs them without a page (game.ts is not imported).
 import type { Rng } from '@engine/core/index.ts';
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
-import { M1_SECTORS, SECTOR_TUNE } from '../data/sectors.ts';
+import { M1_SECTORS, SECTOR_TUNE, type SpawnZone } from '../data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../data/trickle.ts';
 import { QUARTER_TUNE } from '../data/tune.ts';
 import type { MapBounds } from '../data/types.ts';
@@ -78,6 +78,24 @@ function scriptedFoeIn(sectorIndex: number, world: TrickleWorld): boolean {
   return false;
 }
 
+// A point from the sector's own rectangles: one draw picks the rectangle by its share of the area, then x and z are
+// drawn inside it (SB-2282).
+function spawnInZones(zones: readonly SpawnZone[], rng: Rng): { x: number; z: number } {
+  let total = 0;
+  for (const zone of zones) total += (zone.maxX - zone.minX) * (zone.maxZ - zone.minZ);
+  const pick = rng.rand(0, total);
+  let edge = 0;
+  let chosen = zones[zones.length - 1];
+  for (const zone of zones) {
+    edge += (zone.maxX - zone.minX) * (zone.maxZ - zone.minZ);
+    if (pick < edge) {
+      chosen = zone;
+      break;
+    }
+  }
+  return { x: rng.rand(chosen.minX, chosen.maxX), z: rng.rand(chosen.minZ, chosen.maxZ) };
+}
+
 // Moves the trickle on by one frame. When an enemy may come, a point for it is drawn from `rng` and given back; making
 // the enemy is the game's part. `spent` grows only when a point was found, and none is spent when all the tries fail:
 // the next one waits `retryT` instead.
@@ -96,8 +114,14 @@ export function stepTrickle(state: TrickleState, world: TrickleWorld, rng: Rng, 
   const sight = viewGround(world.mech, QUARTER_TUNE, TRICKLE_TUNE.viewAspect, TRICKLE_TUNE.viewMargin);
   const radius = ENEMIES[TRICKLE_TUNE.kind].radius;
   for (let try_ = 0; try_ < TRICKLE_TUNE.tries; try_++) {
-    const z = sector.landZ - TRICKLE_TUNE.spawnBack - rng.rand(0, TRICKLE_TUNE.spawnDepth);
-    const x = rng.rand(-TRICKLE_TUNE.spawnSpread, TRICKLE_TUNE.spawnSpread);
+    let x: number;
+    let z: number;
+    if (sector.spawn !== undefined && sector.spawn.length > 0) {
+      ({ x, z } = spawnInZones(sector.spawn, rng));
+    } else {
+      z = sector.landZ - TRICKLE_TUNE.spawnBack - rng.rand(0, TRICKLE_TUNE.spawnDepth);
+      x = rng.rand(-TRICKLE_TUNE.spawnSpread, TRICKLE_TUNE.spawnSpread);
+    }
     if (insideQuad(sight, x, z)) continue;
     if (Math.hypot(x - world.mech.x, z - world.mech.z) < TRICKLE_TUNE.minDist) continue;
     if (world.rects.some(rect => rectDistance(rect, x, z) <= radius)) continue;

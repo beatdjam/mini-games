@@ -1,7 +1,9 @@
 // The front's trickle (SB-2230): where it comes out, when it stops, and what it counts. The world here is the small
 // one the function asks for, built by hand.
+import type { Rng } from '@engine/core/index.ts';
 import { expect, test } from 'vitest';
 import { ENEMIES, type EnemyKind } from '../../src/data/enemies.ts';
+import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1_SECTORS } from '../../src/data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../../src/data/trickle.ts';
 import { QUARTER_TUNE } from '../../src/data/tune.ts';
@@ -49,10 +51,66 @@ function world(options: Partial<TrickleWorld> = {}): TrickleWorld {
 }
 
 // One frame with the wait run out, so a spawn may come now.
-function spawnNow(w: TrickleWorld, state = newTrickle(M1_SECTORS.length)) {
+function spawnWith(w: TrickleWorld, rng: Rng, state = newTrickle(M1_SECTORS.length)) {
   state.t = 0;
-  return stepTrickle(state, w, stream('trickle'), DT);
+  return stepTrickle(state, w, rng, DT);
 }
+
+function spawnNow(w: TrickleWorld, state = newTrickle(M1_SECTORS.length)) {
+  return spawnWith(w, stream('trickle'), state);
+}
+
+// An rng that gives back the middle of every range and records the ranges, so the draws' order can be read.
+function recordingRng(): { rng: Rng; calls: [number, number][] } {
+  const calls: [number, number][] = [];
+  const mid = (a: number, b: number): number => {
+    calls.push([a, b]);
+    return (a + b) / 2;
+  };
+  return {
+    calls,
+    rng: { next: () => 0.5, rand: mid, randi: (a, b) => Math.floor(mid(a, b + 1)), pick: a => a[0], shuffle: a => a },
+  };
+}
+
+// The sectors that keep the old band: all but the three with their own rectangles.
+const OLD_BAND = M1_SECTORS.filter(sector => sector.spawn === undefined);
+const SPAWN_SECTORS = M1_SECTORS.filter(sector => sector.spawn !== undefined);
+
+// The fortress's walls as rectangles: the sea and land walls either side of their gates, and the two side walls.
+const WALLS: GroundRect[] = [];
+for (const sign of [-1, 1]) {
+  const halfW = (FORTRESS_TUNE.outerW - FORTRESS_TUNE.seaGate) / 4;
+  WALLS.push({
+    x: sign * (FORTRESS_TUNE.seaGate / 2 + halfW),
+    z: FORTRESS_TUNE.seaWallZ,
+    halfW,
+    halfD: FORTRESS_TUNE.wallT / 2,
+    yaw: 0,
+  });
+  const landHalfW = (FORTRESS_TUNE.outerW - FORTRESS_TUNE.landGate) / 4;
+  WALLS.push({
+    x: sign * (FORTRESS_TUNE.landGate / 2 + landHalfW),
+    z: FORTRESS_TUNE.landWallZ,
+    halfW: landHalfW,
+    halfD: FORTRESS_TUNE.wallT / 2,
+    yaw: 0,
+  });
+  WALLS.push({
+    x: sign * FORTRESS_TUNE.wallX,
+    z: FORTRESS_TUNE.yardZ,
+    halfW: FORTRESS_TUNE.wallT / 2,
+    halfD: FORTRESS_TUNE.yardD / 2,
+    yaw: 0,
+  });
+}
+WALLS.push({
+  x: 0,
+  z: FORTRESS_TUNE.landWallZ,
+  halfW: FORTRESS_TUNE.landGate / 2,
+  halfD: FORTRESS_TUNE.wallT / 2,
+  yaw: 0,
+});
 
 test('the trickle comes out of sight, far from the mech, clear of the rects and inside the bounds', () => {
   const rects: GroundRect[] = [{ x: 20, z: 100, halfW: 8, halfD: 6, yaw: 0.3 }];
@@ -71,6 +129,90 @@ test('the trickle comes out of sight, far from the mech, clear of the rects and 
     expect(z, `seed ${n} z`).toBeGreaterThanOrEqual(BOUNDS.minZ + RADIUS);
     expect(z, `seed ${n} z`).toBeLessThanOrEqual(BOUNDS.maxZ - RADIUS);
   }
+});
+
+// A world with one sector in front and no enemy in the way, so only the point's drawing decides the test.
+function sectorWorld(index: number, mechZ = 166): TrickleWorld {
+  return world({
+    mech: { x: 0, y: 0, z: mechZ },
+    enemies: [],
+    sectors: stateWith(M1_SECTORS.map((_, i): SectorPhase => (i === index ? 'advancing' : 'stable'))),
+  });
+}
+
+test('a sector without a spawn zone draws the old band in the old order', () => {
+  for (const index of OLD_BAND.filter(sector => sector.budget > 0).map(sector => M1_SECTORS.indexOf(sector))) {
+    const { rng, calls } = recordingRng();
+    const point = spawnWith(sectorWorld(index), rng);
+    const sector = M1_SECTORS[index];
+    expect(point, sector.id).not.toBeNull();
+    expect(calls, sector.id).toEqual([
+      [0, TRICKLE_TUNE.spawnDepth],
+      [-TRICKLE_TUNE.spawnSpread, TRICKLE_TUNE.spawnSpread],
+      [TRICKLE_TUNE.intervalMin, TRICKLE_TUNE.intervalMax],
+    ]);
+    expect(point!.z, sector.id).toBe(sector.landZ - TRICKLE_TUNE.spawnBack - TRICKLE_TUNE.spawnDepth / 2);
+    expect(point!.x, sector.id).toBe(0);
+  }
+});
+
+test('a sector with spawn zones picks a rectangle by area, then draws x and z inside it', () => {
+  const index = M1_SECTORS.findIndex(sector => sector.id === 'cband');
+  const zones = M1_SECTORS[index].spawn!;
+  const total = zones.reduce((sum, zone) => sum + (zone.maxX - zone.minX) * (zone.maxZ - zone.minZ), 0);
+  const { rng, calls } = recordingRng();
+  const point = spawnWith(sectorWorld(index), rng);
+  const second = zones[1];
+  expect(point).not.toBeNull();
+  expect(calls).toEqual([
+    [0, total],
+    [second.minX, second.maxX],
+    [second.minZ, second.maxZ],
+    [TRICKLE_TUNE.intervalMin, TRICKLE_TUNE.intervalMax],
+  ]);
+  expect(point!.x).toBe((second.minX + second.maxX) / 2);
+  expect(point!.z).toBe((second.minZ + second.maxZ) / 2);
+});
+
+test('the spawn zones keep every point inside them and out of the fortress walls', () => {
+  for (const sector of SPAWN_SECTORS) {
+    const index = M1_SECTORS.indexOf(sector);
+    const zones = sector.spawn!;
+    let found = 0;
+    for (let n = 1; n <= 300; n++) {
+      seed(n);
+      const point = spawnNow(sectorWorld(index));
+      if (point === null) continue;
+      found++;
+      expect(
+        zones.some(
+          zone => point.x >= zone.minX && point.x <= zone.maxX && point.z >= zone.minZ && point.z <= zone.maxZ,
+        ),
+        `${sector.id} seed ${n}`,
+      ).toBe(true);
+      for (const wall of WALLS) {
+        expect(rectDistance(wall, point.x, point.z), `${sector.id} seed ${n} wall`).toBeGreaterThan(0);
+      }
+    }
+    expect(found, sector.id).toBeGreaterThan(250);
+  }
+});
+
+test('a point inside the view is dropped from a spawn zone as well', () => {
+  const index = M1_SECTORS.findIndex(sector => sector.id === 'cband');
+  const w = sectorWorld(index, -47);
+  const sight = viewGround(w.mech, QUARTER_TUNE, TRICKLE_TUNE.viewAspect, 0);
+  // the left end of the band is in the view from the cband's middle, so the draws below would pass through it
+  expect(insideQuad(sight, -40, -47)).toBe(true);
+  let found = 0;
+  for (let n = 1; n <= 300; n++) {
+    seed(n);
+    const point = spawnNow(w);
+    if (point === null) continue;
+    found++;
+    expect(insideQuad(sight, point.x, point.z), `seed ${n} in sight`).toBe(false);
+  }
+  expect(found).toBeGreaterThan(0);
 });
 
 test('no point found spends nothing and waits retryT', () => {

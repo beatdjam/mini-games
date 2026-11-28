@@ -9,6 +9,14 @@ import { BATTLE_TUNE } from './tune.ts';
 export type SectorId =
   'beach' | 'line1' | 'line2' | 'pillboxes' | 'cband' | 'gate' | 'yard' | 'plug' | 'field1' | 'field2' | 'magazine';
 
+// A rectangle the trickle may put an enemy in (SB-2282). A sector without one uses TRICKLE_TUNE's band instead.
+export interface SpawnZone {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
 export interface Sector {
   id: SectorId;
   seaZ: number; // the sector's sea-side edge (m)
@@ -16,6 +24,7 @@ export interface Sector {
   holdZ: number; // where the infantry waits once the sector is cleared (m)
   counter: number; // the enemies of the counterattack that follows the sector's securing (count)
   budget: number; // the enemies the trickle may put out while this sector is the front (count, SB-2230)
+  spawn?: readonly SpawnZone[]; // where its trickle comes out, drawn by area (SB-2282); left out for TRICKLE_TUNE's band
 }
 
 // The values the sectors run on. Provisional, to be settled by eye in the sortie.
@@ -64,9 +73,41 @@ export const M1_SECTORS: readonly Sector[] = [
   { id: 'pillboxes', seaZ: -11, landZ: -40, holdZ: BATTLE_TUNE.holdZ, counter: 8, budget: 20 },
   // The latter half, past the pillbox line (SB-2280). The yard, the plug and the magazine have no counterattack of their
   // own: the script's waves stand in for it. 仮。遊んで直す.
-  { id: 'cband', seaZ: -40, landZ: -55, holdZ: -47, counter: 4, budget: 14 },
-  { id: 'gate', seaZ: -55, landZ: -70, holdZ: -60, counter: 6, budget: 12 },
-  { id: 'yard', seaZ: -70, landZ: -100, holdZ: -85, counter: 0, budget: 6 },
+  // The open ground seaward of the seawall's ends, either side of the fortress. 仮。遊んで直す.
+  {
+    id: 'cband',
+    seaZ: -40,
+    landZ: -55,
+    holdZ: -47,
+    counter: 4,
+    budget: 14,
+    spawn: [
+      { minX: -96, maxX: -40, minZ: -64, maxZ: -45 },
+      { minX: 40, maxX: 96, minZ: -64, maxZ: -45 },
+    ],
+  },
+  {
+    id: 'gate',
+    seaZ: -55,
+    landZ: -70,
+    holdZ: -60,
+    counter: 6,
+    budget: 12,
+    spawn: [
+      { minX: -96, maxX: -40, minZ: -64, maxZ: -56 },
+      { minX: 40, maxX: 96, minZ: -64, maxZ: -56 },
+    ],
+  },
+  // The yard's inside, clear of its walls; the cover there is taken out by the rects' check. 仮。遊んで直す.
+  {
+    id: 'yard',
+    seaZ: -70,
+    landZ: -100,
+    holdZ: -85,
+    counter: 0,
+    budget: 6,
+    spawn: [{ minX: -26, maxX: 26, minZ: -120, maxZ: -76 }],
+  },
   { id: 'plug', seaZ: -100, landZ: -125, holdZ: -96, counter: 0, budget: 0 },
   { id: 'field1', seaZ: -125, landZ: -175, holdZ: -150, counter: 6, budget: 18 },
   { id: 'field2', seaZ: -175, landZ: -225, holdZ: -200, counter: 8, budget: 20 },
