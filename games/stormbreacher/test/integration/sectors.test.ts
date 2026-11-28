@@ -2,10 +2,21 @@
 // suspend brings the sector's state and the waiting line back; a wiped-out crowd is made up from behind; and a game made
 // with sectors off keeps the hold at the water's edge and says nothing about sectors.
 import { describe, expect, test } from 'vitest';
+import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
+import { PROP_SIZE } from '../../src/data/props.ts';
 import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.ts';
-import { newGame, restartGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import {
+  fortressBlast,
+  newGame,
+  restartGame,
+  sendToScript,
+  step,
+  type GameInput,
+  type GameModel,
+} from '../../src/logic/game.ts';
+import { rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { arrivedSoldiers, sectorHold } from '../../src/logic/sectors.ts';
@@ -248,6 +259,21 @@ describe('the sectors past the pillbox line', () => {
   const CBAND = M1_SECTORS.find(entry => entry.id === 'cband')!;
   const YARD = M1_SECTORS.find(entry => entry.id === 'yard')!;
 
+  // The fortress walls that stand before the blast (SB-2284): the sea wall and the two side walls. The land wall is
+  // `collapse`, so the charge takes it away and it is not one of the walls the infantry walks round.
+  function standingFortWalls(): GroundRect[] {
+    const size = PROP_SIZE.fortWall;
+    return M1B_HAND.props
+      .filter(prop => prop.kind === 'fortWall' && prop.z !== FORTRESS_TUNE.landWallZ)
+      .map(prop => ({
+        x: prop.x,
+        z: prop.z,
+        halfW: (size.w * prop.scale) / 2,
+        halfD: (size.d * prop.scale) / 2,
+        yaw: prop.yaw,
+      }));
+  }
+
   // Puts every living soldier at a sector's hold line, walking (no post), so the sector is secured on the next frame.
   function lineAtHold(game: GameModel, holdZ: number): void {
     for (const soldier of game.battle.crowd.soldiers) {
@@ -387,5 +413,83 @@ describe('the sectors past the pillbox line', () => {
     step(game, idle, DT);
     expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'magazine')).toBe(true);
     expect(game.sectors?.phase[index]).toBe('advancing');
+  });
+
+  // SB-2284: the yard's hold line stands behind the sea wall, so the infantry has to go through the sea gate, and it
+  // never stands inside a wall on the way.
+  test('the infantry goes through the sea gate without entering a wall, and the yard is secured', () => {
+    seed(7);
+    // A mission with no cues of its own: the yard's script waves would come out and take the test off the walls.
+    const game = newPlayGame(M1B_HAND, { ...M1, cues: [], waves: [] });
+    const index = M1_SECTORS.findIndex(entry => entry.id === 'yard');
+    // the gate is behind the line, and the later sectors are still the enemy's: the yard is the front
+    game.sectors!.phase.fill('idle');
+    for (let i = 0; i < index; i++) game.sectors!.phase[i] = 'stable';
+    game.script.flags.push('yard-3-clear');
+    game.trickle = null;
+    game.enemies = [];
+    game.armor = Number.MAX_SAFE_INTEGER;
+    game.battleTune = { ...game.battleTune, allyWaves: 0, shellEvery: 0 };
+    // every defence line behind the yard is open, as it is when the mech has come this far
+    for (const point of M1B_HAND.blasts ?? []) if (point.line !== null) blowLine(game, point.id);
+    // the infantry is up at the open ground before the fortress, as the earlier sectors leave it
+    game.battle.crowd.soldiers.forEach((soldier, i) => {
+      soldier.alive = true;
+      soldier.post = null;
+      soldier.waited = false;
+      soldier.x = -30 + (i % 16) * 4;
+      soldier.z = -50 - Math.floor(i / 16) * 2;
+    });
+    enterSector(game, 'yard');
+    step(game, idle, DT);
+    expect(game.sectors?.phase[index]).toBe('advancing');
+    expect(game.battle.crowd.holdZ).toBe(YARD.holdZ);
+
+    const walls = standingFortWalls();
+    expect(walls.length).toBeGreaterThan(0);
+    let securedAt = 0;
+    for (let frame = 0; frame < 60 * 60; frame++) {
+      step(game, idle, DT);
+      for (const soldier of game.battle.crowd.soldiers) {
+        if (!soldier.alive) continue;
+        for (const wall of walls) expect(rectDistance(wall, soldier.x, soldier.z)).toBeGreaterThan(0);
+      }
+      if (securedAt === 0 && game.events.some(event => event.kind === 'sectorSecured' && event.sector === 'yard')) {
+        securedAt = frame + 1;
+      }
+    }
+    expect(securedAt).toBeGreaterThan(0);
+    expect(['counter', 'stable']).toContain(game.sectors?.phase[index]);
+    // the gate costs the line some time, but it gets in well inside a minute
+    expect(securedAt / 60).toBeLessThan(60);
+  }, 20_000);
+
+  test('once the blast takes the land wall down, the infantry walks through where it stood', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    game.sectors!.phase.fill('stable');
+    game.trickle = null;
+    game.enemies = [];
+    game.armor = Number.MAX_SAFE_INTEGER;
+    game.battleTune = { ...game.battleTune, allyWaves: 0, shellEvery: 0 };
+    game.mech.z = 0;
+    // one soldier just seaward of the land wall, posted on its far side
+    const soldier = game.battle.crowd.soldiers[0];
+    game.battle.crowd.soldiers = [soldier];
+    soldier.alive = true;
+    soldier.post = { x: -12, z: -140 };
+    soldier.x = -12;
+    soldier.z = -118;
+    // the wall stands: it stops just before it
+    for (let frame = 0; frame < 120; frame++) step(game, idle, DT);
+    expect(soldier.z).toBeGreaterThan(-121.5);
+    // the charge in the land wall blows: the land wall, the side walls and the door come out of the rects
+    const bomb = game.blasts.find(blast => blast.id === 'fort-bomb');
+    if (bomb === undefined) throw new Error('the map has no fort-bomb');
+    const before = game.rects.length;
+    fortressBlast(game, bomb);
+    expect(game.rects.length).toBeLessThan(before);
+    for (let frame = 0; frame < 60 * 10; frame++) step(game, idle, DT);
+    expect(soldier.z).toBeLessThan(-131);
   });
 });

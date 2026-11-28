@@ -1791,6 +1791,21 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   stepBattleLayer(game, dt * timeScale(game));
 }
 
+// The fortress walls the infantry steers round (SB-2284): the map's `fortWall` props that still stand. game.rects holds
+// the map's blockers with the props' first, and propRefs names the prop of each prop box in that order, so the rects at
+// the props' places are read in step with the boxes (a prop that broke or blew away is already out of both). The yard's
+// cover, the hedgehogs and the seawall are not walls here: only the fortress's own box stops the infantry.
+function crowdWalls(game: GameModel): GroundRect[] {
+  const walls: GroundRect[] = [];
+  let box = 0;
+  for (const rect of game.rects) {
+    if (box >= game.propRefs.length) break;
+    if (game.map.props[game.propRefs[box]].kind === 'fortWall') walls.push(rect);
+    box += rectBoxes(rect).length;
+  }
+  return walls;
+}
+
 // Moves the battle layer by one frame after the game's own frame (or instead of it while the cleared sortie's closing
 // cutscene plays), in the order the view used to: the game's own shells and mines take the soldiers near them, the
 // sectors move the waiting line and send the wave a cleared one brings (not while any cutscene plays or the sortie is
@@ -1902,7 +1917,9 @@ function stepBattleLayer(game: GameModel, dt: number): void {
     }
   }
   const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
-  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, hold.held, INFANTRY_TUNE);
+  // The arena (sectors off) has no fortress front, so its infantry sees no walls and walks as the old one did (SB-2284).
+  const walls = game.sectors !== null ? crowdWalls(game) : [];
+  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, hold.held, INFANTRY_TUNE, walls);
   for (const soldier of frame.fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z, by: 'other' });
   for (const soldier of frame.shellFell) {
     game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z, by: 'shell' });

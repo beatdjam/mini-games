@@ -16,6 +16,17 @@ export const FORTRESS_TUNE = {
   yardZ: -98, // the yard's middle (m)
 } as const;
 
+// The fortress gates the infantry may walk through (SB-2284): only the sea gate before the blast, as the land gate's
+// door comes down with the walls and takes the whole land wall with it. A gate is a gap in a wall row, not a rect.
+export const CROWD_GATES = [{ x: 0, z: FORTRESS_TUNE.seaWallZ, halfW: FORTRESS_TUNE.seaGate / 2 }] as const;
+
+// How the infantry keeps off the fortress walls (SB-2284, 仮): it lines up `gateMargin` off the gate's seaward face
+// before it steps through, and never comes nearer a wall than `wallRadius`. Both are guesses, to be judged on the screen.
+export const CROWD_WALL_TUNE = {
+  gateMargin: 2, // how far seaward of the sea gate's face a soldier lines up with the gate (m; 仮)
+  wallRadius: 0.6, // how near a fortress wall a soldier may come (m; 仮)
+} as const;
+
 // The heavy machine-gun nest on the fortress's sea wall (SB-1830): it sweeps the open ground before the sea gate and
 // keeps firing out to sea. Every value here is provisional and settled on #view-fortress's panel.
 export const FORTRESS_GUN_TUNE = {

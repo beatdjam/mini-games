@@ -5,6 +5,7 @@
 import type { Rng } from '@engine/core/index.ts';
 import type { MapBounds, SpawnPoint } from '../data/types.ts';
 import type { FxTune, InfantryTune } from '../data/tune.ts';
+import type { GroundRect } from './collide.ts';
 import { fallNear, hurtNear, newCrowd, spawnWave, stepCrowd, type Crowd, type Soldier } from './crowd.ts';
 
 const SHELL_FIRST = 0.5; // the first shell comes this share of FxTune.shellEvery after the start
@@ -52,7 +53,8 @@ export function newBattle(
 // lands at a place between tune.shellNear and tune.shellFar from `at` (the mech) in a random direction. The shell's draws
 // are the distance and the angle, in that order, and none while no shell lands; the soldiers near it are hit after them.
 // With an `infantry` tune the main sortie's shell takes health (SB-2271) and the ones it brings down come back in
-// `shellFell`; without one, #view-fx keeps the instant fall of fallNear.
+// `shellFell`; without one, #view-fx keeps the instant fall of fallNear. `walls` are the fortress wall rects the sortie
+// hands in (SB-2284), which the walker steers round; with none its walk and draws are the old ones.
 export function stepBattle(
   state: BattleState,
   rng: Rng,
@@ -61,8 +63,9 @@ export function stepBattle(
   at: { x: number; z: number },
   held = false,
   infantry: InfantryTune | null = null,
+  walls: readonly GroundRect[] = [],
 ): BattleFrame {
-  const fell = stepCrowd(state.crowd, rng, dt, tune, held, at.z);
+  const fell = stepCrowd(state.crowd, rng, dt, tune, held, at.z, walls);
   let shellFell: Soldier[] = [];
   let shell: ShellFall | null = null;
   if (tune.shellEvery > 0) {
