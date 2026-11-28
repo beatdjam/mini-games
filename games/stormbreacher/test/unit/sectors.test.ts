@@ -4,6 +4,7 @@
 import { expect, test } from 'vitest';
 import { LANG, createRng } from '@engine/core/index.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1 } from '../../src/data/missions/m1.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { FX_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import type { Prop } from '../../src/data/types.ts';
@@ -52,6 +53,8 @@ function world(options: {
   targets?: readonly { kind: string; hp: number }[];
   soldiers?: readonly Soldier[];
   rects?: SectorWorld['rects'];
+  flags?: readonly string[];
+  wardenDown?: boolean;
 }) {
   const crowd = newCrowd();
   crowd.soldiers = [...(options.soldiers ?? [])];
@@ -63,6 +66,8 @@ function world(options: {
     battle: { crowd },
     bounds: M1B_HAND.bounds,
     props: M1B_HAND.props,
+    flags: options.flags ?? [],
+    wardenDown: options.wardenDown ?? false,
   };
 }
 
@@ -551,5 +556,102 @@ test('a sector with no counterattack of its own goes straight to stable', () => 
     expect(state.phase[index]).toBe('counter');
     expect(stepSectors(state, seen, 1 / 60)).toEqual([{ kind: 'sectorStable', sector: id, weak: false }]);
     expect(state.phase[index]).toBe('stable');
+  }
+});
+
+// SB-2283: a later sector's goal keeps it from being cleared until the thing at its heart is down.
+const GATE = M1_SECTORS.find(sector => sector.id === 'gate')!;
+const YARD = M1_SECTORS.find(sector => sector.id === 'yard')!;
+const PLUG = M1_SECTORS.find(sector => sector.id === 'plug')!;
+const MAGAZINE = M1_SECTORS.find(sector => sector.id === 'magazine')!;
+
+// A world just inside a sector, with every enemy out of it.
+function atTheFrontOf(
+  sector: (typeof M1_SECTORS)[number],
+  options: Parameters<typeof world>[0] = {},
+): ReturnType<typeof world> {
+  return world({ mechZ: sector.seaZ - SECTOR_TUNE.enterDepth - 1, ...options });
+}
+
+test('the gate counts the fortress gun that still stands', () => {
+  const index = M1_SECTORS.indexOf(GATE);
+  const standing = advancedTo(index);
+  standing.phase[index] = 'idle';
+  expect(stepSectors(standing, atTheFrontOf(GATE, { targets: [{ kind: 'fortressGun', hp: 1 }] }), 1 / 60)).toEqual([]);
+  expect(standing.phase[index]).toBe('idle');
+  const down = advancedTo(index);
+  down.phase[index] = 'idle';
+  expect(stepSectors(down, atTheFrontOf(GATE, { targets: [{ kind: 'fortressGun', hp: 0 }] }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'gate' },
+  ]);
+});
+
+test('the yard counts its three waves: it is not cleared until yard-3-clear stands', () => {
+  const index = M1_SECTORS.indexOf(YARD);
+  const waiting = advancedTo(index);
+  waiting.phase[index] = 'idle';
+  expect(stepSectors(waiting, atTheFrontOf(YARD), 1 / 60)).toEqual([]);
+  expect(waiting.phase[index]).toBe('idle');
+  const done = advancedTo(index);
+  done.phase[index] = 'idle';
+  expect(stepSectors(done, atTheFrontOf(YARD, { flags: ['yard-3-clear'] }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'yard' },
+  ]);
+});
+
+test('the plug counts the mid boss: it is not cleared until the warden is down', () => {
+  const index = M1_SECTORS.indexOf(PLUG);
+  const waiting = advancedTo(index);
+  waiting.phase[index] = 'idle';
+  expect(stepSectors(waiting, atTheFrontOf(PLUG), 1 / 60)).toEqual([]);
+  expect(waiting.phase[index]).toBe('idle');
+  const down = advancedTo(index);
+  down.phase[index] = 'idle';
+  expect(stepSectors(down, atTheFrontOf(PLUG, { wardenDown: true }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'plug' },
+  ]);
+});
+
+test('the magazine counts its two main guns and not the magazine itself', () => {
+  const index = M1_SECTORS.indexOf(MAGAZINE);
+  const one = advancedTo(index);
+  one.phase[index] = 'idle';
+  const oneGun = [
+    { kind: 'gun', hp: 1 },
+    { kind: 'gun', hp: 0 },
+    { kind: 'magazine', hp: 1 },
+  ];
+  expect(stepSectors(one, atTheFrontOf(MAGAZINE, { targets: oneGun }), 1 / 60)).toEqual([]);
+  expect(one.phase[index]).toBe('idle');
+  const both = advancedTo(index);
+  both.phase[index] = 'idle';
+  const bothGuns = [
+    { kind: 'gun', hp: 0 },
+    { kind: 'gun', hp: 0 },
+    { kind: 'magazine', hp: 1 },
+  ];
+  expect(stepSectors(both, atTheFrontOf(MAGAZINE, { targets: bothGuns }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'magazine' },
+  ]);
+});
+
+test('a sector without goals is cleared by its enemies alone', () => {
+  for (const id of ['cband', 'field1', 'field2'] as const) {
+    const sector = M1_SECTORS.find(entry => entry.id === id)!;
+    expect(sector.goals, id).toBeUndefined();
+    const index = M1_SECTORS.indexOf(sector);
+    const state = advancedTo(index);
+    state.phase[index] = 'idle';
+    expect(stepSectors(state, atTheFrontOf(sector), 1 / 60), id).toEqual([{ kind: 'sectorCleared', sector: id }]);
+  }
+});
+
+test('every flag a sector counts on is one the mission raises', () => {
+  const flags = new Set(M1.flags ?? []);
+  for (const sector of M1_SECTORS) {
+    for (const goal of sector.goals ?? []) {
+      if (goal.kind !== 'flag') continue;
+      expect(flags.has(goal.name), `${sector.id} counts on "${goal.name}"`).toBe(true);
+    }
   }
 });

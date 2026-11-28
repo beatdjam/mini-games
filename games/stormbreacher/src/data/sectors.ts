@@ -5,6 +5,7 @@
 import type { EnemyKind } from './enemies.ts';
 import { PAYOFF_TUNE } from './payoff.ts';
 import { BATTLE_TUNE } from './tune.ts';
+import type { TargetKind } from './types.ts';
 
 export type SectorId =
   'beach' | 'line1' | 'line2' | 'pillboxes' | 'cband' | 'gate' | 'yard' | 'plug' | 'field1' | 'field2' | 'magazine';
@@ -17,6 +18,11 @@ export interface SpawnZone {
   maxZ: number;
 }
 
+// A goal of a sector (SB-2283): the sector is not cleared while it stands. A target still has health, a flag is not
+// raised yet, or the mid boss is not down.
+export type SectorGoal =
+  { kind: 'target'; target: TargetKind } | { kind: 'flag'; name: string } | { kind: 'wardenDown' };
+
 export interface Sector {
   id: SectorId;
   seaZ: number; // the sector's sea-side edge (m)
@@ -25,6 +31,7 @@ export interface Sector {
   counter: number; // the enemies of the counterattack that follows the sector's securing (count)
   budget: number; // the enemies the trickle may put out while this sector is the front (count, SB-2230)
   spawn?: readonly SpawnZone[]; // where its trickle comes out, drawn by area (SB-2282); left out for TRICKLE_TUNE's band
+  goals?: readonly SectorGoal[]; // what keeps the sector from being cleared besides its enemies (SB-2283)
 }
 
 // The values the sectors run on. Provisional, to be settled by eye in the sortie.
@@ -70,7 +77,15 @@ export const M1_SECTORS: readonly Sector[] = [
   { id: 'beach', seaZ: 170, landZ: 129, holdZ: 132, counter: 3, budget: 8 },
   { id: 'line1', seaZ: 129, landZ: 62, holdZ: 80, counter: 4, budget: 12 },
   { id: 'line2', seaZ: 62, landZ: -11, holdZ: BATTLE_TUNE.holdLine2Z, counter: 6, budget: 16 },
-  { id: 'pillboxes', seaZ: -11, landZ: -40, holdZ: BATTLE_TUNE.holdZ, counter: 8, budget: 20 },
+  {
+    id: 'pillboxes',
+    seaZ: -11,
+    landZ: -40,
+    holdZ: BATTLE_TUNE.holdZ,
+    counter: 8,
+    budget: 20,
+    goals: [{ kind: 'target', target: 'pillbox' }],
+  },
   // The latter half, past the pillbox line (SB-2280). The yard, the plug and the magazine have no counterattack of their
   // own: the script's waves stand in for it. 仮。遊んで直す.
   // The open ground seaward of the seawall's ends, either side of the fortress. 仮。遊んで直す.
@@ -97,6 +112,7 @@ export const M1_SECTORS: readonly Sector[] = [
       { minX: -96, maxX: -40, minZ: -64, maxZ: -56 },
       { minX: 40, maxX: 96, minZ: -64, maxZ: -56 },
     ],
+    goals: [{ kind: 'target', target: 'fortressGun' }],
   },
   // The yard's inside, clear of its walls; the cover there is taken out by the rects' check. 仮。遊んで直す.
   {
@@ -107,9 +123,18 @@ export const M1_SECTORS: readonly Sector[] = [
     counter: 0,
     budget: 6,
     spawn: [{ minX: -26, maxX: 26, minZ: -120, maxZ: -76 }],
+    goals: [{ kind: 'flag', name: 'yard-3-clear' }],
   },
-  { id: 'plug', seaZ: -100, landZ: -125, holdZ: -96, counter: 0, budget: 0 },
+  { id: 'plug', seaZ: -100, landZ: -125, holdZ: -96, counter: 0, budget: 0, goals: [{ kind: 'wardenDown' }] },
   { id: 'field1', seaZ: -125, landZ: -175, holdZ: -150, counter: 6, budget: 18 },
   { id: 'field2', seaZ: -175, landZ: -225, holdZ: -200, counter: 8, budget: 20 },
-  { id: 'magazine', seaZ: -225, landZ: -255, holdZ: -232, counter: 0, budget: 12 },
+  {
+    id: 'magazine',
+    seaZ: -225,
+    landZ: -255,
+    holdZ: -232,
+    counter: 0,
+    budget: 12,
+    goals: [{ kind: 'target', target: 'gun' }],
+  },
 ];

@@ -1832,6 +1832,8 @@ function stepBattleLayer(game: GameModel, dt: number): void {
         battle: game.battle,
         bounds: game.map.bounds,
         props: game.map.props,
+        flags: game.script.flags,
+        wardenDown: game.script.wardenDown,
       };
       for (const event of stepSectors(game.sectors, world, dt)) {
         game.events.push(event);
@@ -1871,6 +1873,8 @@ function stepBattleLayer(game: GameModel, dt: number): void {
             rects: game.rects,
             bounds: game.map.bounds,
             sectors: game.sectors,
+            flags: game.script.flags,
+            wardenDown: game.script.wardenDown,
             paused: game.script.cutscene !== null || game.cleared,
           },
           stream('trickle'),

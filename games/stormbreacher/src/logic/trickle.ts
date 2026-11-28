@@ -8,7 +8,7 @@ import { TRICKLE_TUNE, TRICKLE_WAVE } from '../data/trickle.ts';
 import { QUARTER_TUNE } from '../data/tune.ts';
 import type { MapBounds } from '../data/types.ts';
 import { rectDistance, type GroundRect } from './collide.ts';
-import type { SectorPhase, SectorsState } from './sectors.ts';
+import { goalsStanding, type SectorPhase, type SectorsState } from './sectors.ts';
 import { insideQuad, viewGround } from './viewGround.ts';
 
 export interface TrickleState {
@@ -17,7 +17,8 @@ export interface TrickleState {
 }
 
 // What a frame of the trickle needs: the mech, the enemies and targets, the ground's blockers and bounds, the sectors,
-// and whether the trickle is held (`paused`: a cutscene, the mech downed, the sortie cleared).
+// the script's state its goals read, and whether the trickle is held (`paused`: a cutscene, the mech downed, the sortie
+// cleared).
 export interface TrickleWorld {
   mech: { x: number; y: number; z: number };
   enemies: readonly TrickleFoe[];
@@ -25,6 +26,8 @@ export interface TrickleWorld {
   rects: readonly GroundRect[];
   bounds: MapBounds;
   sectors: SectorsState;
+  flags: readonly string[];
+  wardenDown: boolean;
   paused: boolean;
 }
 
@@ -64,7 +67,8 @@ function livingInfantry(enemies: readonly TrickleFoe[]): number {
 }
 
 // Whether the front sector still has a scripted foe in it when it is idle: a living enemy that is not the trickle's own,
-// or (on the pillbox line) a pillbox still standing. That is the window in which the trickle comes out while idle.
+// or a goal of the sector still standing (a pillbox on the pillbox line, the fortress's gun, the main guns, the yard's
+// waves or the mid boss; SB-2283). That is the window in which the trickle comes out while idle.
 function scriptedFoeIn(sectorIndex: number, world: TrickleWorld): boolean {
   const sector = M1_SECTORS[sectorIndex];
   for (const enemy of world.enemies) {
@@ -72,10 +76,7 @@ function scriptedFoeIn(sectorIndex: number, world: TrickleWorld): boolean {
     if (enemy.z < sector.landZ || enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
     return true;
   }
-  if (sector.id === 'pillboxes') {
-    return world.targets.some(target => target.kind === 'pillbox' && target.hp > 0);
-  }
-  return false;
+  return goalsStanding(sector, world);
 }
 
 // A point from the sector's own rectangles: one draw picks the rectangle by its share of the area, then x and z are

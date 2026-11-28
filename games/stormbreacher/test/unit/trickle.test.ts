@@ -45,6 +45,8 @@ function world(options: Partial<TrickleWorld> = {}): TrickleWorld {
     rects: [],
     bounds: BOUNDS,
     sectors: stateWith(['idle', 'idle', 'idle', 'idle']),
+    flags: [],
+    wardenDown: false,
     paused: false,
     ...options,
   };
@@ -137,6 +139,15 @@ function sectorWorld(index: number, mechZ = 166): TrickleWorld {
     mech: { x: 0, y: 0, z: mechZ },
     enemies: [],
     sectors: stateWith(M1_SECTORS.map((_, i): SectorPhase => (i === index ? 'advancing' : 'stable'))),
+  });
+}
+
+// A world with one sector idle in front and no scripted enemy in it, for the sector's own goals (SB-2283).
+function idleSectorWorld(index: number, options: Partial<TrickleWorld> = {}): TrickleWorld {
+  return world({
+    enemies: [],
+    sectors: stateWith(M1_SECTORS.map((_, i): SectorPhase => (i === index ? 'idle' : 'stable'))),
+    ...options,
   });
 }
 
@@ -293,6 +304,31 @@ test('while the front sector is idle the trickle only fills in behind its script
   // while the sector is advancing the window does not apply
   const advancing = world({ enemies: [], sectors: stateWith(['advancing', 'idle', 'idle', 'idle']) });
   expect(spawnNow(advancing)).not.toBeNull();
+});
+
+// SB-2283: a sector's standing goals keep the idle window open, as the pillboxes did on the pillbox line.
+test('while the front sector is idle its standing goals keep the trickle coming', () => {
+  const pillboxes = M1_SECTORS.findIndex(sector => sector.id === 'pillboxes');
+  expect(spawnNow(idleSectorWorld(pillboxes, { targets: [{ kind: 'pillbox', hp: 1 }] }))).not.toBeNull();
+  expect(spawnNow(idleSectorWorld(pillboxes, { targets: [{ kind: 'pillbox', hp: 0 }] }))).toBeNull();
+
+  const gate = M1_SECTORS.findIndex(sector => sector.id === 'gate');
+  expect(spawnNow(idleSectorWorld(gate, { targets: [{ kind: 'fortressGun', hp: 1 }] }))).not.toBeNull();
+  expect(spawnNow(idleSectorWorld(gate, { targets: [{ kind: 'fortressGun', hp: 0 }] }))).toBeNull();
+
+  const magazine = M1_SECTORS.findIndex(sector => sector.id === 'magazine');
+  const guns = [
+    { kind: 'gun', hp: 1 },
+    { kind: 'gun', hp: 0 },
+  ];
+  expect(spawnNow(idleSectorWorld(magazine, { targets: guns }))).not.toBeNull();
+  expect(spawnNow(idleSectorWorld(magazine, { targets: guns.map(gun => ({ ...gun, hp: 0 })) }))).toBeNull();
+  // the magazine itself is not a goal of the sector
+  expect(spawnNow(idleSectorWorld(magazine, { targets: [{ kind: 'magazine', hp: 1 }] }))).toBeNull();
+
+  const yard = M1_SECTORS.findIndex(sector => sector.id === 'yard');
+  expect(spawnNow(idleSectorWorld(yard))).not.toBeNull();
+  expect(spawnNow(idleSectorWorld(yard, { flags: ['yard-3-clear'] }))).toBeNull();
 });
 
 test('nothing comes out while paused', () => {

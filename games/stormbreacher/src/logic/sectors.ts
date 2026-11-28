@@ -1,5 +1,6 @@
-// The sectors of M1's front (SB-2210, SB-2220): a sector is cleared when the mech has gone in and no enemy is left in
-// it, secured when enough of the infantry has reached its hold line, and then counterattacked once before it is stable.
+// The sectors of M1's front (SB-2210, SB-2220): a sector is cleared when the mech has gone in, no enemy is left in it
+// and its goals are down, secured when enough of the infantry has reached its hold line, and then counterattacked once
+// before it is stable.
 // The game asks these pure functions, so a node test runs them without a page; game.ts is not imported (game.ts imports
 // this file). +z is the sea.
 import { ENEMIES } from '../data/enemies.ts';
@@ -35,7 +36,7 @@ interface SectorTarget {
 }
 
 // What a frame of the sectors needs: the mech, the enemies and targets, the ground's rects, the infantry's crowd, the
-// map's edges and its props (for the cover a secured sector's soldiers post behind).
+// map's edges, its props (for the cover a secured sector's soldiers post behind) and the script's state its goals read.
 export interface SectorWorld {
   mech: { z: number };
   enemies: readonly SectorFoe[];
@@ -44,6 +45,15 @@ export interface SectorWorld {
   battle: { crowd: Crowd };
   bounds: MapBounds;
   props: readonly Prop[];
+  flags: readonly string[];
+  wardenDown: boolean;
+}
+
+// What a sector's goals are read against: the targets, the script's flags and whether the mid boss is down.
+export interface SectorGoalView {
+  targets: readonly SectorTarget[];
+  flags: readonly string[];
+  wardenDown: boolean;
 }
 
 export type SectorEvent =
@@ -194,9 +204,24 @@ export function releasePosts(crowd: Crowd, stayShare: number): void {
   for (let i = stay; i < posted.length; i++) posted[i].post = null;
 }
 
+// Whether any of a sector's goals still stands (SB-2283): a target of the goal's kind with health left, a flag not yet
+// raised, or the mid boss not down. A sector with no goals has none standing.
+export function goalsStanding(sector: Sector, view: SectorGoalView): boolean {
+  for (const goal of sector.goals ?? []) {
+    if (goal.kind === 'target') {
+      if (view.targets.some(target => target.kind === goal.target && target.hp > 0)) return true;
+    } else if (goal.kind === 'flag') {
+      if (!view.flags.includes(goal.name)) return true;
+    } else if (!view.wardenDown) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Whether a sector has no living enemy left in it. Its enemies count from its landZ to seaMargin past its seaZ, so the
 // margin overlaps the sector seaward of it (an enemy there counts for both; the sectors are looked at front to back, so
-// the front one decides); the pillbox line also counts the pillboxes that still stand.
+// the front one decides); the sector's goals have to be down too.
 function sectorClear(sector: Sector, world: SectorWorld): boolean {
   if (world.mech.z > sector.seaZ - SECTOR_TUNE.enterDepth) return false;
   for (const enemy of world.enemies) {
@@ -204,9 +229,7 @@ function sectorClear(sector: Sector, world: SectorWorld): boolean {
     if (enemy.z < sector.landZ || enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
     return false;
   }
-  if (sector.id === 'pillboxes' && world.targets.some(target => target.kind === 'pillbox' && target.hp > 0)) {
-    return false;
-  }
+  if (goalsStanding(sector, world)) return false;
   return true;
 }
 

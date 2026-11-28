@@ -326,4 +326,66 @@ describe('the sectors past the pillbox line', () => {
     expect(back.sectors).toEqual(game.sectors);
     expect(back.sectors?.phase).toHaveLength(11);
   });
+
+  // SB-2283: the gate's gun, the plug's mid boss and the magazine's guns keep their sector from being cleared.
+  test('the gate is cleared once its fortress gun is down and every enemy is out of it', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const index = M1_SECTORS.findIndex(entry => entry.id === 'gate');
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[index] = 'idle';
+    enterSector(game, 'gate');
+    step(game, idle, DT);
+    expect(game.sectors?.phase[index]).toBe('idle');
+    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'gate')).toBe(false);
+
+    const gun = game.targets.find(target => target.kind === 'fortressGun');
+    if (gun === undefined) throw new Error('the map has no fortress gun');
+    gun.hp = 0;
+    enterSector(game, 'gate');
+    step(game, idle, DT);
+    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'gate')).toBe(true);
+    expect(game.sectors?.phase[index]).toBe('advancing');
+  });
+
+  test('the plug is cleared once the warden is down, even before it has come out', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const index = M1_SECTORS.findIndex(entry => entry.id === 'plug');
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[index] = 'idle';
+    enterSector(game, 'plug');
+    step(game, idle, DT);
+    expect(game.sectors?.phase[index]).toBe('idle');
+    expect(game.script.wardenDown).toBe(false);
+
+    game.script.wardenDown = true;
+    enterSector(game, 'plug');
+    step(game, idle, DT);
+    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'plug')).toBe(true);
+    expect(game.sectors?.phase[index]).toBe('advancing');
+  });
+
+  test('the magazine is cleared once its two main guns are down, not when the magazine itself breaks', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const index = M1_SECTORS.findIndex(entry => entry.id === 'magazine');
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[index] = 'idle';
+    enterSector(game, 'magazine');
+    step(game, idle, DT);
+    expect(game.sectors?.phase[index]).toBe('idle');
+    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'magazine')).toBe(false);
+
+    for (const target of game.targets) {
+      if (target.kind === 'gun') target.hp = 0;
+    }
+    const magazine = game.targets.find(target => target.kind === 'magazine');
+    if (magazine === undefined) throw new Error('the map has no magazine');
+    expect(magazine.hp).toBeGreaterThan(0);
+    enterSector(game, 'magazine');
+    step(game, idle, DT);
+    expect(game.events.some(event => event.kind === 'sectorCleared' && event.sector === 'magazine')).toBe(true);
+    expect(game.sectors?.phase[index]).toBe('advancing');
+  });
 });
