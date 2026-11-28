@@ -158,7 +158,8 @@ test('a shot that misses flies its range and vanishes without a hit', () => {
   while (game.bullets.length > 0 && frames < 120) {
     step(game, idle, DT);
     frames++;
-    hits += game.events.filter(event => event.kind === 'hit').length;
+    // only the mech's own shot: an enemy's bullet now stops at the shut sea gate and makes a hit of its own
+    hits += game.events.filter(event => event.kind === 'hit' && event.weapon !== null).length;
   }
   expect(hits).toBe(0);
   expect(frames / 60).toBeCloseTo(def.range / def.speed, 1);
