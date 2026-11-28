@@ -3,15 +3,19 @@
 // is the small one the functions ask for, built by hand.
 import { expect, test } from 'vitest';
 import { LANG, createRng } from '@engine/core/index.ts';
+import { ENEMIES } from '../../src/data/enemies.ts';
+import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
+import { PROP_SIZE } from '../../src/data/props.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { FX_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import type { Prop } from '../../src/data/types.ts';
 import { newCrowd, stepCrowd, type Soldier } from '../../src/logic/crowd.ts';
-import type { GroundRect } from '../../src/logic/collide.ts';
+import { rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import {
   arrivedSoldiers,
+  counterPoint,
   newSectors,
   releasePosts,
   sectorHold,
@@ -123,6 +127,21 @@ function runBeachCounter(state: SectorsState, dt = SECTOR_TUNE.counterEvery): Re
     if (state.counterIds[0].length >= BEACH.counter) break;
   }
   return seen;
+}
+
+// The fortress walls that stand before the blast: the sea wall and the two side walls, but not the land wall the charge
+// takes down (SB-2285).
+function fortWallRects(): GroundRect[] {
+  const size = PROP_SIZE.fortWall;
+  return M1B_HAND.props
+    .filter(prop => prop.kind === 'fortWall' && prop.z !== FORTRESS_TUNE.landWallZ)
+    .map(prop => ({
+      x: prop.x,
+      z: prop.z,
+      halfW: (size.w * prop.scale) / 2,
+      halfD: (size.d * prop.scale) / 2,
+      yaw: prop.yaw,
+    }));
 }
 
 test('the mech has to go in before a sector is cleared', () => {
@@ -353,6 +372,58 @@ test('a counterattack point covered after ten moves still comes out, at the last
     z: BEACH.landZ - SECTOR_TUNE.counterBack,
   });
   expect(state.counterLeft[0]).toBe(BEACH.counter - 1);
+});
+
+// SB-2285: a sector with spawn rectangles (SB-2282) puts its counterattack inside them, at the middle of a rect's depth
+// and spread along its width, rather than on the band past its land-side edge.
+test('a sector without spawn rectangles keeps its counterattack on the old band', () => {
+  expect(BEACH.spawn).toBeUndefined();
+  for (let index = 0; index < BEACH.counter; index++) {
+    const spread = SECTOR_TUNE.counterSpread;
+    const x = -spread + (2 * spread * index) / (BEACH.counter - 1);
+    expect(counterPoint(BEACH, index, [])).toEqual({ x, z: BEACH.landZ - SECTOR_TUNE.counterBack });
+  }
+});
+
+test('a sector with spawn rectangles puts its counterattack inside them, clear of the fortress walls', () => {
+  const walls = fortWallRects();
+  expect(walls.length).toBeGreaterThan(0);
+  for (const id of ['cband', 'gate'] as const) {
+    const sector = M1_SECTORS.find(entry => entry.id === id)!;
+    expect(sector.spawn, id).toBeDefined();
+    for (let index = 0; index < sector.counter; index++) {
+      const point = counterPoint(sector, index, walls);
+      const inZone = sector.spawn!.some(
+        zone => point.x >= zone.minX && point.x <= zone.maxX && point.z >= zone.minZ && point.z <= zone.maxZ,
+      );
+      expect(inZone, `${id} ${index} at ${point.x},${point.z}`).toBe(true);
+      for (const wall of walls) {
+        expect(rectDistance(wall, point.x, point.z), `${id} ${index} inside a wall`).toBeGreaterThan(0);
+      }
+    }
+  }
+  // the gate's six come out at six different x, so they do not stand on one another
+  const gate = M1_SECTORS.find(entry => entry.id === 'gate')!;
+  const xs = Array.from({ length: gate.counter }, (_, index) => counterPoint(gate, index, walls).x);
+  expect(new Set(xs).size).toBe(gate.counter);
+  // the yard has a spawn rectangle but no counterattack of its own
+  const yard = M1_SECTORS.find(entry => entry.id === 'yard')!;
+  expect(yard.spawn).toBeDefined();
+  expect(yard.counter).toBe(0);
+});
+
+test('a counterattack point in a spawn rectangle slides inside it, and still comes out when covered', () => {
+  const cband = M1_SECTORS.find(entry => entry.id === 'cband')!;
+  const zone = cband.spawn![0];
+  // a rect over the middle of the rectangle, wide enough to cover every slide at that depth
+  const cover = { x: (zone.minX + zone.maxX) / 2, z: (zone.minZ + zone.maxZ) / 2, halfW: 500, halfD: 0.5, yaw: 0 };
+  const point = counterPoint(cband, 0, [cover]);
+  expect(point.x).toBeGreaterThanOrEqual(zone.minX);
+  expect(point.x).toBeLessThanOrEqual(zone.maxX);
+  expect(point.z).toBeGreaterThanOrEqual(zone.minZ);
+  expect(point.z).toBeLessThanOrEqual(zone.maxZ);
+  // it tried another depth inside the rectangle rather than going out of it
+  expect(rectDistance(cover, point.x, point.z)).toBeGreaterThan(ENEMIES[SECTOR_TUNE.counterKind].radius);
 });
 
 // SB-2262: a secured sector's soldiers take posts behind its cover and stop there, and the next sector's clearing

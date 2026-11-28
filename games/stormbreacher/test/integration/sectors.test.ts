@@ -310,6 +310,51 @@ describe('the sectors past the pillbox line', () => {
     expect(said(game, 'm1.sector-counter')).toBe(true);
   });
 
+  // SB-2285: the cband's counterattack comes out of its spawn rectangles, in the open ground either side of the
+  // fortress, not behind the seawall or in its yard.
+  test('the cband’s counterattack comes out in its spawn zones, not in the fortress walls or its yard', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const index = M1_SECTORS.findIndex(entry => entry.id === 'cband');
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[index] = 'idle';
+    enterSector(game, 'cband');
+    step(game, idle, DT);
+    expect(game.sectors?.phase[index]).toBe('advancing');
+    lineAtHold(game, CBAND.holdZ);
+    step(game, idle, DT);
+    expect(game.sectors?.phase[index]).toBe('counter');
+
+    const walls = standingFortWalls();
+    expect(walls.length).toBeGreaterThan(0);
+    const yard = {
+      minX: -FORTRESS_TUNE.yardW / 2,
+      maxX: FORTRESS_TUNE.yardW / 2,
+      minZ: FORTRESS_TUNE.landWallZ + FORTRESS_TUNE.wallT / 2,
+      maxZ: FORTRESS_TUNE.seaWallZ - FORTRESS_TUNE.wallT / 2,
+    };
+    const zones = CBAND.spawn ?? [];
+    let seen = 0;
+    for (let frame = 0; frame < 60 * 10 && seen < CBAND.counter; frame++) {
+      const before = game.enemies.filter(enemy => enemy.wave === 'counter-cband').length;
+      step(game, idle, DT);
+      const fresh = game.enemies.filter(enemy => enemy.wave === 'counter-cband').slice(before);
+      for (const enemy of fresh) {
+        seen += 1;
+        for (const wall of walls) {
+          expect(rectDistance(wall, enemy.x, enemy.z), `${enemy.id} inside a wall`).toBeGreaterThan(0);
+        }
+        const inYard = enemy.x >= yard.minX && enemy.x <= yard.maxX && enemy.z >= yard.minZ && enemy.z <= yard.maxZ;
+        expect(inYard, `${enemy.id} in the yard`).toBe(false);
+        const inZone = zones.some(
+          zone => enemy.x >= zone.minX && enemy.x <= zone.maxX && enemy.z >= zone.minZ && enemy.z <= zone.maxZ,
+        );
+        expect(inZone, `${enemy.id} outside its spawn zones`).toBe(true);
+      }
+    }
+    expect(seen).toBe(CBAND.counter);
+  });
+
   test('a later sector with no counterattack of its own says nothing about one', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);

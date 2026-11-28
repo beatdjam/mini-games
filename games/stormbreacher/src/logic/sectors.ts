@@ -89,6 +89,11 @@ export function newSectors(): SectorsState {
 const POST_COVER_GAP = 1.5; // how far landward of a cover's face a soldier posts (m)
 const POST_EDGE = 3; // how far inside the map's side edges a spread post stays (m)
 const POST_CLEAR = 0.8; // how far off a blocking rect a post stays, so no soldier stands inside a wall or a block (m)
+// The depths inside a spawn rectangle that counterPoint tries, as a share of its depth: the middle first, then two others,
+// so a rect whose middle is covered still has somewhere inside it to come out at (SB-2285).
+const ZONE_DEPTHS = [0.5, 0.25, 0.75] as const;
+// How far a counterattack point slides along x (2m at a time) to get clear of a rect before it gives up.
+const COUNTER_SLIDES = 10;
 
 // The living soldiers at or past `holdZ` (within arriveBand of it, on the landward side), and every soldier that has
 // taken a post in a secured sector: a posted soldier counts as arrived however far behind the line it stands (SB-2262).
@@ -246,18 +251,42 @@ function sectorSecured(crowd: Crowd, holdZ: number): boolean {
   return walking.filter(soldier => soldier.z <= holdZ + SECTOR_TUNE.arriveBand).length >= needed;
 }
 
-// The i-th point the counterattack comes out at: z is counterBack inland of the sector's land-side edge, and x runs
-// evenly from -counterSpread to +counterSpread. A point that a ground rect covers is moved 2m at a time until it is
-// clear; if it is still covered after ten moves, the last point tried is used, so the counterattack always comes out.
-function counterPoint(sector: Sector, index: number, rects: readonly GroundRect[]): { x: number; z: number } {
+// The i-th point the counterattack comes out at (SB-2220, SB-2285). A sector with spawn rectangles (`cband`, `gate`) puts
+// it in one of them: the i-th one is given to rect `i % zones.length`, at the middle of that rect's depth, and spread
+// evenly along its width with the other counterattacks given to the same rect. A sector without them keeps the old band:
+// z is counterBack inland of the sector's land-side edge, and x runs evenly from -counterSpread to +counterSpread. A point
+// that a ground rect covers is moved 2m at a time along x, inside the rect's width for a zone; if it is still covered
+// after ten moves, a zone tries other depths inside the rect, and the last point tried is used if every one is covered,
+// so the counterattack always comes out.
+export function counterPoint(sector: Sector, index: number, rects: readonly GroundRect[]): { x: number; z: number } {
+  const radius = ENEMIES[SECTOR_TUNE.counterKind].radius;
+  const clear = (x: number, z: number): boolean => rects.every(rect => rectDistance(rect, x, z) > radius);
+  const zones = sector.spawn;
+  if (zones !== undefined && zones.length > 0) {
+    const zone = zones[index % zones.length];
+    // the counterattacks this rect holds, and which of them this one is
+    const count = Math.floor((sector.counter - 1 - (index % zones.length)) / zones.length) + 1;
+    const slot = Math.floor(index / zones.length);
+    const base = zone.minX + ((zone.maxX - zone.minX) * (slot + 0.5)) / count;
+    let last = { x: base, z: (zone.minZ + zone.maxZ) / 2 };
+    // the middle of the rect first; if that is covered even after sliding, other depths inside it
+    for (const depth of ZONE_DEPTHS) {
+      const z = zone.minZ + (zone.maxZ - zone.minZ) * depth;
+      for (let move = 0; move <= COUNTER_SLIDES; move++) {
+        const x = Math.min(base + move * 2, zone.maxX);
+        last = { x, z };
+        if (clear(x, z)) return last;
+      }
+    }
+    return last;
+  }
   const z = sector.landZ - SECTOR_TUNE.counterBack;
   const spread = SECTOR_TUNE.counterSpread;
   const base = sector.counter <= 1 ? 0 : -spread + (2 * spread * index) / (sector.counter - 1);
-  const radius = ENEMIES[SECTOR_TUNE.counterKind].radius;
   let x = base;
-  for (let move = 0; move <= 10; move++) {
+  for (let move = 0; move <= COUNTER_SLIDES; move++) {
     x = base + move * 2;
-    if (rects.every(rect => rectDistance(rect, x, z) > radius)) break;
+    if (clear(x, z)) break;
   }
   return { x, z };
 }
