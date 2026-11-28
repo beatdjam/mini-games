@@ -117,6 +117,7 @@ LANG.ja = {
     'm1.wave2-lost': '第2波の艇が沈んだ。今いる戦力で押し切れ',
     'm1.fortress-gun-wake': '要塞の機関砲が出てくるぞ！',
     'm1.fortress-gate': '要塞の門へ。抜けるぞ',
+    'm1.gate-open': '門が開いた！なだれ込め！',
     'm1.fortress-yard': '中庭だ。突き進む',
     'm1.yard-trap': '罠だ、囲まれるぞ',
     'm1.yard-clear': '中庭を片付けた',

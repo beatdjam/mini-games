@@ -50,6 +50,19 @@ export const FORTRESS_SHUTTER_TUNE = {
   sink: 7, // how far the shut nest sits below its place, into the wall (m)
 } as const;
 
+// The shutter in the fortress's sea gate (SB-2300): while it is shut, the gate is as good as a wall, so the yard waits
+// behind the heavy machine-gun nest on the sea wall. The nest's fall takes the plate up and the way in opens. Every value
+// is provisional; it is level design, like FORTRESS_TUNE.
+export const GATE_SHUTTER = {
+  x: 0, // the gate's middle along x (m)
+  z: FORTRESS_TUNE.seaWallZ, // the gate's middle along z, in the wall's thickness (m)
+  w: FORTRESS_TUNE.seaGate, // the plate's width along x (m)
+  h: FORTRESS_TUNE.wallH, // its height (m)
+  d: 1.5, // its thickness along z (m; 仮: thinner than the wall, so it reads as a plate in the opening)
+  opensWhen: ['fortress-gun'], // the targets whose fall opens it, all down
+  openSec: FORTRESS_SHUTTER_TUNE.openSec, // the seconds it takes to roll up, the nest's plate's own (仮)
+} as const;
+
 // The depot (SB-1820, SB-2046): the shelling starts a while after cp1, and falls harder while the depot on the way
 // stands. Every value is provisional and settled on #view-breach's panel.
 export const DEPOT_CHOICE_TUNE = {

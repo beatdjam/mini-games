@@ -75,6 +75,7 @@ const TAIL: readonly string[] = [
   'objective:stop-fortress-gun',
   'radio:m1.fortress-gate',
   'spawn:fortress-drop',
+  'radio:m1.gate-open',
   'allyMove:cover-b1',
   'allyMove:cover-b2',
   'allyMove:cover-b3',
@@ -180,6 +181,8 @@ function fromCp1(state: ScriptState): ScriptOut[] {
   const outputs: ScriptOut[] = [];
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' }));
+  // the wall's nest falls: the sea gate opens and the cover mechs go in (SB-2300)
+  outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'fortress-gun' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-yard' }));
   // yard-2 comes YARD_TUNE.waveGapSec after the cue that sent yard-1
   outputs.push(...stepScript(state, M1, YARD_TUNE.waveGapSec));
@@ -214,6 +217,25 @@ test('M1 runs to the cleared result by going straight on, and the skipped depot 
   expect(run.events).toEqual([...COMMON, ...STRAIGHT_ON, ...TAIL]);
   expect(run.state.ended).toBe('cleared');
   expect(run.state.flags).not.toContain('depot-down');
+});
+
+test('the sea gate opens when the wall’s nest falls, and not by the gate alone (SB-2300)', () => {
+  const state = newScript(M1);
+  // walking into the gate's area takes cp2 and its line, but the cover mechs stay on their C posts
+  const atGate = scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' });
+  expect(state.fired['fortress-gate']).toBeTypeOf('number');
+  expect(state.fired['gate-open']).toBeUndefined();
+  expect(atGate.some(event => event.kind === 'allyMove' && event.path.startsWith('yard-run'))).toBe(false);
+
+  // the nest falls: the gate's line comes up and the three take the way through the gate into the yard
+  const opened = scriptInput(state, M1, { kind: 'destroyed', target: 'fortress-gun' });
+  expect(state.fired['gate-open']).toBeTypeOf('number');
+  expect(opened.map(label)).toContain('radio:m1.gate-open');
+  expect(opened.flatMap(event => (event.kind === 'allyMove' ? [event.path] : []))).toEqual([
+    'yard-run-1',
+    'yard-run-2',
+    'yard-run-3',
+  ]);
 });
 
 test('restoring cp1 drops the cues after it and replays the same column', () => {

@@ -130,6 +130,8 @@ function runM1(
   send({ kind: 'enter', area: 'fortress-approach' });
   run(idle, 60 * 2);
   send({ kind: 'enter', area: 'fortress-gate' });
+  // the wall's nest falls: the sea gate opens and the cover mechs go in (SB-2300)
+  send({ kind: 'destroyed', target: 'fortress-gun' });
   send({ kind: 'enter', area: 'fortress-yard' });
   // the yard's second wave comes 6 s after the first; the waves are then handed to the script as the assist brings them
   // down (this test reads the script's line, not the fight)

@@ -124,6 +124,7 @@ function buildArenaWorld(map: MapDef): World {
     targets: new Map(),
     targetGroup,
     shutters: new Map(),
+    gate: null,
     shore: buildShore(map.bounds),
     fade: noFade(),
     slots: new Map(),

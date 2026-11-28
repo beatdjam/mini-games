@@ -13,8 +13,9 @@ import { targetBox } from '../../src/logic/game.ts';
 import { checkMapPath } from '../../src/logic/mapCheck.ts';
 import { generateMap } from '../../src/logic/mapgen.ts';
 
-// The targets the generated map stops short of: its rules end at z -60, before the fortress and the battery.
-const OUT_OF_RANGE = new Set(['main-gun-1', 'main-gun-2', 'magazine']);
+// The targets the generated map stops short of: its rules end at z -60, before the fortress and the battery. The sea
+// gate's cue destroys the wall's nest, so that too is in the script's triggers (SB-2300).
+const OUT_OF_RANGE = new Set(['main-gun-1', 'main-gun-2', 'magazine', 'fortress-gun']);
 
 const MAPS: { name: string; map: MapDef }[] = [
   { name: 'hand', map: M1B_HAND },

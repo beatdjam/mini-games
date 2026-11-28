@@ -1011,7 +1011,7 @@ SB-2010・SB-2020。M1 の節目は3つで、線1の爆破（`line1-open`）、�
 
 台本の `ally` が出す、機体の隣を走る味方。5機いて、区画ごとの遮蔽の後ろで止まって撃ち、2機が台本どおりに倒れる。当たり判定は無い。定義場所は `AllyState`・`newAlly`・`moveAlly`・`stepAlly`・`nearestIndex` in src/logic/allies.ts、`ALLY_TUNE`・`ALLY_FATES`・`ALLY_KITS`・`ALLY_FIRE_TUNE` in src/data/allies.ts、`PROTO_KITS`（`allySniper`・`allyScout`）・`PROTO_PALETTES` in src/data/mechProto.ts・src/data/colors.ts、`buildAllyMech`・`drawAllies`・`drawEnemyTracers` in src/view/allies.ts、`stepAllies`・`spawnAlly`・`moveAllyTo`・`stepAllyFire` in src/logic/game.ts、`stepAllyFire` in src/logic/allyFire.ts、`groundAt` in src/logic/collide.ts。
 
-- M1 では5機が出る。出撃の最初（`intro` cue）から、`buddy`・`cover-b1`・`cover-b2`・`cover-b3`・`gunner` はプレイヤーの艇の両隣の艇（x −12 と 12、自分の艇と同じ z 175〜187）の甲板に乗っている（左舷に `buddy`・`cover-b1`・`cover-b2` を 1.3m 間隔で、右舷に `cover-b3`・`gunner` を同じ間隔で。割り当ては仮）。導入のカットシーンの間は甲板で待ち、操作を渡したフレームから、それぞれの艇のランプを降りて今の道に入る（`ashore` は待たない。SB-1967）。`buddy` は浜を走って迫撃砲に倒れ、3機と `gunner` は線1の海側の遮蔽（z 156 と `gunner-wait` (47,154)）で待つ。線1の爆破点（l1-a か l1-b）が爆破されると、台本の `line1-open`（trigger `blast`）が4機に `allyMove` を出し、**プレイヤーが最初に爆破した点の穴**を通る。覆いの3機は B の遮蔽の後ろ（z 110〜129）まで走って止まり、そこから撃ち続ける。`gunner` は開いた穴を抜けて B の手前（`b-mid` (45,112)）で機銃に倒れる（`pillboxes` の cue は gunner を出さない）。線2の爆破点が爆破されると（`line2-open`）、3機は線2の最初の穴を通ってトーチカ線の手前の投稿（z 0〜9）へ走る（SB-2044。それまでは `cp1` まで B の遮蔽で待ち、機体が 100m 先へ行っていた）。`cp1`（トーチカ2基が壊れた）で C の前の投稿（`c-front-1`〜`3`。機体の通り道 x 35 の抜けの先、z −54〜−60 の海側の門の手前）へ、`fortress-gate`（海側の門の手前に入る）で中庭（x 0, z −95）へ（`yard-run-1`〜`3`）、`allyMove` で道を替えて走る。中庭の波が全部倒れて中ボスが出る `yard-clear` で、3機は中庭の真ん中（`yard-front-1`〜`3`、z −102〜−106）へ進み、`fortress-down`（陸側の壁の爆発）の後は壊れた陸側の門を抜けて砲台の手前の野原（`field-run-1`〜`3`、z −192〜−201）へ走る。同じ線の2つ目の点も仕掛けられ、穴が2つになるだけで、通る道は最初の穴のまま。道の選択は `HolePaths`（`lines` の各線で、`ScriptState.blasts` の順で最初に爆破された点が `paths` の key を決める）で、爆破済みの印はチェックポイント・中断にも残る。未爆破の線は `wayPath` が先頭の id で埋めるが、これは dev とテストのための逃げ道で、本編の cue はどれもその線の爆破後にしか出ない。座標は仮
+- M1 では5機が出る。出撃の最初（`intro` cue）から、`buddy`・`cover-b1`・`cover-b2`・`cover-b3`・`gunner` はプレイヤーの艇の両隣の艇（x −12 と 12、自分の艇と同じ z 175〜187）の甲板に乗っている（左舷に `buddy`・`cover-b1`・`cover-b2` を 1.3m 間隔で、右舷に `cover-b3`・`gunner` を同じ間隔で。割り当ては仮）。導入のカットシーンの間は甲板で待ち、操作を渡したフレームから、それぞれの艇のランプを降りて今の道に入る（`ashore` は待たない。SB-1967）。`buddy` は浜を走って迫撃砲に倒れ、3機と `gunner` は線1の海側の遮蔽（z 156 と `gunner-wait` (47,154)）で待つ。線1の爆破点（l1-a か l1-b）が爆破されると、台本の `line1-open`（trigger `blast`）が4機に `allyMove` を出し、**プレイヤーが最初に爆破した点の穴**を通る。覆いの3機は B の遮蔽の後ろ（z 110〜129）まで走って止まり、そこから撃ち続ける。`gunner` は開いた穴を抜けて B の手前（`b-mid` (45,112)）で機銃に倒れる（`pillboxes` の cue は gunner を出さない）。線2の爆破点が爆破されると（`line2-open`）、3機は線2の最初の穴を通ってトーチカ線の手前の投稿（z 0〜9）へ走る（SB-2044。それまでは `cp1` まで B の遮蔽で待ち、機体が 100m 先へ行っていた）。`cp1`（トーチカ2基が壊れた）で C の前の投稿（`c-front-1`〜`3`。機体の通り道 x 35 の抜けの先、z −54〜−60 の海側の門の手前）へ、`fortress-gun` が倒れて海側の門のシャッターが巻き上がる `gate-open` で中庭（x 0, z −95）へ（`yard-run-1`〜`3`）、`allyMove` で道を替えて走る。中庭の波が全部倒れて中ボスが出る `yard-clear` で、3機は中庭の真ん中（`yard-front-1`〜`3`、z −102〜−106）へ進み、`fortress-down`（陸側の壁の爆発）の後は壊れた陸側の門を抜けて砲台の手前の野原（`field-run-1`〜`3`、z −192〜−201）へ走る。同じ線の2つ目の点も仕掛けられ、穴が2つになるだけで、通る道は最初の穴のまま。道の選択は `HolePaths`（`lines` の各線で、`ScriptState.blasts` の順で最初に爆破された点が `paths` の key を決める）で、爆破済みの印はチェックポイント・中断にも残る。未爆破の線は `wayPath` が先頭の id で埋めるが、これは dev とテストのための逃げ道で、本編の cue はどれもその線の爆破後にしか出ない。座標は仮
 - 出る所: `ally` の出来事で `spawnAlly` が `GameModel.allies` に足す。道は `mission.paths[path]`、`fate.at` の座標は `mission.places[at]`。`AllyState` は道の点と場所の座標を自分で持つ（チェックポイントのコピーだけで立つため）。名前が無ければ例外。`validateMission` も `paths`・`places`・`ALLY_FATES` の名前を確かめる
 - 道を替える: `allyMove` の出来事で `moveAllyTo` が、その id の味方機に `moveAlly(ally, way)` を呼ぶ。倒れている味方機は動かさず、道が空なら例外。道はコピーし、`next` を 1 にして、今いる位置から新しい道の2点目へ向ける。新しい道の1点目は、前の投稿と同じ座標にする（テストで確かめる）。出ていない id なら何もしない（同じ cue の `ally` が先に来る順を守る）
 - 走り方: `stepAlly` が `ALLY_TUNE.speed` で道の点を順に通る。運命の無い味方機が機体より海側へ `catchGap` 以上遅れると、`catchUp` が `speed` に1から `catchMul` までの倍率を掛け、機体に追い付くまで急がせる（機体の前や横にいるときは1。`stepAllies` が `game.mech` を渡す。SB-2044）。道の終わりに着いたら止まるが、撃つのは続ける。向き `yaw` は進む向き（0 が -z）
@@ -1169,6 +1169,27 @@ SB-1830。要塞の海側の壁の上に機関砲が1基あり、海側の門の
 - 壁の上の波 `fortress-drop`: `fortress-gate` の cue が `spawn fortress-drop` を出し、`M1_WAVE_ENEMY['fortress-drop'] = ['assault', 'grunt', 'assault']` の3体が、海側の壁の上（`M1_WAVE_DROP['fortress-drop'] = FORTRESS_TUNE.wallH` = 12m）から海側へ降りる。場所は x −20・8・32、z −70 で、門（x −6〜6）と目標の箱（x 12〜28）を避ける。落ち方は `seawall-drop` と同じ `fall` で、海（+z）へ跳ねながら壁の海側に着地する
 - テスト: 純粋な関数は `test/unit/fortress.test.ts`（`rest` 後の開始・`interval`・扇・射線が切れたら止まる・弾の出る所・同じ seed）、ゲームの中は `test/integration/fortressGun.test.ts`（開けた所では装甲が減り、遮蔽の陰では減らない・壊すと止まる・壁の上の波が降りて着地する・旗の前は撃っても体力が減らず火花が弾かれて照準も寄らない・旗のあとは当たって壊れる・中断とチェックポイントでシャッターが旗と合う）、`test/unit/battery.test.ts` の旗で開くシャッター、`test/integration/hud.test.ts` の目標の数、`test/e2e/battery.test.ts` の海を撃つ拍、`test/e2e/props.test.ts` の目標の高さとシャッター（閉じた沈み・巻き上がり・開いた高さ）。絵は `shots/fortress-gun-shutter.shots.ts`・`shots/fortress-detail.shots.ts`（SB-2052。壁・砲台・シャッターを前後で撮る）。形の寸法と三角形の数は `test/unit/fortModel.test.ts`
 
+### 海側の門のシャッター
+
+SB-2300。要塞の海側の門（x 0、幅 12m）は、海側の壁の上の機関砲 `fortress-gun` を倒すまでシャッターで閉じる。区画 `gate` は機関砲を倒すまで確保にならないので、閉じた門が中庭への抜け道を塞ぐ。機関砲が倒れると板が巻き上がり、待っていた歩兵と味方機と一緒に中庭へなだれ込む。値はどれも仮で、`GATE_SHUTTER`（`src/data/fortress.ts`）に置く。
+
+| 名前 | 値 | 単位・意味 |
+|------|----|------------|
+| `x` | 0 | m。門の中心 |
+| `z` | `FORTRESS_TUNE.seaWallZ`（-71） | m。壁の厚みの中の門の中心 |
+| `w` | `FORTRESS_TUNE.seaGate`（12） | m。板の幅（門の幅） |
+| `h` | `FORTRESS_TUNE.wallH`（12） | m。板の高さ（壁の高さ） |
+| `d` | 1.5 | m。板の厚さ（仮。壁の 6m より薄い） |
+| `opensWhen` | `['fortress-gun']` | この目標が全部倒れたら開く |
+| `openSec` | `FORTRESS_SHUTTER_TUNE.openSec`（0.9） | s。巻き上がる秒数（巣の板と同じ値） |
+
+- 閉じている間: `game.rects` に門をふさぐ矩形（幅・厚さ・高さ、`top` は壁の高さ）が入り、自機・敵・歩兵を壁と同じに止める。弾は `flyBullet` が同じ大きさの箱で止める（自機の弾も敵の弾も。中庭の敵が閉じた門越しに撃てない）。`syncGate` in `src/logic/game.ts` が機関砲の体力から開閉を決め、全部倒れたフレームに矩形を `rects` から抜いて出来事 `gateOpen` を1回出す。`stepNav` は矩形の数が変わると敵の経路の格子を作り直すので、開くと敵も門を通れる。門はマップの物ではないので `mapCheck` の歩行判定は今までどおり（開いた後の道は既存の門の開口と同じ）。
+- 台本: cue `gate-open`（trigger `destroyed fortress-gun`）が無線 `m1.gate-open`（ja「門が開いた！なだれ込め！」、en「The gate is open! Pour in!」）と、味方機3機の `allyMove`（`yard-run-1`〜`yard-run-3`）を出す。`fortress-gate` の cue からは `allyMove` を外した（味方機は当たりを持たず、閉じたシャッターを素通りしてしまうため）。`fortress-gate` の cp2・目的・無線・`fortress-drop` はそのまま。
+- 見た目: 門の幅・壁の高さの板を `shutterPlateGeometry`・`shutterHousingGeometry`（`src/view/shutterModel.ts`）で作り、`World.gate` に置く。閉じている間は門に立ち、開くと `rollPlate` が巣の板と同じ秒数で巻き上げる。新しいモデルは作らない。
+- 要塞の爆破・中断: 開いたかどうかは `fortress-gun` の体力から決まり、追加の状態を持たない。`fortressBlast` は機関砲を壊すので、そのときも開く（先に倒れていればもう開いている）。中断・チェックポイントは `rects` をそのまま持ち、`restoreSuspend`・`retryFromCheckpoint` が `syncGate` で体力から作り直す。門の矩形が無い古い保存は、機関砲が立っていれば閉じた矩形を足す。`SUSPEND_VERSION` は上げない。
+- 歩兵: `CROWD_GATES` の門は今の形のまま。区画 `gate` を確保するまで歩兵は海側で待つので、閉じたシャッターへ向かう経路は無い。
+- テスト: `test/integration/fortress.test.ts`（門の矩形・自機の通行・`gateOpen`・敵の経路の作り直し・爆破・中断）、`test/integration/allies.test.ts`（門の区域だけでは味方機が動かず、機関砲を倒すと `yard-run` へ）、`test/integration/m1.test.ts`（cue `gate-open`）、`test/integration/script-game.test.ts`（台本の通し）。
+
 ### 要塞の爆破と脱出
 
 SB-1860。中ボスの `wardenDown` のあと、要塞の陸側の壁の中の弾薬庫（`fort-bomb`）に爆薬を仕掛けられる。20 秒の秒読みが HUD に出て、0 で要塞が爆発する。海側の門の外へ出ていれば無傷、中に残っていれば大きな傷を負う。爆発で壁が低い残骸になり、海側の壁の上の機関砲も壊れ、カットシーンのあと目標が「超重砲を止めろ」に変わって cp3 が立つ。値はどれも仮で、`#view-breach` の調整パネルで決める。定義は `FORT_BLAST_TUNE` in src/data/fortress.ts、仕掛けと秒読みは既存の `stepCharge`・`stepBlasts`（6章「爆破点と爆薬」）、爆破の処理と壁の崩れは `fortressBlast` in src/logic/game.ts、描き方は `syncWorld` in src/view/world.ts と `drawPlay` in src/view/play.ts、台本は `fortress-bomb`・`fortress-down`（8章）。
@@ -1314,7 +1335,8 @@ SB-1860。中ボスの `wardenDown` のあと、要塞の陸側の壁の中の�
 | `pillbox1` | `destroyed pillbox-1, pillbox-2`（どれか1つ） | `payoff bunker1`（1基目だけの小さい決め） |
 | `cp1` | `destroyed pillbox-1, pillbox-2` | `radio m1.pillboxes-down`・`flag pillboxes-down`・`payoff bunker`・`checkpoint cp1`・`allyMove cover-b1/b2/b3 c-front-1/2/3`（C の前、機体の通り道の先の投稿へ） |
 | `fortress-gun-wake` | `enter fortress-approach` | `flag fortress-gun-awake`（要塞の機関砲のシャッターが開き、撃ち始める。SB-2045・2051）・`radio m1.fortress-gun-wake` |
-| `fortress-gate` | `enter fortress-gate` | `checkpoint cp2`・`objective stop-fortress-gun`・`radio m1.fortress-gate`・`spawn fortress-drop`・`allyMove cover-b1/b2/b3 yard-run-1/2/3`（海側の門から中庭へ。壁の上の3体を機体の後ろに降らせる） |
+| `fortress-gate` | `enter fortress-gate` | `checkpoint cp2`・`objective stop-fortress-gun`・`radio m1.fortress-gate`・`spawn fortress-drop`（壁の上の3体を機体の後ろに降らせる） |
+| `gate-open` | `destroyed fortress-gun` | `radio m1.gate-open`・`allyMove cover-b1/b2/b3 yard-run-1/2/3`（海側の門のシャッターが巻き上がり、中庭へなだれ込む。SB-2300） |
 | `fortress-yard` | `enter fortress-yard` | `radio m1.fortress-yard`・`radio m1.yard-trap`・`spawn yard-1`・`assist ['yard-1','yard-2','yard-3']`・`allyMove cover-b1/b2/b3 yard-cover`（三方から囲まれ、生き残った味方機が門で撃ち始める） |
 | `yard-drop` | `after fortress-yard 6` | `spawn yard-2`（中庭の奥から2機） |
 | `yard-gate` | `cleared yard-1` | `flag yard-1-clear`・`spawn yard-3`（海側の門の脇から2機、退路を塞ぐ） |
@@ -1337,7 +1359,7 @@ SB-1860。中ボスの `wardenDown` のあと、要塞の陸側の壁の中の�
 弾薬庫は道の上の普通の目標で、問いも選択も損耗も無い（SB-2046。SB-1820 の寄り道の選択をやめた）。cp1 の10秒後に `shelling-start` が砲撃を始める。
 
 - 守り: 右の `depot-approach`（x 60〜95・z −60〜−20）に入ると、cue `depot-guard` が `depot-guard`（量産機3・機銃座1）の波を出し、`depot` の印を地図に出す。入る時が cp1 の前でも後でも同じ。`depot` を壊すと `depot-down` が立つ（立った後は入っても出ない）。効くのはこの旗だけで、入っただけでは弱くならない
-- 通り過ぎる道: 壊さずに要塞へ進んでもよい。何も失わず、要塞の門（`fortress-gate`）は旗を待たずに開く。味方機の `cover-b3` も倒れない
+- 通り過ぎる道: 壊さずに要塞へ進んでもよい。何も失わず、要塞の門（`fortress-gate`）は機関砲を倒すと開く（SB-2300。旗は待たない）。味方機の `cover-b3` も倒れない
 - `depot-down` の効き: `BARRAGES.shelling` の間隔が1.6倍（`slow`）、弾薬庫の報酬 2,000cr が付く。沈む艇の数は L10、中庭の援護は L5。報酬の式は変えない
 - 台本の仕組みで残したもの: action `rearm`（area に入った記録を忘れる。今の M1 は使わない）と、cue の `when`・`unless`。ほかの場面で使える。action `loss` と `GameModel.losses` と結果の損耗の行はやめた
 - 値: `DEPOT_CHOICE_TUNE` in `src/data/fortress.ts`（`shellingSec` 10。仮）。`#view-breach` の調整パネルで触る
@@ -1454,7 +1476,7 @@ M1 の浜・B トーチカ線・C・防波堤・要塞と砲台の場所（z −
 - 手書きは `src/data/maps/m1b-hand.ts`。範囲は x −100〜100・z −300〜170。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot` と、要塞の海側の壁の上の `fortress-gun`、砲台の `main-gun-1`・`main-gun-2`・`magazine`、波は `b-squad`・`b-emplacements`・`depot-guard`・`fortress-drop`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体が艇を降りた所（x 0, z 166）から 6m 以上離す。爆破点は2本の線に2か所ずつ計4か所と、トーチカ2基に横・後ろの1か所ずつ計4か所、要塞の陸側の壁の弾薬庫に1か所（`fort-bomb`、x 0・z −119.5・`fuse` 20秒。6章「爆破点と爆薬」「トーチカ」「要塞の爆破と脱出」）。線2の点は、近い点 `l2-a`（x −10, z 75.5）が機銃座2〜3基の射線の真ん中に立ち、遠い点 `l2-b`（x 50, z 75.5）は x 25, z 78 の残骸の陰で射線の外れになる（SB-2020）。トーチカの点は `blast-pillbox-1-side`（x −41, z −15）・`blast-pillbox-1-back`（−33, −23）・`blast-pillbox-2-side`（30, −17）・`blast-pillbox-2-back`（21, −23）で、箱の外・地面の空いた所に置き、物は足さない。生成マップ（`M1B_RULES`）は爆破点を持たない
   - B は「二重の防御線」（SB-2020）: z 128〜146（線1）・z 62〜74（線2）に、それぞれ対戦車障害物を3列（列の間 4〜6m、同じ列の中は 4.4m 以下の間隔で均等に並べる）。2本とも切れ目が無く、各列の旧い突破口（線1 x −55・40、線2 x −10）と旧い壊せる区間（線2 x 50 前後）は埋めた。同じ列の中の隣との四角の距離は 2m 未満（最大 約 1.3m）で、当たり半径 1m の機体は爆破で穴を開けなければ列を抜けられない。爆破点は各線の海側の面の 2m 前に2か所ずつ（計4か所）あり、どれか1つを爆破すると `holeHalfWidth`（4m）× `holeHalfDepth`（10m）の四角のハリネズミが抜けて 9m 前後の穴が開く。爆破点のハリネズミは `breakable` ではなく、弾では壊れない。線1の爆破点の列から線2の爆破点の列までは約 71m、線2からトーチカ線までは約 91m ある（前は約 50m おきに3本だった）。C の手前（z −55〜−35）の2列は SB-1820 で外した（下の「C の手前」）
   - 防波堤は z −75〜−65 に `seawall`（8×6×4m）を z −73・−70・−67 の3列、x −96〜−40 と 40〜96 に 8m おきに並べる（3列は1m ずつ重なる）。中央の x −36〜36 は無く、そこに要塞の海側の壁と門が立つ。防波堤の上（高さ 6m）は残るが、M1 には坂も階段も無いので上れない
-  - 要塞（`FORTRESS_TUNE` in `src/data/fortress.ts`）は外寸 70×60m・壁 12m 角（高さ 12m・厚さ 6m。`fortWall`）で、内側の中庭は 58×48m（x ±29・z −74〜−122）。海側の壁は中心 z −71、陸側は中心 z −125、左右は中心 x ±32 に 12m 角の `fortWall` を重ねて並べ、内側の面を設計の線に合わせる。海側・陸側の門はどちらも幅 12m（x −6〜6）の開口で、陸側の門には `fortWall` の扉を1枚（x 0・z −125・`collapse: true`）置き、爆薬が爆発するまで閉じる（SB-1860）。陸側の壁と左右の壁も `collapse: true` で、海側の壁は付けない（爆発のあとも立つ）。壁はどれも弾では壊れない。中庭には遮蔽 9 個（`block` 4・`wreck` 2・`crater` 3）を置き、門から門への x 0 の通り道は空ける。三方の壁には L5 の敵の出入り口の目印として短い `lowWall` を3個置く。海側の壁の上（x 20・z −71・`y` 12）には機関砲 `fortress-gun` を置き、その箱（16×10×6）は壁の厚みの中に収める。門の前の開けた所（z −55〜−68）には遮蔽 4 個（`block` 2・`wreck` 2）を互い違いに置き、壁の上の掃射が全部の場所には通らないようにする（SB-1830）
+  - 要塞（`FORTRESS_TUNE` in `src/data/fortress.ts`）は外寸 70×60m・壁 12m 角（高さ 12m・厚さ 6m。`fortWall`）で、内側の中庭は 58×48m（x ±29・z −74〜−122）。海側の壁は中心 z −71、陸側は中心 z −125、左右は中心 x ±32 に 12m 角の `fortWall` を重ねて並べ、内側の面を設計の線に合わせる。海側・陸側の門はどちらも幅 12m（x −6〜6）の開口で、陸側の門には `fortWall` の扉を1枚（x 0・z −125・`collapse: true`）置き、爆薬が爆発するまで閉じる（SB-1860）。海側の門はマップの物ではなく、`GATE_SHUTTER` の矩形と板で機関砲を倒すまで閉じる（SB-2300）。陸側の壁と左右の壁も `collapse: true` で、海側の壁は付けない（爆発のあとも立つ）。壁はどれも弾では壊れない。中庭には遮蔽 9 個（`block` 4・`wreck` 2・`crater` 3）を置き、門から門への x 0 の通り道は空ける。三方の壁には L5 の敵の出入り口の目印として短い `lowWall` を3個置く。海側の壁の上（x 20・z −71・`y` 12）には機関砲 `fortress-gun` を置き、その箱（16×10×6）は壁の厚みの中に収める。門の前の開けた所（z −55〜−68）には遮蔽 4 個（`block` 2・`wreck` 2）を互い違いに置き、壁の上の掃射が全部の場所には通らないようにする（SB-1830）
   - 坂 `ramp` と階段 `stairs` の種類はエディタと確認用の入口のために残すが、M1 では使わない（防波堤の上へ上がる道は無い）
   - 低い障害物 `lowWall` は浜（z 154）に5個（x −42・−18・6・30・54）。間は 14m 以上あいて回り込めて、地雷と重ならず、機体が艇を降りた所（x 0, z 166）から 4m 以上離れる
   - C の手前（z −55〜−35）は線にせず、`lowWall` と `wreck` を散らす（SB-1820）。右の崖下（x 80〜95・z −20〜−60）は集積所へ下りる道として物を置かない。線2の先、トーチカ線の手前に6個ほど置く（SB-2020）

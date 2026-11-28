@@ -118,6 +118,7 @@ LANG.en = {
     'm1.wave2-lost': 'The second wave is lost. Push through with what we have.',
     'm1.fortress-gun-wake': 'The fortress gun is coming up!',
     'm1.fortress-gate': 'Through the fortress gate',
+    'm1.gate-open': 'The gate is open! Pour in!',
     'm1.fortress-yard': 'Into the yard',
     'm1.yard-trap': "It's a trap. We're surrounded.",
     'm1.yard-clear': 'The yard is clear.',
