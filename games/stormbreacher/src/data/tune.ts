@@ -244,6 +244,20 @@ export const HUD_RING_TUNE = {
 
 export type HudRingTune = typeof HUD_RING_TUNE;
 
+// The front gauge (SB-2270, 仮): the whole front as one line from the sea's edge to the pillbox line, at the right edge
+// below the radar. The gauge's span comes from M1_SECTORS, and its height grows with the window's height from
+// `baseHeight`, the way the aim circle's radius does. `isolatedGap` is the support fire's reach (SUPPORT_TUNE.range in
+// data/sectors.ts): inland of it the mech is out of the infantry's cover. It is written out here because data/sectors.ts
+// reads this file, so this one cannot read it back; a unit test keeps the two equal.
+export const GAUGE_TUNE = {
+  height: 260, // px, the gauge's height at baseHeight
+  baseHeight: 720, // px, the window height the sizes are written for
+  warnGap: 30, // m inland of the front where the mech's mark starts to change colour
+  isolatedGap: 57, // m inland of the front where the mark turns red (SUPPORT_TUNE.range)
+} as const;
+
+export type GaugeTune = typeof GAUGE_TUNE;
+
 // The signs of being under fire (SB-1380): the red edge a hit from a direction lights, the white flash of a blast close
 // by, and the dark, drained edge while the armour is low. Colours are 0xRRGGBB and shares are 0-1. All provisional,
 // settled by eye in #view-hurt.

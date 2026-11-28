@@ -103,6 +103,28 @@ test('the use prompt says how to plant a charge at a blast point, and the touch 
   expect(button.classList.contains('on')).toBe(false);
 });
 
+test('the front gauge sits at the right edge under the radar, and the plaza has none', () => {
+  startSortie();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  steps(1);
+  const gauge = el('#sbPlayHud [data-hud="gauge"]');
+  expect(gauge.hasAttribute('hidden'), 'the sortie has a front gauge').toBe(false);
+
+  const box = gauge.getBoundingClientRect();
+  const dial = el('#sbPlayHud [data-hud="radar"]').getBoundingClientRect();
+  expect(box.left).toBeGreaterThan(window.innerWidth / 2);
+  expect(box.right).toBeLessThanOrEqual(window.innerWidth);
+  // it starts at or below the radar's foot, so the two do not overlap
+  expect(box.top).toBeGreaterThanOrEqual(dial.bottom - 1);
+  expect(box.bottom).toBeLessThan(window.innerHeight);
+
+  // the plaza has no sectors, so no gauge
+  game.sectors = null;
+  runSystems(1 / 60);
+  expect(gauge.hasAttribute('hidden'), 'the plaza has no gauge').toBe(true);
+});
+
 test('the lock frame shows only while the aim is pulled toward a target', () => {
   startSortie();
   const game = currentGame();

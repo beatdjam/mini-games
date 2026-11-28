@@ -115,6 +115,11 @@ export const HUD_COLOR = {
   armorHigh: '#7fe3c0',
   armorMid: '#ffcf6a',
   armorLow: '#ff5a4a',
+  // the front gauge's three fills (SB-2270, 仮): the enemy's land darkest, a secured sector amber between, a stable one
+  // the gauges' cyan. The three are chosen to read apart in brightness and not only in hue.
+  gaugeEnemy: '#4a3c3b',
+  gaugeSecured: '#c08a48',
+  gaugeStable: '#54e8ff',
 };
 
 // The enemies wear the enemy row of PROTO_PALETTES (SB-2083): dark grey armour, near-black joints, red accents and red

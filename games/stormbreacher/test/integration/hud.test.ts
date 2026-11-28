@@ -3,8 +3,10 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1 } from '../../src/data/missions/m1.ts';
 import { CALLOUT_TUNE, RADIO_TUNE, CUTSCENE_SEC } from '../../src/data/script.ts';
-import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
+import { M1_SECTORS } from '../../src/data/sectors.ts';
+import { GAUGE_TUNE, HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import {
@@ -18,7 +20,10 @@ import {
   type TargetState,
 } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
+import { gaugeRatio, gaugeSpan } from '../../src/logic/frontGauge.ts';
 import { hudModel } from '../../src/logic/hud.ts';
+import { sectorHold } from '../../src/logic/sectors.ts';
+import { newPlayGame } from './playGame.ts';
 
 // A target at `deg` from the mech's front (+ to the right) and `dist` metres away, with the mech at the origin facing -z.
 function atAngle(id: string, kind: TargetKind, deg: number, dist: number): TargetPlace {
@@ -450,4 +455,54 @@ test('the shell warning takes the place of the callout while it shows (SB-2028)'
   game.mech.x = AIMED_MORTAR.radius + 1;
   expect(hudModel(game).warning).toBeNull();
   expect(hudModel(game).callout).toBe('m1.callout.line2-hold');
+});
+
+test('the sortie’s HUD has a front gauge from the sea’s edge to the pillbox line', () => {
+  const game = newPlayGame(M1B_HAND);
+  const gauge = hudModel(game).gauge;
+  expect(gauge).not.toBeNull();
+  if (gauge === null) throw new Error('the sortie has a front gauge');
+  const span = gaugeSpan(M1_SECTORS);
+  expect(gauge.mech).toBeCloseTo(gaugeRatio(game.mech.z, span.fromZ, span.toZ), 6);
+  const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
+  expect(gauge.front).toBeCloseTo(gaugeRatio(hold.holdZ, span.fromZ, span.toZ), 6);
+  // the mech steps off the craft at the sea's edge, ahead of the infantry's first line
+  expect(gauge.mech).toBeGreaterThan(0);
+  expect(gauge.mech).toBeLessThan(gauge.front);
+  // every sector starts as the enemy's land, and the three boundaries stand between the four
+  expect(gauge.fills.map(fill => fill.fill)).toEqual(M1_SECTORS.map(() => 'enemy'));
+  expect(gauge.marks).toHaveLength(M1_SECTORS.length - 1);
+});
+
+test('a secured sector fills as secured, and a stable one as stable', () => {
+  const game = newPlayGame(M1B_HAND);
+  const sectors = game.sectors;
+  if (sectors === null) throw new Error('the sortie has sectors');
+  expect(hudModel(game).gauge?.fills[0].fill).toBe('enemy');
+  sectors.phase[0] = 'counter';
+  expect(hudModel(game).gauge?.fills[0].fill).toBe('secured');
+  sectors.phase[0] = 'stable';
+  expect(hudModel(game).gauge?.fills[0].fill).toBe('stable');
+  // an advancing sector is still the enemy's land
+  sectors.phase[1] = 'advancing';
+  expect(hudModel(game).gauge?.fills[1].fill).toBe('enemy');
+});
+
+test('the mech 60 m inland of the front is isolated', () => {
+  const game = newPlayGame(M1B_HAND);
+  const sectors = game.sectors;
+  if (sectors === null) throw new Error('the sortie has sectors');
+  sectors.phase[0] = 'advancing';
+  const hold = sectorHold(sectors, game.script.blasts, game.map.blasts ?? []);
+  game.mech.z = hold.holdZ - (GAUGE_TUNE.isolatedGap + 3);
+  expect(hudModel(game).gauge?.isolation).toBe('isolated');
+  game.mech.z = hold.holdZ - (GAUGE_TUNE.warnGap + 1);
+  expect(hudModel(game).gauge?.isolation).toBe('warn');
+  game.mech.z = hold.holdZ + 1;
+  expect(hudModel(game).gauge?.isolation).toBe('near');
+});
+
+test('the plaza has no front gauge', () => {
+  const game = newGame(M1B_HAND, M1, { sectors: false });
+  expect(hudModel(game).gauge).toBeNull();
 });

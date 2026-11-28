@@ -1,14 +1,16 @@
 // The HUD of the game's sortie (SB-160). The aim mark sits at the cursor (SB-2159): the main ammo on its left arc, the
 // sub ammo on its right one, the armour as the bar above it and the boost as the bar below it. The objective is at the
-// top left, the enemy's health at the top centre, the round radar at the top right, the last radio line at the bottom
-// centre and a lock frame round the target the aim is pulled toward. It reads HudModel (logic/hud.ts) and draws it; it
-// never writes the model. Heat is not drawn; the only warning is the shell's. The shades and the emphasis are 仮.
+// top left, the enemy's health at the top centre, the round radar at the top right, the front gauge down the right edge
+// (SB-2270), the last radio line at the bottom centre and a lock frame round the target the aim is pulled toward. It
+// reads HudModel (logic/hud.ts) and draws it; it never writes the model. Heat is not drawn; the only warning is the
+// shell's. The shades and the emphasis are 仮.
 import { isTouch, t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
-import { HUD_RING_TUNE } from '../data/tune.ts';
+import { GAUGE_TUNE, HUD_RING_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import type { HudModel } from '../logic/hud.ts';
+import type { GaugeFill, Isolation } from '../logic/frontGauge.ts';
 import type { ScreenRect } from './camera.ts';
 import { ndcToScreen } from './hudPlace.ts';
 import { ammoBlink, ammoTier } from './hudRing.ts';
@@ -46,6 +48,8 @@ const PLAY_HUD_PLACES = {
     css: 'left:50%;transform:translateX(-50%);top:calc(50% + var(--ring) + 8px);text-align:center',
   },
   reticle: { css: 'inset:0;pointer-events:none' },
+  // the front gauge (SB-2270): at the right edge, under the radar (24 + 150 + a little), the height from GAUGE_TUNE
+  gauge: { css: 'right:24px;top:198px;width:12px' },
 } as const;
 
 // Which gauge goes where in the aim mark (SB-2159): the main ammo on the left arc, the sub ammo on the right one, the
@@ -82,8 +86,38 @@ const RADAR_MARK: Record<TargetKind | EnemyKind, RadarMarkKind> = {
 // The radar's size (px): the mock's D plan.
 const RADAR_SIZE = 150; // px
 
+// The front gauge's marks (SB-2270): the front line is a thick bar reaching a little past the gauge's sides, the sector
+// boundaries are thin short lines, and the mech is a small diamond. These sizes are 仮.
+const GAUGE_EDGE = 4; // px, how far the front line and the boundaries reach past the gauge's sides
+const GAUGE_FRONT = 3; // px, the front line's thickness
+const GAUGE_BOUNDARY = 1; // px, a sector boundary's thickness
+const GAUGE_MECH = 7; // px, the mech's diamond's side
+
+// The fills and the mech's shades: the three fills read apart in brightness as well as hue (dark, amber, cyan), and the
+// mech's mark turns amber at the warning gap and red when isolated, never blinking.
+const GAUGE_FILL_COLOR: Record<GaugeFill, string> = {
+  enemy: HUD_COLOR.gaugeEnemy,
+  secured: HUD_COLOR.gaugeSecured,
+  stable: HUD_COLOR.gaugeStable,
+};
+
+const GAUGE_MECH_COLOR: Record<Isolation, string> = {
+  near: HUD_COLOR.text,
+  warn: HUD_COLOR.amber,
+  isolated: HUD_COLOR.warn,
+};
+
 interface RadarGauge {
   set(marks: readonly RadarKey[], front?: RadarFront | null): void;
+}
+
+// The front gauge's parts: the box, the sectors' fills, the boundaries between them, the front line and the mech's mark.
+interface FrontGaugeView {
+  box: HTMLElement;
+  fills: HTMLElement;
+  boundaries: HTMLElement;
+  front: HTMLElement;
+  mech: HTMLElement;
 }
 
 // The values written last, so a frame writes only what changed. null means "not written yet".
@@ -100,6 +134,11 @@ interface HudLast {
   use: number | null; // the hold's progress (0-1), or null when the prompt is not up
   charge: string | null; // the fuse's text, or null when no charge is shown
   melee: boolean | null; // whether the "melee (Q)" hint shows
+  gaugeShown: boolean | null; // whether the front gauge is up
+  gaugeFills: string | null; // the sectors' fills and boundaries, as one key
+  gaugeFront: number | null; // the front line's place on the gauge (0-1)
+  gaugeMech: number | null; // the mech's place on the gauge (0-1)
+  gaugeIsolation: Isolation | null; // the mech's mark's shade
 }
 
 export interface PlayHud {
@@ -132,6 +171,7 @@ export interface PlayHud {
   chargeFill: HTMLElement;
   melee: HTMLElement;
   radar: RadarGauge;
+  gauge: FrontGaugeView;
   last: HudLast;
 }
 
@@ -197,7 +237,18 @@ function freshLast(): HudLast {
     use: null,
     charge: null,
     melee: null,
+    gaugeShown: null,
+    gaugeFills: null,
+    gaugeFront: null,
+    gaugeMech: null,
+    gaugeIsolation: null,
   };
+}
+
+// The front gauge's height (px) for a window of this height: written for baseHeight, scaled the way the aim circle's
+// radius follows the window (hudParts.ringRadius).
+function gaugeHeight(height: number): number {
+  return Math.round((GAUGE_TUNE.height * height) / GAUGE_TUNE.baseHeight);
 }
 
 // Lays the HUD's parts out for the window's size and returns what drawHud writes into. Called again when the window's
@@ -274,6 +325,27 @@ function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = nul
   const radar = roundRadar(RADAR_SIZE, RADAR_SIZE);
   radarNode.appendChild(radar.root);
 
+  // The front gauge (SB-2270): a vertical line at the right edge, the sea at its foot and the pillbox line at its head.
+  // Its height follows the window's, as the aim circle's radius does; `layOut` runs again when the height changes.
+  const gaugeBox = place(root, spec.gauge.css, 'gauge');
+  gaugeBox.style.height = `${gaugeHeight(window.innerHeight)}px`;
+  gaugeBox.style.background = HUD_COLOR.panel;
+  gaugeBox.style.boxShadow = `0 0 0 1px ${HUD_COLOR.markShadow}`;
+  gaugeBox.hidden = true;
+  const gaugeFills = document.createElement('div');
+  gaugeFills.style.cssText = 'position:absolute;inset:0;overflow:hidden';
+  const gaugeBoundaries = document.createElement('div');
+  gaugeBoundaries.style.cssText = 'position:absolute;inset:0';
+  const gaugeFront = document.createElement('div');
+  gaugeFront.style.cssText =
+    `position:absolute;left:${-GAUGE_EDGE}px;right:${-GAUGE_EDGE}px;height:${GAUGE_FRONT}px;` +
+    `background:${HUD_COLOR.bar};box-shadow:0 0 0 1px ${HUD_COLOR.markShadow};`;
+  const gaugeMech = document.createElement('div');
+  gaugeMech.style.cssText =
+    `position:absolute;left:50%;width:${GAUGE_MECH}px;height:${GAUGE_MECH}px;margin-left:${-GAUGE_MECH / 2}px;` +
+    `transform:rotate(45deg);background:${HUD_COLOR.text};box-shadow:0 0 0 1px ${HUD_COLOR.markShadow};`;
+  gaugeBox.append(gaugeFills, gaugeBoundaries, gaugeFront, gaugeMech);
+
   const reticleBox = place(root, spec.reticle.css, 'reticle');
   reticleBox.appendChild(marks.root);
 
@@ -310,6 +382,7 @@ function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = nul
     chargeFill: chargeMeter.fill,
     melee,
     radar,
+    gauge: { box: gaugeBox, fills: gaugeFills, boundaries: gaugeBoundaries, front: gaugeFront, mech: gaugeMech },
     last: freshLast(),
   };
 }
@@ -447,6 +520,8 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null, 
     last.melee = model.melee;
   }
 
+  drawFrontGauge(hud, model.gauge);
+
   hud.lock.set(lock);
   hud.radar.set(
     model.radar.map(mark => ({
@@ -456,6 +531,54 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null, 
     })),
     model.front,
   );
+}
+
+// Writes the front gauge (SB-2270). A null gauge (the plaza, where the sectors do not run) hides it. The sectors' fills
+// and the boundaries are rebuilt only when a sector's state changes; the two marks move by their place on the gauge, and
+// the mech's shade changes only when it crosses a gap.
+function drawFrontGauge(hud: PlayHud, gauge: HudModel['gauge']): void {
+  const last = hud.last;
+  const shown = gauge !== null;
+  if (last.gaugeShown !== shown) {
+    hud.gauge.box.hidden = !shown;
+    last.gaugeShown = shown;
+  }
+  if (gauge === null) return;
+
+  const fillsKey = gauge.fills.map(fill => `${fill.from.toFixed(4)}:${fill.to.toFixed(4)}:${fill.fill}`).join('|');
+  if (last.gaugeFills !== fillsKey) {
+    last.gaugeFills = fillsKey;
+    hud.gauge.fills.replaceChildren();
+    for (const fill of gauge.fills) {
+      const node = document.createElement('div');
+      node.style.cssText =
+        `position:absolute;left:0;right:0;bottom:${fill.from * 100}%;` +
+        `height:${(fill.to - fill.from) * 100}%;background:${GAUGE_FILL_COLOR[fill.fill]};`;
+      hud.gauge.fills.appendChild(node);
+    }
+    hud.gauge.boundaries.replaceChildren();
+    for (const at of gauge.marks) {
+      const node = document.createElement('div');
+      node.style.cssText =
+        `position:absolute;left:${-GAUGE_EDGE}px;right:${-GAUGE_EDGE}px;` +
+        `bottom:calc(${at * 100}% - ${GAUGE_BOUNDARY / 2}px);height:${GAUGE_BOUNDARY}px;` +
+        `background:${HUD_COLOR.text};opacity:.55;`;
+      hud.gauge.boundaries.appendChild(node);
+    }
+  }
+
+  if (last.gaugeFront !== gauge.front) {
+    last.gaugeFront = gauge.front;
+    hud.gauge.front.style.bottom = `calc(${gauge.front * 100}% - ${GAUGE_FRONT / 2}px)`;
+  }
+  if (last.gaugeMech !== gauge.mech) {
+    last.gaugeMech = gauge.mech;
+    hud.gauge.mech.style.bottom = `calc(${gauge.mech * 100}% - ${GAUGE_MECH / 2}px)`;
+  }
+  if (last.gaugeIsolation !== gauge.isolation) {
+    last.gaugeIsolation = gauge.isolation;
+    hud.gauge.mech.style.background = GAUGE_MECH_COLOR[gauge.isolation];
+  }
 }
 
 // Takes the HUD out of the page.
