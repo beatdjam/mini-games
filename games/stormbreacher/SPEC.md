@@ -145,7 +145,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - 照準: 本体と広場では、マークをマウスカーソルの位置（`PlayRead.cursor` の正規化座標。動かすまでは画面の真ん中）に描く。タッチでは画面の真ん中に出す（右のドラッグの狙う向きには動かさない）。位置は正規化座標を画面の px に直して書き（`ndcToScreen` in `src/view/hudPlace.ts`）、画面の端に近いときはマーク全体を内側に寄せる。HUD を作り直しても最後の位置に戻す（`placeReticle` in `src/view/hud.ts`）。キャンバスの外のボタンの上でも追う（`mousemove` は `window` で受け、`#gl` の矩形で正規化する）
 - 描く: `src/view/hud.ts` が本体の出撃中の HUD を `HudModel` から描き、`src/view/hudParts.ts` は照準のマーク・丸いレーダー・ロック枠を持つ。`#view-hud` の見本も同じ `src/view/hudParts.ts` を使う。`src/data/colors.ts` は HUD の色（`HUD_COLOR`）も名前で持つ
 - 前線: 丸いレーダーに、味方が押さえている地面の端（前線）を破線で描く（SB-2010）。`HudModel.front` が前線の両端をレーダーの角度と距離で持ち、`roundRadar` が円で切り抜いて線を引く。位置は台本の旗から `frontOf` が決める（6章「節目」）。角度はレーダーの点と同じく、本体と広場では画面の上を 0 度にする
-- 戦線ゲージ（SB-2270）: 浜からトーチカ線までの全長（`M1_SECTORS` の先頭の `seaZ` から最後の `landZ`。+z が海）を、右端の縦1本のゲージにする（`PLAY_HUD_PLACES.gauge`。レーダーの下、右端から 24px、幅 12px）。下が海、上が陸なので、前進すると自機の印が上へ動く（見下ろしの前進が画面の右上であることと向きが近い）。高さは `GAUGE_TUNE.height` を `window.innerHeight / GAUGE_TUNE.baseHeight` で伸ばす（`ringRadius` と同じ考え方）。タッチの右手のボタンとは重ならない高さにする。区画の塗りは `sectorFills`（`src/logic/frontGauge.ts`）が決める: 敵の土地（`idle`・`advancing`）は暗い赤灰 `HUD_COLOR.gaugeEnemy`、確保（`secured`・`counter`。反撃を凌ぐまで）は琥珀 `HUD_COLOR.gaugeSecured`、安定（`stable`）は明るいシアン `HUD_COLOR.gaugeStable`。3色は色だけでなく明るさでも区別できる（暗い→中→明るい）。区画の境目は短い横線、戦線（`sectorHold` の `holdZ`）は太い横線（`HUD_COLOR.bar`）、自機は小さな菱形で出す。数字（m・人数）は出さない。自機の印は戦線から内陸へ出た距離で色を変える（`isolation`）: `GAUGE_TUNE.warnGap`（30m）未満は通常（`HUD_COLOR.text`）、そこから `GAUGE_TUNE.isolatedGap`（57m。援護射撃の届く `SUPPORT_TUNE.range`）未満は琥珀、以上は孤立として赤（明るい縁を付けて、敵の土地の暗い赤の上でも読めるようにする）。点滅はさせない。広場（`game.sectors === null`）では出さない。カットシーンの間は HUD ごと出ない。値は `HudModel.gauge`（`mech`・`front`・`fills`・`isolation`・`marks`）が毎フレームの状態から作り、`src/view/hud.ts` は変わった値だけ書く。中断セーブの形は変えない
+- 戦線ゲージ（SB-2270、SB-2281）: 浜から一番奥の弾薬庫までの全長（`M1_SECTORS` の先頭の `seaZ` 170 から最後の `landZ` -255。425m。+z が海）を、右端の縦1本のゲージにする（`PLAY_HUD_PLACES.gauge`。レーダーの下、右端から 24px、幅 12px）。下が海、上が陸なので、前進すると自機の印が上へ動く（見下ろしの前進が画面の右上であることと向きが近い）。高さは `GAUGE_TUNE.height` を `window.innerHeight / GAUGE_TUNE.baseHeight` で伸ばす（`ringRadius` と同じ考え方）。タッチの右手のボタンとは重ならない高さにする。全長は区画の表から出るので（`gaugeSpan`）、後半の7区画が延びた分だけ自動で延びる。全長が 210m から 425m になったので、1mあたりの px は約1/2（`height 260` のとき約0.61px/m）になり、`cband`・`gate` の 15m は約9px、`yard`・`magazine` の 30m は約18px になる。縮尺は線形のまま（区画ごとに等分しない）で、縮んだ分は印と境目を次のように見直した: 戦線の太い横線（`GAUGE_TUNE.frontThickness` 3px）と自機の菱形（`GAUGE_TUNE.mechSize` 7px）は、縮尺によらず px の大きさを変えない。区画の境目は `GAUGE_TUNE.boundaryThickness` 1px の短い横線で、色は塗りより少し明るい `HUD_COLOR.gaugeBoundary` にし、暗い敵の土地の隣でも消えないようにした。区画の塗りは `sectorFills`（`src/logic/frontGauge.ts`）が決める: 敵の土地（`idle`・`advancing`）は暗い赤灰 `HUD_COLOR.gaugeEnemy`、確保（`secured`・`counter`。反撃を凌ぐまで）は琥珀 `HUD_COLOR.gaugeSecured`、安定（`stable`）は明るいシアン `HUD_COLOR.gaugeStable`。3色は色だけでなく明るさでも区別できる（暗い→中→明るい）。戦線（`sectorHold` の `holdZ`）は太い横線（`HUD_COLOR.bar`）で出す。数字（m・人数）は出さない。自機の印は戦線から内陸へ出た距離で色を変える（`isolation`）: `GAUGE_TUNE.warnGap`（30m）未満は通常（`HUD_COLOR.text`）、そこから `GAUGE_TUNE.isolatedGap`（57m。援護射撃の届く `SUPPORT_TUNE.range`）未満は琥珀、以上は孤立として赤（明るい縁を付けて、敵の土地の暗い赤の上でも読めるようにする）。点滅はさせない。広場（`game.sectors === null`）では出さない。カットシーンの間は HUD ごと出ない。値は `HudModel.gauge`（`mech`・`front`・`fills`・`isolation`・`marks`）が毎フレームの状態から作り、`src/view/hud.ts` は変わった値だけ書く。中断セーブの形は変えない
 - 歩兵の戦死のポップ（SB-2272）: 戦線ゲージの下端から `FEEDBACK_TUNE.popGap` 6px 下、右端から 24px（ゲージと揃え）に、右寄せで「歩兵 戦死 ×N」（`hud.infantryFall`、`HUD_COLOR.amber`。赤は弾切れ・被弾に使うので分ける）を出す。数は短い間に続けて倒れた歩兵の数（`battleFell` の `by` が `fire` か `shell`。間引かれた無線の分も数える）で、1体なら「×N」を付けない。`FEEDBACK_TUNE.popSec` 2.5 秒（続けて倒れるたびに延びる）で消え、消えてから数が 0 に戻る。タッチの右下のボタンとは重ならない高さ。残り秒と数は view だけが持ち（`PlayHud.pop`）、`GameModel` には入れず `SUSPEND_VERSION` も上げない。カットシーンの間は HUD ごと隠れ、広場（`game.sectors === null`）では出さない
 - 短い見出し: 節目の間だけ、画面の上の方に「突破」「第二線突破」「トーチカ沈黙」のような短い見出しを出す（`HudModel.headline`。言語キーは `m1.breach`・`m1.breach2`・`m1.bunker-down`）。出るのはその cue が発火してから `PAYOFF_TUNE.headlineSec` の間で、時刻は台本の `fired` から読む
 
@@ -333,7 +333,7 @@ HUD の値は `HUD_TUNE`（SB-160）。値は仮。
 | `HUD_RING_TUNE.reticle.ammo.blinkHz` | 1 | 回/s。弾切れのゲージが赤く明滅する速さ |
 | `HUD_RING_TUNE.reticle.ammo.blinkMin` | 0.5 | 0〜1。明滅で一番暗くなるときの明るさ（消えない） |
 
-`GAUGE_TUNE`（SB-2270、仮）は戦線ゲージの値。色は `HUD_COLOR.gaugeEnemy`・`gaugeSecured`・`gaugeStable`（暗い赤灰・琥珀・明るいシアン。明るさでも区別できる）。
+`GAUGE_TUNE`（SB-2270、SB-2281、仮）は戦線ゲージの値。色は `HUD_COLOR.gaugeEnemy`・`gaugeSecured`・`gaugeStable`（暗い赤灰・琥珀・明るいシアン。明るさでも区別できる）と、区画の境目の `gaugeBoundary`（塗りより少し明るい）。
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -341,6 +341,10 @@ HUD の値は `HUD_TUNE`（SB-160）。値は仮。
 | `GAUGE_TUNE.baseHeight` | 720 | px。上の高さを書いた画面の高さ。ゲージの高さは `window.innerHeight` に比例させる |
 | `GAUGE_TUNE.warnGap` | 30 | m。戦線からこれだけ内陸へ出ると自機の印の色が変わり始める |
 | `GAUGE_TUNE.isolatedGap` | 57 | m。戦線からこれだけ内陸へ出ると孤立（援護射撃の `SUPPORT_TUNE.range`。色が赤） |
+| `GAUGE_TUNE.edgeOverhang` | 4 | px。戦線の横線と区画の境目が、ゲージの左右からはみ出す長さ |
+| `GAUGE_TUNE.frontThickness` | 3 | px。戦線の横線の太さ（縮尺によらず一定） |
+| `GAUGE_TUNE.boundaryThickness` | 1 | px。区画の境目の横線の太さ |
+| `GAUGE_TUNE.mechSize` | 7 | px。自機の菱形の一辺（縮尺によらず一定） |
 
 `FEEDBACK_TUNE`（SB-2272、仮）は歩兵の被弾・戦死の知らせの値。色は `FEEDBACK_COLOR.mark`（琥珀）・`markHit`（赤）・`spark`（橙）。
 

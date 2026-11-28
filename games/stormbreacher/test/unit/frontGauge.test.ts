@@ -22,15 +22,25 @@ test('sectorFills runs the eleven sectors front to back with their widths’ sha
     M1_SECTORS.map((): SectorPhase => 'idle'),
     M1_SECTORS,
   );
+  expect(fills).toHaveLength(M1_SECTORS.length);
   expect(fills).toHaveLength(11);
   expect(fills[0].from).toBe(0);
   expect(fills[fills.length - 1].to).toBe(1);
   // the sectors touch, so the boundaries are the same places as the next sector's sea-side edge
   for (let i = 1; i < fills.length; i++) expect(fills[i].from).toBeCloseTo(fills[i - 1].to, 10);
-  // the 41, 67, 73, 29, 15, 15, 30, 25, 50, 50 and 30 m of M1's front, as shares of its 425 m
+  // each sector's own width (its seaZ to its landZ) as a share of the whole span from the table
+  const total = SPAN.fromZ - SPAN.toZ;
+  expect(total).toBe(425);
   const widths = fills.map(fill => fill.to - fill.from);
-  const shares = [41, 67, 73, 29, 15, 15, 30, 25, 50, 50, 30];
-  for (const [i, metres] of shares.entries()) expect(widths[i]).toBeCloseTo(metres / 425, 10);
+  for (const [i, sector] of M1_SECTORS.entries()) {
+    expect(widths[i]).toBeCloseTo((sector.seaZ - sector.landZ) / total, 10);
+  }
+  // ten boundaries between the eleven sectors, each at the next sector's sea-side edge on the gauge
+  const boundaries = fills.slice(1).map(fill => fill.from);
+  expect(boundaries).toHaveLength(10);
+  for (const [i, sector] of M1_SECTORS.slice(1).entries()) {
+    expect(boundaries[i]).toBeCloseTo(gaugeRatio(sector.seaZ, SPAN.fromZ, SPAN.toZ), 10);
+  }
 });
 
 test('a sector fills as enemy land, secured or stable by its phase', () => {
@@ -50,6 +60,9 @@ test('a sector fills as enemy land, secured or stable by its phase', () => {
 });
 
 test('isolation switches at warnGap and isolatedGap, and is near seaward of the front', () => {
+  // the thresholds are in metres, so a longer gauge does not move them (SB-2281)
+  expect(GAUGE_TUNE.warnGap).toBe(30);
+  expect(GAUGE_TUNE.isolatedGap).toBe(57);
   // the isolated gap is the infantry's support fire's reach, so a change there moves both
   expect(GAUGE_TUNE.isolatedGap).toBe(SUPPORT_TUNE.range);
   const front = 100;

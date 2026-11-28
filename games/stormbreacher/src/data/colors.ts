@@ -120,6 +120,9 @@ export const HUD_COLOR = {
   gaugeEnemy: '#4a3c3b',
   gaugeSecured: '#c08a48',
   gaugeStable: '#54e8ff',
+  // the sector boundaries (SB-2281, 仮): a little brighter than the fills, so a line still reads where it sits against
+  // the dark enemy land
+  gaugeBoundary: '#d8e2e8',
 };
 
 // The enemies wear the enemy row of PROTO_PALETTES (SB-2083): dark grey armour, near-black joints, red accents and red

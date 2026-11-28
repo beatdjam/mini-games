@@ -1,5 +1,5 @@
-// The front gauge (SB-2270): the whole M1 front as one line from the sea's edge to the pillbox line, with the sectors'
-// states and the mech's and the front's places on it. Pure, so a node test reads it; no three and no DOM.
+// The front gauge (SB-2270, SB-2281): the whole M1 front as one line from the sea's edge to the magazine, with the
+// sectors' states and the mech's and the front's places on it. Pure, so a node test reads it; no three and no DOM.
 import type { Sector } from '../data/sectors.ts';
 import type { SectorPhase } from './sectors.ts';
 
@@ -10,7 +10,7 @@ export type GaugeFill = 'enemy' | 'secured' | 'stable';
 export type Isolation = 'near' | 'warn' | 'isolated';
 
 export interface SectorFill {
-  from: number; // 0 at the sea's edge, 1 at the pillbox line's land side
+  from: number; // 0 at the sea's edge, 1 at the last sector's land side
   to: number;
   fill: GaugeFill;
 }
@@ -44,7 +44,7 @@ function fillOf(phase: SectorPhase): GaugeFill {
 }
 
 // One fill a sector, front to back, each with its sea-side and land-side places on the gauge. The sectors' own ends give
-// the gauge's span, so the widths keep their share of the whole front (41, 67, 73 and 29 m in M1).
+// the gauge's span, so the widths keep their share of the whole front (the eleven sectors' own widths over 425 m in M1).
 export function sectorFills(phases: readonly SectorPhase[], sectors: readonly Sector[]): SectorFill[] {
   const { fromZ, toZ } = gaugeSpan(sectors);
   return sectors.map((sector, i) => ({
