@@ -25,7 +25,7 @@ import { buildNavField, buildNavGrid, navTarget } from '../../src/logic/nav.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { insideQuad, viewGround } from '../../src/logic/viewGround.ts';
-import { clearInfantry, newPlayGame } from './playGame.ts';
+import { clearInfantry, holdAlliesFire, newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const BEACH = M1_SECTORS[0];
@@ -156,8 +156,10 @@ describe('the trickle in the sortie', () => {
   test('the beach’s budget runs out, and then nothing more comes', () => {
     seed(7);
     const game = newPlayGame(M1B_HAND);
-    // the budget is about the trickle: the infantry's support fire would shoot the eight down before the test reads them (SB-2240)
+    // the budget is about the trickle: the infantry's support fire would shoot the eight down before the test reads them (SB-2240),
+    // and so would the allies' fire now that it tells (SB-2301)
     clearInfantry(game);
+    holdAlliesFire(game);
     game.armor = Number.MAX_SAFE_INTEGER;
     // the scripted soldiers asleep: the cap does not stand in the beach budget's way
     sleepScripted(game);

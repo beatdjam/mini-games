@@ -26,3 +26,9 @@ export function clearInfantry(game: GameModel): void {
   game.battle.crowd.soldiers = [];
   game.battle.crowd.bounds = null;
 }
+
+// Stops the allies' fire (SB-2301) so a test that reads an enemy alone is not changed by a shot from the mechs. They stay
+// where they are and move as before; only their wait to the next shot never ends.
+export function holdAlliesFire(game: GameModel): void {
+  for (const ally of game.allies) ally.fireT = Number.MAX_SAFE_INTEGER;
+}

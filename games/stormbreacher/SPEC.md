@@ -82,7 +82,7 @@
 - `src/logic/mapShapes.ts`: `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む
 - 規則 `sb-portable-no-game` に入っているファイルは `src/logic/collide.ts`・`src/logic/mech.ts`・`src/logic/fcs.ts`・`src/logic/fire.ts`・`src/view/camera.ts`・`src/data/tuneTypes.ts` の6つ。機体・カメラ・FCS の調整の型は値と分けて `src/data/tuneTypes.ts` に置く（値は `src/data/tune.ts`）
 - `src/logic/game.ts`: 出撃の `GameModel` を持ち、`step(game, input, dt)` で入力から1フレーム進める
-  - `GameModel` の項目: 機体・機体の装甲 `armor` と倒れた印 `downed`・マップ・目標の体力と向き（`yaw`）・トーチカの状態 `pillboxes`（制圧の残り `suppress` と一度撃たれたか `shot` を含む）・壊せる物の体力（`breakables`）・敵 `enemies`（持ち場 `post` と逃げる先 `fallbackPost` を含む）・メインとサブの武器・殴りの待ち・振り・踏み込み `melee`・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標か敵の id `aimTarget`・飛んでいる弾 `bullets`・始まった砲撃 `barrages`・落ちる前の着弾予告 `shells`・残っている地雷 `mines`・爆破点 `blasts`（爆破済みの印）・仕掛けた爆薬 `charges`・長押しの途中 `plant`・味方の機体 `allies`（足元の高さ `y` と、倒れる前に無線で叫んだか `called` を含む）・台本の状態 `script`・戦場の層 `battle`（歩兵ドロイド `crowd` と次の砲撃までの秒 `shellT`）・区画の状態 `sectors`（区画ごとの `idle`・`advancing`・`secured`・`counter`・`stable` と、反撃の残り・着いた兵・弱い支配。区画を回さない広場は null）・湧き続け `trickle`（次の敵までの秒 `t` と区画ごとに出した数 `spent`。広場は null）・層の値 `battleTune`・今出している無線 `radio`・その次に出す無線の列 `radioQueue`・味方機の援護射撃の途中 `cover`（制圧する波・残り秒・次の曳光弾までの待ち・次に撃つ機銃座・「弾が切れる」の無線を出したか）・そのフレームの出来事
+  - `GameModel` の項目: 機体・機体の装甲 `armor` と倒れた印 `downed`・マップ・目標の体力と向き（`yaw`）・トーチカの状態 `pillboxes`（制圧の残り `suppress` と一度撃たれたか `shot` を含む）・壊せる物の体力（`breakables`）・敵 `enemies`（持ち場 `post` と逃げる先 `fallbackPost` を含む）・メインとサブの武器・殴りの待ち・振り・踏み込み `melee`・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標か敵の id `aimTarget`・飛んでいる弾 `bullets`・始まった砲撃 `barrages`・落ちる前の着弾予告 `shells`・残っている地雷 `mines`・爆破点 `blasts`（爆破済みの印）・仕掛けた爆薬 `charges`・長押しの途中 `plant`・味方の機体 `allies`（足元の高さ `y` と、倒れる前に無線で叫んだか `called`、次の一撃までの待ち `fireT` を含む）・台本の状態 `script`・戦場の層 `battle`（歩兵ドロイド `crowd` と次の砲撃までの秒 `shellT`）・区画の状態 `sectors`（区画ごとの `idle`・`advancing`・`secured`・`counter`・`stable` と、反撃の残り・着いた兵・弱い支配。区画を回さない広場は null）・湧き続け `trickle`（次の敵までの秒 `t` と区画ごとに出した数 `spent`。広場は null）・層の値 `battleTune`・今出している無線 `radio`・その次に出す無線の列 `radioQueue`・味方機の援護射撃の途中 `cover`（制圧する波・残り秒・次の曳光弾までの待ち・次に撃つ機銃座・「弾が切れる」の無線を出したか）・そのフレームの出来事
   - 1フレーム: 機体が歩き、FCS（`soft`）が吸着の円錐（`cone`）の中の生きている目標と敵へ狙いを寄せ、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・弾速・間隔・弾数）、殴りが待ちの明けたときに振りかぶって、振り抜きのフレームに前の扇のものを打って踏み込み、敵が起きて歩いて撃ち（6章「敵」）、トーチカが見える機体へ予兆のあとに連射し（6章「トーチカ」）、弾が飛んで目標や敵に当たると体力が減って0で壊れる・倒れる（トーチカは弾では壊れず、制圧されるだけ。6章「トーチカ」）
   - 台本: `step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、波の敵が全部倒れたら `cleared` を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。台本の `spawn`（敵の波）は敵を出し、`ally`（味方）は味方の機体 `allies` を出す（6章「台本の味方の機体」）
   - 無線: `queueRadio` が列に積み、`stepRadio` が1フレームに1行だけ `RADIO_TUNE.minSec`（秒）の間ずつ出す
@@ -220,7 +220,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 - 乱数は `src/logic/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない
 - `rng()`: 全体の乱数。`seed(n)` で種を入れると、同じ種からは同じ並びになる
-- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`battle`（戦場の層の見た目: 煙・曳光弾・飛行機・砲弾穴）・`crowd`（戦場の層の歩兵ドロイドの波と砲撃の予定。ゲームの `step` が回す）・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）・`emplacements`（機銃座の掃射の散らし）・`mortar`（迫撃砲の狙いのずれ）・`battery`（砲台の機銃の散らし）・`pillboxes`（トーチカの弾の散らし）・`allyFx`（味方機と敵の曳光の散らし）・`trickle`（湧き続けの敵の場所。SB-2230）・`support`（歩兵の援護射撃で撃つ兵の選び。SB-2240）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
+- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`battle`（戦場の層の見た目: 煙・曳光弾・飛行機・砲弾穴）・`crowd`（戦場の層の歩兵ドロイドの波と砲撃の予定。ゲームの `step` が回す）・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）・`emplacements`（機銃座の掃射の散らし）・`mortar`（迫撃砲の狙いのずれ）・`battery`（砲台の機銃の散らし）・`pillboxes`（トーチカの弾の散らし）・`allyFx`（味方機と敵の曳光の散らし）・`trickle`（湧き続けの敵の場所。SB-2230）・`support`（歩兵の援護射撃で撃つ兵の選び。SB-2240）・`allyFire`（味方機の撃つ待ちの始まり。SB-2301）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
 - 種を入れていないときは、どれも `Math.random` から引く
 
 ## 5. セーブ
@@ -229,7 +229,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - `SAVE_VERSION = 2`。形を変えたら版を上げ、`MIGRATIONS` に `[to, migrate]` を足す。1 → 2 は `funds` を `ECONOMY.startFunds` で作る
 - `SaveData` は `v`・所持金 `funds`（cr）と `records.missions` を持つ。`MissionRecord` は `cleared` と `bestSec`（秒、無ければ null）
 - 古いセーブは `v`（無ければ 0）から今の版まで `MIGRATIONS` を順に流す。読むのは `initSave()`（起動時）で、モジュールの読み込み時には読まない
-- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 33`（33: 歩兵の援護の残り時間 `supportT` と敵の制圧 `suppressT` を保存する（SB-2240）。32: 湧き続けの残りの時間と、区画ごとの湧いた数 `trickle`（`t`・`spent`）を保存する（SB-2230）。31: 区画の反撃 `counterLeft`・`counterT`・`counterIds`・`arrived`・`weak` を保存する（SB-2220）。30: 区画 `sectors` を保存する（SB-2210）。29: 集積所の寄り道の損耗 `losses` をやめた（SB-2046）。28: 要塞の爆破で崩れた物 `brokenProps` と、爆薬の秒読みの長さ `total` を保存する（SB-1860）。27: 中ボスの段階・タイマー・露出 `warden` を保存する（SB-1850）。26: 中庭の援護 `assist`（`waves`・`left`）を保存する（SB-1840）。25: 要塞の機関砲の掃射の途中 `fortressGun`（`wait`・`burstLeft`）を保存する（SB-1830）。24: 寄り道で失った味方機と分隊の数 `losses` を保存した（SB-1820。29 でやめた）。23: 台本の cue が旗の条件 `when`・`unless` を持てる（SB-1810）。22: マップが z −300 まで奥へ広がり、要塞が目標を動かしたので、古い `rects`・目標は合わない（SB-1800）。21: 殴りの待ち `wait`・踏み込み `lunge`・途中の一撃 `blow` を保存する（SB-1750、SB-1755）。20: トーチカが一度撃たれたかの `shot` を保存する（SB-2022）。19: 味方機の援護射撃の途中 `cover` を保存する（SB-2024）。17: 守備の敵の持ち場 `post`・逃げる先 `fallbackPost`・隠れ/身を出す残り、トーチカの制圧 `suppress` を保存する（SB-2015）。16: 節目の溜め `slow` と砲撃の凪 `calm` を保存する（SB-2010）。15: 3隻の艇の間が船体の幅＋5m に広がり、味方機は導入が操作を渡した所で甲板を降りる（古い中断は味方機を古い甲板の点に置いたまま）。14: 敵を眠ったまま置いて台本の `wake` まで起こさない `dormant` を持つ。13: 五機の味方機が導入からプレイヤーの艇の両隣の艇に乗っている。12: 台本が、機体が艇を降りたことを覚える（浜の味方機が走り出す合図）。11: 台本が、線を開けた爆破点を覚える（覆いの味方機が進む合図）。10: 艇の四角が `rects` に入り、機体が甲板から始まり、導入が 12 秒になったので古い中断の `script.cutscene.left` の意味が変わる。9: 味方機の足元の高さと叫んだかを保存する。8: 無線の列も保存する。7: 狙う迫撃砲が、機体がどこに立っていたかを覚えている。6: 機銃座の掃射の途中を保存する。5: 爆破した線は開いたまま。4: 仕掛けた爆薬と導火線、長押しの途中を保存する。3: トーチカの待ちと予兆を保存する）。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
+- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 35`（35: 味方機の次の一撃までの待ち `fireT` を保存する（SB-2301）。34: 区画が弾薬庫まで伸び、`sectors` と `trickle` が11区画分になった（SB-2280）。33: 歩兵の援護の残り時間 `supportT` と敵の制圧 `suppressT` を保存する（SB-2240）。32: 湧き続けの残りの時間と、区画ごとの湧いた数 `trickle`（`t`・`spent`）を保存する（SB-2230）。31: 区画の反撃 `counterLeft`・`counterT`・`counterIds`・`arrived`・`weak` を保存する（SB-2220）。30: 区画 `sectors` を保存する（SB-2210）。29: 集積所の寄り道の損耗 `losses` をやめた（SB-2046）。28: 要塞の爆破で崩れた物 `brokenProps` と、爆薬の秒読みの長さ `total` を保存する（SB-1860）。27: 中ボスの段階・タイマー・露出 `warden` を保存する（SB-1850）。26: 中庭の援護 `assist`（`waves`・`left`）を保存する（SB-1840）。25: 要塞の機関砲の掃射の途中 `fortressGun`（`wait`・`burstLeft`）を保存する（SB-1830）。24: 寄り道で失った味方機と分隊の数 `losses` を保存した（SB-1820。29 でやめた）。23: 台本の cue が旗の条件 `when`・`unless` を持てる（SB-1810）。22: マップが z −300 まで奥へ広がり、要塞が目標を動かしたので、古い `rects`・目標は合わない（SB-1800）。21: 殴りの待ち `wait`・踏み込み `lunge`・途中の一撃 `blow` を保存する（SB-1750、SB-1755）。20: トーチカが一度撃たれたかの `shot` を保存する（SB-2022）。19: 味方機の援護射撃の途中 `cover` を保存する（SB-2024）。17: 守備の敵の持ち場 `post`・逃げる先 `fallbackPost`・隠れ/身を出す残り、トーチカの制圧 `suppress` を保存する（SB-2015）。16: 節目の溜め `slow` と砲撃の凪 `calm` を保存する（SB-2010）。15: 3隻の艇の間が船体の幅＋5m に広がり、味方機は導入が操作を渡した所で甲板を降りる（古い中断は味方機を古い甲板の点に置いたまま）。14: 敵を眠ったまま置いて台本の `wake` まで起こさない `dormant` を持つ。13: 五機の味方機が導入からプレイヤーの艇の両隣の艇に乗っている。12: 台本が、機体が艇を降りたことを覚える（浜の味方機が走り出す合図）。11: 台本が、線を開けた爆破点を覚える（覆いの味方機が進む合図）。10: 艇の四角が `rects` に入り、機体が甲板から始まり、導入が 12 秒になったので古い中断の `script.cutscene.left` の意味が変わる。9: 味方機の足元の高さと叫んだかを保存する。8: 無線の列も保存する。7: 狙う迫撃砲が、機体がどこに立っていたかを覚えている。6: 機銃座の掃射の途中を保存する。5: 爆破した線は開いたまま。4: 仕掛けた爆薬と導火線、長押しの途中を保存する。3: トーチカの待ちと予兆を保存する）。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
   - 深いコピー（`structuredClone`）で、保存しない項目を名前で並べる形: `events`（そのフレームの出来事）・`bullets`（飛んでいる弾）・`shells`（落ちる前の着弾予告。チェックポイントと同じく持ち越さず、再開で消える）・`battle`・`battleTune`（戦場の層。復帰のときに区画の待ち線で作り直す）。`map` と `mission` は id で持ち、読むときに `MAPS`・`MISSIONS` の表から引き直す。`checkpoint` は `map`・`mission` を除いた形で一緒に保存し、再開したあとにやられてもそこからやり直せる。`GameModel` に項目を足すと、保存しない項目に書かない限り保存される（読み込みの検査表 `GAME_SHAPE` が項目の抜けを型で知らせる）。区画 `sectors` は保存し、再開したときの歩兵の待ち線を決める。湧き続け `trickle`（次の敵までの秒 `t` と区画ごとに出した数 `spent`）も保存する。トーチカの状態 `pillboxes`（待ち・予兆・連射・制圧の残り）と、敵の持ち場 `post` と逃げる先 `fallbackPost`・隠れ/身を出す残り、爆破点 `blasts`（爆破済みの印を含む）・仕掛けた爆薬 `charges`（導火線の残りと、仕掛けたときの長さ `total`）・長押しの途中 `plant`、狙う迫撃砲 `aimed`（`anchor`・`still`）、殴りの待ち `wait`・踏み込み `lunge`・途中の一撃 `blow` も保存する。トーチカの爆破点も `blasts` の点として同じに保存し、壊す目標の id は `map.blasts` の `target` から引く（`BlastState` の形は変えないので版は上げない。SB-1540）
   - 読み込み: 版が違う・JSON として壊れている・map や mission の id が表に無い・項目の型が違うときは捨てて（キーを消す）、「続きから」を出さない。例外では落ちない
   - 再開すると中断のキーを消す。報酬を判定する粒度（クリア1回）より前に保存し、再開した出撃のクリアで1回だけ書くので、同じ中断から報酬を二重に取れない。やり直しの回数 `retries` も保存するので、再開しても費用と戦果は中断しなかったときと同じ
@@ -1009,7 +1009,7 @@ SB-2010・SB-2020。M1 の節目は3つで、線1の爆破（`line1-open`）、�
 
 ### 台本の味方の機体
 
-台本の `ally` が出す、機体の隣を走る味方。5機いて、区画ごとの遮蔽の後ろで止まって撃ち、2機が台本どおりに倒れる。当たり判定は無い。定義場所は `AllyState`・`newAlly`・`moveAlly`・`stepAlly`・`nearestIndex` in src/logic/allies.ts、`ALLY_TUNE`・`ALLY_FATES`・`ALLY_KITS` in src/data/allies.ts、`PROTO_KITS`（`allySniper`・`allyScout`）・`PROTO_PALETTES` in src/data/mechProto.ts・src/data/colors.ts、`buildAllyMech`・`drawAllies`・`drawEnemyTracers` in src/view/allies.ts、`stepAllies`・`spawnAlly`・`moveAllyTo` in src/logic/game.ts、`groundAt` in src/logic/collide.ts。
+台本の `ally` が出す、機体の隣を走る味方。5機いて、区画ごとの遮蔽の後ろで止まって撃ち、2機が台本どおりに倒れる。当たり判定は無い。定義場所は `AllyState`・`newAlly`・`moveAlly`・`stepAlly`・`nearestIndex` in src/logic/allies.ts、`ALLY_TUNE`・`ALLY_FATES`・`ALLY_KITS`・`ALLY_FIRE_TUNE` in src/data/allies.ts、`PROTO_KITS`（`allySniper`・`allyScout`）・`PROTO_PALETTES` in src/data/mechProto.ts・src/data/colors.ts、`buildAllyMech`・`drawAllies`・`drawEnemyTracers` in src/view/allies.ts、`stepAllies`・`spawnAlly`・`moveAllyTo`・`stepAllyFire` in src/logic/game.ts、`stepAllyFire` in src/logic/allyFire.ts、`groundAt` in src/logic/collide.ts。
 
 - M1 では5機が出る。出撃の最初（`intro` cue）から、`buddy`・`cover-b1`・`cover-b2`・`cover-b3`・`gunner` はプレイヤーの艇の両隣の艇（x −12 と 12、自分の艇と同じ z 175〜187）の甲板に乗っている（左舷に `buddy`・`cover-b1`・`cover-b2` を 1.3m 間隔で、右舷に `cover-b3`・`gunner` を同じ間隔で。割り当ては仮）。導入のカットシーンの間は甲板で待ち、操作を渡したフレームから、それぞれの艇のランプを降りて今の道に入る（`ashore` は待たない。SB-1967）。`buddy` は浜を走って迫撃砲に倒れ、3機と `gunner` は線1の海側の遮蔽（z 156 と `gunner-wait` (47,154)）で待つ。線1の爆破点（l1-a か l1-b）が爆破されると、台本の `line1-open`（trigger `blast`）が4機に `allyMove` を出し、**プレイヤーが最初に爆破した点の穴**を通る。覆いの3機は B の遮蔽の後ろ（z 110〜129）まで走って止まり、そこから撃ち続ける。`gunner` は開いた穴を抜けて B の手前（`b-mid` (45,112)）で機銃に倒れる（`pillboxes` の cue は gunner を出さない）。線2の爆破点が爆破されると（`line2-open`）、3機は線2の最初の穴を通ってトーチカ線の手前の投稿（z 0〜9）へ走る（SB-2044。それまでは `cp1` まで B の遮蔽で待ち、機体が 100m 先へ行っていた）。`cp1`（トーチカ2基が壊れた）で C の前の投稿（`c-front-1`〜`3`。機体の通り道 x 35 の抜けの先、z −54〜−60 の海側の門の手前）へ、`fortress-gate`（海側の門の手前に入る）で中庭（x 0, z −95）へ（`yard-run-1`〜`3`）、`allyMove` で道を替えて走る。中庭の波が全部倒れて中ボスが出る `yard-clear` で、3機は中庭の真ん中（`yard-front-1`〜`3`、z −102〜−106）へ進み、`fortress-down`（陸側の壁の爆発）の後は壊れた陸側の門を抜けて砲台の手前の野原（`field-run-1`〜`3`、z −192〜−201）へ走る。同じ線の2つ目の点も仕掛けられ、穴が2つになるだけで、通る道は最初の穴のまま。道の選択は `HolePaths`（`lines` の各線で、`ScriptState.blasts` の順で最初に爆破された点が `paths` の key を決める）で、爆破済みの印はチェックポイント・中断にも残る。未爆破の線は `wayPath` が先頭の id で埋めるが、これは dev とテストのための逃げ道で、本編の cue はどれもその線の爆破後にしか出ない。座標は仮
 - 出る所: `ally` の出来事で `spawnAlly` が `GameModel.allies` に足す。道は `mission.paths[path]`、`fate.at` の座標は `mission.places[at]`。`AllyState` は道の点と場所の座標を自分で持つ（チェックポイントのコピーだけで立つため）。名前が無ければ例外。`validateMission` も `paths`・`places`・`ALLY_FATES` の名前を確かめる
@@ -1019,7 +1019,9 @@ SB-2010・SB-2020。M1 の節目は3つで、線1の爆破（`line1-open`）、�
 - 落ち方: `fate` の場所から `ALLY_TUNE.arrive` 以内に入った1フレームで落ち（`down`）、`stepAllies` が出来事 `allyDown`（`by` は `mortar` か `gun`）を1回出す。`fate.call` があれば、倒れる場所まで `ALLY_TUNE.callLead × ALLY_TUNE.speed`（m）より近づいたフレームで `called` を立て、`queueRadio` と出来事 `allyCall`（`id`・`line`）で1回だけ叫ぶ。同じフレームでも `allyCall` が `allyDown` より先に並ぶ。落ちたあとは動かず、出来事も出ない。当たり判定が無いので、機体も弾もすり抜け、ダメージも与えない
 - カットシーンの間は `stepAllies` が動かさない（足元の高さだけは合わせる）。味方は `intro` から甲板にいて、導入（`landing`）が終わって操作を渡したフレームから、ランプを降りて道を走り出す（`script.ashore` は待たない。プレイヤーの機体は自分の手で降りる）。導入の間も5機は両隣の艇の甲板に描かれ、撃たない（`drawAllies` は `landing` の間だけ `shown` にし、撃つ所で止める。艇が浜へ進む間は艇と一緒に動かす）。ほかのカットシーンでは描かない
 - 見た目: `buildAllyMech` が、味方の型のキット（`ALLY_KITS` の `sniper`・`scout` を `allySniper`・`allyScout` に当てたもの）を `buildProtoMech(ALLY_TUNE.height, ...)`（3.4m。機体は 4m）で作り、味方の印は肩の帯と番号の `PROTO_MARK_COLOR` で表す。材質ごとに1回なので1体4ドロー（機体と同じ4材質）。落ちたら同じ形を `allyWreck` のパレットで作ったものを `wreckTilt` 倒して置く（走る姿と残骸で8ドロー）。メッシュの名前は `ally`（機体の `mech-proto` と数え分ける）。走る姿と残骸の `userData.allyId` に味方機の id を入れる（e2e が5機の中の1機を探せるように）
-- 撃つ真似: 走っている間と、投稿に着いて止まった後、`fireEvery` ごとに曳光弾を `Battle.tracer` で出す（当たりは無い）。`engageRange` 以内の一番近い生きている敵がいれば、その敵の胸（`ENEMIES[kind].height × ENEMY_CHEST`）へ向け、出る所は `fireAhead` 進めた所、散らしは `aimSpreadDeg`。その敵がいる間は体の向き（見た目だけ）も敵へ向ける。当たりを足さないので `ally.yaw` は書き換えない（走る向きと残骸の向きはそのまま）。敵がいなければ、向きの前へ `tracerSpread` の散らしで撃つ。倒れている間は撃たない。敵選びは `nearestIndex`
+- 撃つ弾（SB-2301）: 立っている味方機（`down` でない）は、`stepAllyFire` in src/logic/allyFire.ts が kit ごとの間隔で、kit の射程内の一番近い敵を撃つ。狙わないものは歩兵の援護射撃と同じで、`nearestFoe` in src/logic/support.ts を使い回す（死んだ敵・起きていない敵・`dormant`・中ボス `warden`・隠れている守り兵。射線は見ない）。1発は `ENEMIES[kind].hp × share`（sniper 0.35・scout 0.08）を `damageEnemy` で取り、倒れたら `enemyDown`、生きていれば `SUPPORT_TUNE.suppressSec` 2.6秒の制圧を置く。撃つ待ち `AllyState.fireT` は味方機ごとに `stream('allyFire')` の乱数で kit の間隔の中から始め、長いフレームでは来た分を全部撃つ。カットシーン中・`downed`・`cleared` は撃たない。出来事 `allyFire`（`id`・`kit`・`from`・`to`）を、同じフレームのダメージより先に出す
+- 見た目: 撃った弾は出来事 `allyFire` で `drawPlay` が `Battle.tracer` で描く（`from` は味方機の `fireHeight`、`to` は敵の胸。速さは `ALLY_FIRE_TUNE` の `tracerSpeed`。sniper は `tracerLines` 2本を `tracerGap` だけ横にずらして太く見せ、scout は1本）。`drawAllies` は敵がいないときだけ、今までどおり `ALLY_TUNE.fireEvery` で向きの前へ曳光を出す（当たり無し）。敵がいる間は体を敵へ向けるだけで、撃つ見た目は出来事に任せる。敵から味方機へ返す曳光（`enemyTracerEvery`）はそのまま。音は `src/view/sound.ts` が `supportFire` の音を `allyFire` でも鳴らす
+- 敵の曳光: 起きている（`awake`）生きている敵が、`enemyTracerRange` 以内の一番近い味方機へ、`enemyTracerEvery` ごとに1本、`enemyTracerSpreadDeg` の散らしで曳光を出す（敵の胸から味方機の胸 `fireHeight`）。当たりは無く、見た目だけ。敵の実弾（`EnemyBullet`）とは別の間隔で見せる（敵が撃てない時にも出る）。味方機がいなければ撃たずに次の間隔へ。乱数は `stream('allyFx')`
 - 敵の曳光: 起きている（`awake`）生きている敵が、`enemyTracerRange` 以内の一番近い味方機へ、`enemyTracerEvery` ごとに1本、`enemyTracerSpreadDeg` の散らしで曳光を出す（敵の胸から味方機の胸 `fireHeight`）。当たりは無く、見た目だけ。敵の実弾（`EnemyBullet`）とは別の間隔で見せる（敵が撃てない時にも出る）。味方機がいなければ撃たずに次の間隔へ。乱数は `stream('allyFx')`
 - 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`by` が `mortar` なら `shellBurst`（戦場の砲撃と同じ閃光と破片）と砂煙（`BLAST_DUST`）、`by` が `gun` なら砂煙（`HIT_DUST`）だけをその場に出す。どれも味方の足元の面の高さ（`blastFaceHeight`）に出す。機銃で倒れた機体を迫撃砲の着弾に見せない。着弾予告の輪は出さない
 
@@ -1031,13 +1033,13 @@ SB-2010・SB-2020。M1 の節目は3つで、線1の爆破（`line1-open`）、�
 | `catchMul` | 2 | 倍。急ぐときの `speed` の倍率の上限。運命のある味方機（`buddy`・`gunner`）は急がない（叫ぶ位置を `callLead × speed` で決めているため） |
 | `arrive` | 1.5 | m。場所にこの近さまで来たら着いたとする |
 | `height` | 3.4 | m。味方の機体の高さ |
-| `fireEvery` | 0.35 | s。曳光弾の間隔 |
+| `fireEvery` | 0.35 | s。敵がいないときに前へ出す曳光弾の間隔（敵への弾は `ALLY_FIRE_TUNE`） |
 | `fireHeight` | 2.2 | m。曳光弾が出る高さ（足元から） |
 | `fireAhead` | 1.6 | m。曳光弾が出る足元からの前への距離 |
-| `tracerSpeed` | 80 | m/s。曳光弾の速さ |
+| `tracerSpeed` | 80 | m/s。敵がいないときに前へ出す曳光と、敵から味方機へ返す曳光の速さ（敵への弾は `ALLY_FIRE_TUNE`） |
 | `tracerSpread` | 6 | m/s。敵がいないときに曳光弾の速さへ足す横と上への散らし |
-| `engageRange` | 70 | m。味方機が撃つ敵を探す距離 |
-| `aimSpreadDeg` | 1.5 | deg。狙った敵への曳光弾の散らし |
+| `engageRange` | 70 | m。開発ビューが撃つ敵を探す距離（本体の体の向きと、前へ撃つ見た目を出すかの判断は kit の `range` を使う） |
+| `aimSpreadDeg` | 1.5 | deg。今は使わない（敵への照準は出来事 `allyFire` が持つ。SB-2301） |
 | `enemyTracerEvery` | 2.5 | s。1機の敵が味方機へ見せる曳光弾の間隔 |
 | `enemyTracerRange` | 80 | m。敵が味方機へ曳光弾を向ける距離 |
 | `enemyTracerSpreadDeg` | 2 | deg。敵から味方機への曳光弾の散らし |
@@ -1046,6 +1048,17 @@ SB-2010・SB-2020。M1 の節目は3つで、線1の爆破（`line1-open`）、�
 | `groundRadius` | 0.5 | m。`groundAt` に渡す足元の半径 |
 | `maxGround` | 6.5 | m。味方機が上がれる高さの上限（防波堤の 6m を含む） |
 | `fallSpeed` | 20 | m/s。高い所から低い所へ移るときに落ちる速さ |
+
+味方機の撃つ弾の値（`ALLY_FIRE_TUNE` in src/data/allies.ts。すべて仮）:
+
+| 名前 | sniper | scout | 単位・意味 |
+|------|--------|-------|------------|
+| `range` | 85 | 55 | m。1発の届く距離 |
+| `every` | 2.4 | 0.8 | s。1発から次までの間隔 |
+| `share` | 0.35 | 0.08 | 1発が取る、的の最大体力に対する割合 |
+| `tracerSpeed` | 150 | 80 | m/s。曳光の速さ |
+| `tracerLines` | 2 | 1 | 本。1発を何本の平行な曳光で描くか（2本で太く見せる） |
+| `tracerGap` | 0.14 | 0 | m。平行な曳光どうしの間隔 |
 
 ### 中庭の囲まれと援護
 

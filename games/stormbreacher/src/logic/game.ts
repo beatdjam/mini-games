@@ -19,7 +19,7 @@
 // gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. An `ally` (a friend,
 // logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
 import { distXZ } from '@engine/core/index.ts';
-import { ALLY_TUNE, COVER_TUNE } from '../data/allies.ts';
+import { ALLY_FIRE_TUNE, ALLY_TUNE, COVER_TUNE, allyKitOf, type AllyKit } from '../data/allies.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
 import { LINE2_FLAG } from '../data/front.ts';
 import { DEFENDER_POSTS, defenderPostOf } from '../data/defenders.ts';
@@ -76,6 +76,7 @@ import {
   type ShutterState,
 } from './battery.ts';
 import { moveAlly, newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
+import { stepAllyFire as stepAllyFireState } from './allyFire.ts';
 import { newAssist, stepAssist as stepAssistState, type AssistState } from './assist.ts';
 import {
   blastPropIndexes,
@@ -217,6 +218,15 @@ export type GameEvent =
   // one of the infantry at the hold line shot an enemy (SB-2240): from the soldier at (from.x, from.z) to the enemy's
   // chest at (to.x, to.y, to.z); the view draws the tracer, and the same frame's shot takes the enemy's health
   | { kind: 'supportFire'; from: { x: number; z: number }; to: { x: number; y: number; z: number } }
+  // an ally shot an enemy (SB-2301): `id` and `kit` name the mech, from (from) to the enemy's chest (to); the view draws
+  // the tracer and the same frame's shot takes the enemy's health
+  | {
+      kind: 'allyFire';
+      id: string;
+      kit: AllyKit;
+      from: { x: number; y: number; z: number };
+      to: { x: number; y: number; z: number };
+    }
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   // an ally's support fire flies at a silenced nest (SB-2024): from (x, y, z) to (tx, ty, tz); the view draws the tracer and the spark
   | { kind: 'coverFire'; enemy: string; x: number; y: number; z: number; tx: number; ty: number; tz: number }
@@ -1192,7 +1202,10 @@ function spawnAlly(game: GameModel, event: Extract<ScriptOut, { kind: 'ally' }>)
     if (place === undefined) throw new Error(`no place "${event.fate.at}" in the mission`);
     fate = { place, by: event.fate.by, call: event.fate.call ?? null };
   }
-  game.allies.push(newAlly(event.id, way, fate));
+  const ally = newAlly(event.id, way, fate);
+  // Each mech starts its wait somewhere within its kit's interval, so the five do not fire on the same frame (SB-2301).
+  ally.fireT = stream('allyFire').rand(0, ALLY_FIRE_TUNE[allyKitOf(event.id)].every);
+  game.allies.push(ally);
 }
 
 // Sends an ally already out along the next way the mission names. An ally the script moved before it came out is left
@@ -1707,6 +1720,21 @@ function stepSupport(game: GameModel, dt: number): void {
   }
 }
 
+// The allies' fire that tells (SB-2301): each standing ally shoots the nearest enemy its kit may reach, and the shot takes
+// a share of the enemy's health and suppresses it. A cutscene holds them, as it holds the infantry, and the downed and the
+// cleared sortie have no fight; the enemy's fall still goes through damageEnemy, so the tracer is pushed first.
+function stepAllyFire(game: GameModel, dt: number): void {
+  if (game.script.cutscene !== null || game.downed || game.cleared) return;
+  const shots = stepAllyFireState({ allies: game.allies, enemies: game.enemies }, dt);
+  for (const shot of shots) {
+    const enemy = game.enemies.find(entry => entry.id === shot.enemy);
+    if (enemy === undefined || enemy.hp <= 0) continue;
+    game.events.push({ kind: 'allyFire', id: shot.id, kit: shot.kit, from: shot.from, to: shot.to });
+    damageEnemy(game, enemy, shot.damage);
+    if (enemy.hp > 0) enemy.suppressT = SUPPORT_TUNE.suppressSec;
+  }
+}
+
 // How near the mech an aim point is too close to turn toward (m): a point under its feet would spin it every frame.
 const AIM_MIN_DIST = 0.9;
 
@@ -2089,6 +2117,7 @@ function stepFrame(game: GameModel, given: GameInput, dt: number): void {
   // The mech has walked down the ramp: the script puts the beach's allies out now, and they start running this frame.
   if (!game.script.ashore && game.mech.z <= game.map.bounds.maxZ) sendToScript(game, { kind: 'ashore' });
   stepAllies(game, span);
+  stepAllyFire(game, span);
   stepAssist(game, span);
   checkShutters(game);
   checkWaves(game);

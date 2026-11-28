@@ -1,20 +1,21 @@
 // The allied mech of the mission script as the screen draws it (SB-170, SB-2082): the three views' sniper or scout type
 // (data/mechProto.ts's allySniper and allyScout) at a smaller size, with the friendly side's band and number, running
-// along its way and shooting at the nearest enemy (a tracer a moment, no hit), and the same machine dark, lying over
-// once it has fallen. It reads GameModel and never writes it. A model is built when its ally is first drawn. During the
-// landing the five are aboard the crafts beside the player's and are drawn standing on their decks, but they do not
-// shoot (the logic holds them until the mech is ashore); the other cutscenes hide them.
+// along its way and facing the nearest enemy (its shot is the game's `allyFire`, drawn from that event, SB-2301), and the
+// same machine dark, lying over once it has fallen. It reads GameModel and never writes it. A model is built when its ally
+// is first drawn. During the landing the five are aboard the crafts beside the player's and are drawn standing on their
+// decks, but they do not shoot (the logic holds them until the mech is ashore); the other cutscenes hide them.
 import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
-import { ALLY_TUNE, allyKitOf, type AllyKit, type AllyShape } from '../data/allies.ts';
+import { ALLY_FIRE_TUNE, ALLY_TUNE, allyKitOf, type AllyKit, type AllyShape } from '../data/allies.ts';
 import { ENEMIES, ENEMY_CHEST } from '../data/enemies.ts';
 import { type ProtoAllyKitId } from '../data/mechProto.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
-import { enemyTracerTarget, nearestIndex } from '../logic/allies.ts';
+import { enemyTracerTarget } from '../logic/allies.ts';
 import { cutsceneSail } from '../logic/cutscene.ts';
 import { spreadDir } from '../logic/fcs.ts';
 import type { GameModel } from '../logic/game.ts';
+import { nearestFoe } from '../logic/support.ts';
 import type { Battle } from './battle/index.ts';
 import { buildProtoMech, disposeProtoMech } from './mechProtoModel.ts';
 
@@ -70,9 +71,10 @@ function modelOf(view: AllyView, id: string): AllyModel {
   return model;
 }
 
-// Puts each ally at its place, or its wreck once it is down, and lets the ones on their feet shoot through `battle` at
-// the nearest enemy within ALLY_TUNE.engageRange (or ahead when none is near). The enemies answer with tracers of their
-// own; both are only a look, with no hit. One that has reached the end of its way keeps shooting at its post.
+// Puts each ally at its place, or its wreck once it is down, and has the ones on their feet face the nearest enemy within
+// its kit's range, or show a tracer ahead when none is near (that one is only a look). The shot at an enemy is drawn
+// from the game's `allyFire` event instead, so what is seen is what takes health (SB-2301). The enemies answer with
+// tracers of their own; those are only a look, with no hit. One that has reached the end of its way keeps facing its post.
 export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng: Rng, dt: number): void {
   const cutscene = game.script.cutscene;
   const aboard = cutscene !== null && cutscene.id === 'landing';
@@ -92,45 +94,31 @@ export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng:
     model.wreck.position.set(ally.x, ally.y, ally.z + sail);
     model.wreck.rotation.set(0, ally.yaw, ALLY_TUNE.wreckTilt, 'YXZ');
     if (!shown || ally.down || aboard) continue;
-    const pick = nearestIndex({ x: ally.x, z: ally.z }, enemies, ALLY_TUNE.engageRange);
-    const enemy = pick === null ? null : enemies[pick];
+    // the same pick as the game's shot, so the mech faces the enemy it fires at and a sleeping nest it never shoots is not one
+    const enemy = nearestFoe(enemies, ally, ALLY_FIRE_TUNE[allyKitOf(ally.id)].range);
     // it faces its enemy every frame, so the body does not snap back between shots; the state's yaw is left alone
-    if (enemy !== null) model.run.rotation.y = Math.atan2(-(enemy.x - ally.x), -(enemy.z - ally.z));
+    if (enemy !== null) {
+      model.run.rotation.y = Math.atan2(-(enemy.x - ally.x), -(enemy.z - ally.z));
+      // the shot at an enemy is drawn from the game's `allyFire` event, so it is the one that tells (SB-2301)
+      continue;
+    }
     model.fireT -= dt;
     if (model.fireT > 0) continue;
     model.fireT = ALLY_TUNE.fireEvery;
-    if (enemy === null) {
-      const fx = -Math.sin(ally.yaw);
-      const fz = -Math.cos(ally.yaw);
-      battle.tracer(
-        {
-          x: ally.x + fx * ALLY_TUNE.fireAhead,
-          y: ally.y + ALLY_TUNE.fireHeight,
-          z: ally.z + fz * ALLY_TUNE.fireAhead,
-        },
-        {
-          x: fx * speed + rng.rand(-ALLY_TUNE.tracerSpread, ALLY_TUNE.tracerSpread),
-          y: rng.rand(-ALLY_TUNE.tracerSpread, ALLY_TUNE.tracerSpread) / 2,
-          z: fz * speed,
-        },
-      );
-      continue;
-    }
-    const from = { x: ally.x, y: ally.y + ALLY_TUNE.fireHeight, z: ally.z };
-    const to = { x: enemy.x, y: enemy.y + ENEMIES[enemy.kind].height * ENEMY_CHEST, z: enemy.z };
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const dz = to.z - from.z;
-    const len = Math.hypot(dx, dy, dz) || 1;
-    const aimed = spreadDir({ dx: dx / len, dy: dy / len, dz: dz / len }, ALLY_TUNE.aimSpreadDeg, rng);
-    // no hit: the tracer is only a line
+    // with no enemy near it still shows a tracer ahead, which takes nothing
+    const fx = -Math.sin(ally.yaw);
+    const fz = -Math.cos(ally.yaw);
     battle.tracer(
       {
-        x: from.x + aimed.dx * ALLY_TUNE.fireAhead,
-        y: from.y + aimed.dy * ALLY_TUNE.fireAhead,
-        z: from.z + aimed.dz * ALLY_TUNE.fireAhead,
+        x: ally.x + fx * ALLY_TUNE.fireAhead,
+        y: ally.y + ALLY_TUNE.fireHeight,
+        z: ally.z + fz * ALLY_TUNE.fireAhead,
       },
-      { x: aimed.dx * speed, y: aimed.dy * speed, z: aimed.dz * speed },
+      {
+        x: fx * speed + rng.rand(-ALLY_TUNE.tracerSpread, ALLY_TUNE.tracerSpread),
+        y: rng.rand(-ALLY_TUNE.tracerSpread, ALLY_TUNE.tracerSpread) / 2,
+        z: fz * speed,
+      },
     );
   }
   drawEnemyTracers(view, game, battle, rng, dt);

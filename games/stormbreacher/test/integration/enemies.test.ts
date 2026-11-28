@@ -20,7 +20,7 @@ import {
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
 import { fireRayHit } from '../../src/logic/fire.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
-import { clearInfantry, newPlayGame } from './playGame.ts';
+import { clearInfantry, holdAlliesFire, newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
 const DT = 1 / 60;
@@ -392,6 +392,8 @@ test(
   () => {
     seed(1);
     const game = newPlayGame(openBreach({ ...M1B_HAND, mines: [] }, ['l2-b']));
+    // this test reads where the squad comes: the allies' fire would put some of it down on the way (SB-2301)
+    holdAlliesFire(game);
     // in front of line 2 (z 62..74), a long way from the squad (z -25..-33)
     game.mech.x = 0;
     game.mech.z = 88;
@@ -467,8 +469,10 @@ test('the six nests stand at the map’s places from the first frame, asleep and
 
 test('stepping off the craft wakes the front nest alone, and it starts to shoot', () => {
   const game = newPlayGame(M1B_HAND);
-  // this test reads the front nest alone: the infantry's support fire would put it down first (SB-2240)
+  // this test reads the front nest alone: the infantry's support fire would put it down first (SB-2240), and so would
+  // the allies' fire (SB-2301)
   clearInfantry(game);
+  holdAlliesFire(game);
   const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
   const front = nests.find(enemy => enemy.id === 'b-emplacements-1');
   if (!front) throw new Error('the front nest is out');

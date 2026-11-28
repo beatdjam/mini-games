@@ -15,7 +15,7 @@ import {
 } from '../../src/logic/game.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
-import { clearInfantry, newPlayGame } from './playGame.ts';
+import { clearInfantry, holdAlliesFire, newPlayGame } from './playGame.ts';
 
 // Every test starts from the same random streams: unseeded, `stream` draws from Math.random and each run differs.
 beforeEach(() => seed(7));
@@ -292,9 +292,11 @@ describe('a posted enemy on its own', () => {
 
   test('a new enemy that has a post runs with its back to the mech and fires nothing on the way', () => {
     const game = newPlayGame(OPEN_MAP);
-    // this test reads its own runner alone: the infantry's support fire would suppress it and slow its run (SB-2240), and
-    // a trickle walker near it would make keepApart push it about (SB-2230)
+    // this test reads its own runner alone: the infantry's support fire would suppress it and slow its run (SB-2240), the
+    // allies' fire would too now that it tells (SB-2301), and a trickle walker near it would make keepApart push it about
+    // (SB-2230)
     clearInfantry(game);
+    holdAlliesFire(game);
     game.trickle = null;
     const post = DEFENDER_POSTS[5];
     const enemy = newEnemy('run-1', 'line1-hold', 'grunt', 0, 120);

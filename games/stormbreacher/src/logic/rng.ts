@@ -21,6 +21,7 @@ export type StreamName =
   | 'allyFx'
   | 'trickle'
   | 'support'
+  | 'allyFire'
   | 'infantryFire';
 
 // The value mixed into the seed for a stream (a 32-bit constant). Each stream needs its own.
@@ -41,6 +42,7 @@ const STREAM_SALT: Record<StreamName, number> = {
   allyFx: 0x7f4a7c15,
   trickle: 0xd6e8feb9,
   support: 0x1f83d9ab,
+  allyFire: 0xafb4d2c1,
   infantryFire: 0x2545f491,
 };
 
