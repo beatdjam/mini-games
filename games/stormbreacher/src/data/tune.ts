@@ -363,6 +363,25 @@ export const INFANTRY_TUNE = {
 
 export type InfantryTune = typeof INFANTRY_TUNE;
 
+// The feedback of the infantry's being under fire (SB-2272, 仮): the mark over a soldier that is aimed at, the spark of
+// a hit, the man-down call and the loss pop at the screen's edge. The marks are drawn in the world, so their size is in
+// metres (sized to read at the quarter camera); the rest is time, px or an effect's strength. All provisional.
+export const FEEDBACK_TUNE = {
+  maxMarks: 24, // the most marks drawn at once, nearest to the camera first (soldiers; 仮)
+  markSize: 1.2, // the mark's width and height (m; 仮): about 24 px at the default quarter camera
+  markLift: 0.4, // how far above the soldier's head the mark's point sits (m; 仮)
+  markRedShare: 0.5, // the health share at or below which a hurt soldier's mark is fully red (仮)
+  sparkHeight: 1, // how high above the feet a hit sparks (m; 仮)
+  sparkGap: 0.4, // the least gap between two hit sparks on the same soldier (s; 仮)
+  sparkCount: 3, // the sparks of one hit (仮)
+  sparkSpeed: 4, // how fast they fly (m/s; 仮)
+  sparkLife: 0.35, // how long they live (s; 仮)
+  sparkGravity: 6, // how fast they fall (m/s²; 仮)
+  downRadioGap: 15, // the least gap between two man-down calls from one sector (s; 仮)
+  popSec: 2.5, // how long the loss pop stays when no new loss comes (s; 仮)
+  popGap: 8, // how far below the front gauge's foot the pop sits (px; 仮)
+};
+
 // The battle layer of the main sortie. #view-fx keeps FX_TUNE, so the tools can still compare 150/300/450.
 export const BATTLE_TUNE = {
   allies: 20, // the allies in each wave of the main sortie (0 makes none)

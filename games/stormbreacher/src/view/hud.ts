@@ -7,7 +7,7 @@
 import { isTouch, t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
-import { GAUGE_TUNE, HUD_RING_TUNE } from '../data/tune.ts';
+import { FEEDBACK_TUNE, GAUGE_TUNE, HUD_RING_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import type { HudModel } from '../logic/hud.ts';
 import type { GaugeFill, Isolation } from '../logic/frontGauge.ts';
@@ -29,6 +29,7 @@ import {
 // The fixed parts' placement and text sizes, copied from dev/hud/plans.ts (HUD_PLANS.d) and dev/hud/build.ts
 // (TEXT_STYLES.d). view/ cannot read dev/, so the two copies are meant. The values are for 1280x720; `--ring` is the aim
 // circle's radius (px), set on the root. 仮: the shades and these sizes are not settled yet.
+const GAUGE_TOP = 198; // px, the front gauge's top; the loss pop goes under its foot (SB-2272)
 const PLAY_HUD_PLACES = {
   radar: { css: 'right:24px;top:48px;width:150px;height:150px' },
   objective: { css: 'left:24px;top:48px;width:340px' },
@@ -49,7 +50,9 @@ const PLAY_HUD_PLACES = {
   },
   reticle: { css: 'inset:0;pointer-events:none' },
   // the front gauge (SB-2270): at the right edge, under the radar (24 + 150 + a little), the height from GAUGE_TUNE
-  gauge: { css: 'right:24px;top:198px;width:12px' },
+  gauge: { css: `right:24px;top:${GAUGE_TOP}px;width:12px` },
+  // the infantry loss pop (SB-2272): just under the gauge's foot, right-aligned with it; its top is set in layOut
+  pop: { css: 'right:24px;text-align:right' },
 } as const;
 
 // Which gauge goes where in the aim mark (SB-2159): the main ammo on the left arc, the sub ammo on the right one, the
@@ -66,6 +69,7 @@ const PLAY_HUD_TEXT = {
   callout: { text: 26 }, // px
   use: { text: 13, bar: 6 }, // px; the charge's fuse uses the same sizes
   melee: { text: 13 }, // px
+  pop: { text: 16 }, // px
 } as const;
 
 // The target and enemy kinds become the radar's mark kinds: the bunkers, the guns and the magazine are objectives (an
@@ -139,6 +143,12 @@ interface HudLast {
   gaugeFront: number | null; // the front line's place on the gauge (0-1)
   gaugeMech: number | null; // the mech's place on the gauge (0-1)
   gaugeIsolation: Isolation | null; // the mech's mark's shade
+  pop: string | null; // the infantry loss pop's text, or '' when none
+}
+
+export interface FallPop {
+  left: number; // seconds the pop still shows (s)
+  count: number; // the losses counted in it
 }
 
 export interface PlayHud {
@@ -172,6 +182,9 @@ export interface PlayHud {
   melee: HTMLElement;
   radar: RadarGauge;
   gauge: FrontGaugeView;
+  popBox: HTMLElement;
+  popText: HTMLSpanElement;
+  pop: FallPop; // the view's own state: the losses and how long the pop still shows (SB-2272)
   last: HudLast;
 }
 
@@ -242,6 +255,7 @@ function freshLast(): HudLast {
     gaugeFront: null,
     gaugeMech: null,
     gaugeIsolation: null,
+    pop: null,
   };
 }
 
@@ -346,6 +360,13 @@ function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = nul
     `transform:rotate(45deg);background:${HUD_COLOR.text};box-shadow:0 0 0 1px ${HUD_COLOR.markShadow};`;
   gaugeBox.append(gaugeFills, gaugeBoundaries, gaugeFront, gaugeMech);
 
+  // The infantry loss pop (SB-2272): under the gauge's foot, at the right edge, right-aligned with the gauge.
+  const popBox = place(root, spec.pop.css, 'pop');
+  popBox.style.top = `${GAUGE_TOP + gaugeHeight(window.innerHeight) + FEEDBACK_TUNE.popGap}px`;
+  const popText = span('', PLAY_HUD_TEXT.pop.text, HUD_COLOR.warn);
+  popBox.appendChild(popText);
+  popBox.hidden = true;
+
   const reticleBox = place(root, spec.reticle.css, 'reticle');
   reticleBox.appendChild(marks.root);
 
@@ -383,6 +404,9 @@ function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = nul
     melee,
     radar,
     gauge: { box: gaugeBox, fills: gaugeFills, boundaries: gaugeBoundaries, front: gaugeFront, mech: gaugeMech },
+    popBox,
+    popText,
+    pop: { left: 0, count: 0 },
     last: freshLast(),
   };
 }
@@ -406,6 +430,25 @@ function countText(count: { done: number; total: number } | null): string {
   return count === null ? '' : ` ${count.done}/${count.total}`;
 }
 
+// Counts this frame's losses into the pop under the front gauge and runs its seconds down (SB-2272). A new loss resets
+// the seconds and adds to the count, so a burst of deaths reads as one longer "x N"; the count goes to 0 only after the
+// pop has gone. `hidden` (a cutscene, or a ground with no front) clears it, so nothing is left for later.
+export function stepFallPop(hud: PlayHud, fells: number, dt: number, hidden = false): void {
+  if (hidden) {
+    hud.pop.left = 0;
+    hud.pop.count = 0;
+    return;
+  }
+  if (fells > 0) {
+    hud.pop.count += fells;
+    hud.pop.left = FEEDBACK_TUNE.popSec;
+    return;
+  }
+  if (hud.pop.left <= 0) return;
+  hud.pop.left = Math.max(0, hud.pop.left - Math.max(0, dt));
+  if (hud.pop.left <= 0) hud.pop.count = 0;
+}
+
 // Writes one frame of the HUD. Only the values that changed are written; the radar's marks and the lock frame are put
 // down every frame. `lock` is the lock target's rectangle on the screen (view/camera.ts screenRect), null for none.
 // `glow` is the aim mark's armour flash after a hit (0-1) and `time` the game's clock, which drives an empty gauge's
@@ -413,7 +456,9 @@ function countText(count: { done: number; total: number } | null): string {
 export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null, glow = 0, time = 0): void {
   // the aim mark sits on the window's size, so a new height lays the parts out again
   if (window.innerHeight !== hud.height) {
+    const pop = hud.pop;
     Object.assign(hud, layOut(hud.root, hud.cursor));
+    hud.pop = pop;
   }
   positionMarks(hud);
   const last = hud.last;
@@ -521,6 +566,13 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null, 
   }
 
   drawFrontGauge(hud, model.gauge);
+
+  const pop = hud.pop.left > 0 ? `${t('hud.infantryFall')}${hud.pop.count > 1 ? ` ×${hud.pop.count}` : ''}` : '';
+  if (last.pop !== pop) {
+    hud.popBox.hidden = pop === '';
+    if (pop !== '') hud.popText.textContent = pop;
+    last.pop = pop;
+  }
 
   hud.lock.set(lock);
   hud.radar.set(

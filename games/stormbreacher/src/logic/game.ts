@@ -50,6 +50,7 @@ import {
   BLAST_FACE_TUNE,
   FCS_QUARTER,
   FCS_TUNE,
+  FEEDBACK_TUNE,
   INFANTRY_TUNE,
   MECH_TUNE,
   PLAY_BATTLE_TUNE,
@@ -1240,6 +1241,25 @@ export function stepRadio(game: GameModel, dt: number): void {
       : { line: next.line, time: game.time, callout: next.callout };
 }
 
+// The man-down call (SB-2272): a soldier that fell to fire or a shell puts one line on the radio. One sector keeps quiet
+// for downRadioGap seconds after a call, so a machine gun's sweep does not fill the band; the deaths outside the sectors
+// share the last sector's clock. The record lives in the crowd, which is not kept in a suspend. The falls are read from
+// this frame's events; stepBattleLayer calls this once a frame, after the battle has moved. Exported so a test can drive
+// a frame's falls without a whole battle.
+export function queueManDownRadio(game: GameModel): void {
+  if (game.sectors === null) return;
+  for (const event of game.events) {
+    if (event.kind !== 'battleFell') continue;
+    if (event.by !== 'fire' && event.by !== 'shell') continue;
+    const sector = M1_SECTORS.findIndex(entry => event.z <= entry.seaZ && event.z >= entry.landZ);
+    const key = sector < 0 ? M1_SECTORS.length - 1 : sector;
+    const last = game.battle.crowd.manDownAt[key];
+    if (last !== undefined && game.time - last < FEEDBACK_TUNE.downRadioGap) continue;
+    game.battle.crowd.manDownAt[key] = game.time;
+    queueRadio(game, 'm1.man-down');
+  }
+}
+
 // The cover point nearest an enemy, for its fall back to the next line.
 function nearestCover(enemy: GroundSpot, at: readonly GroundSpot[]): GroundSpot {
   let best = at[0];
@@ -1796,7 +1816,10 @@ function stepBattleLayer(game: GameModel, dt: number): void {
     for (const soldier of fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z, by: 'shell' });
   }
   const cutscene = game.script.cutscene;
-  if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
+  if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) {
+    queueManDownRadio(game);
+    return;
+  }
   if (game.sectors !== null) {
     // The sectors and the trickle wait while a cutscene plays or the sortie is cleared: no wave, no counterattack and
     // no radio comes out then.
@@ -1880,6 +1903,7 @@ function stepBattleLayer(game: GameModel, dt: number): void {
   if (frame.shell !== null) {
     game.events.push({ kind: 'battleShell', x: frame.shell.x, z: frame.shell.z, shake: frame.shell.shake });
   }
+  queueManDownRadio(game);
   stepSupport(game, dt);
 }
 

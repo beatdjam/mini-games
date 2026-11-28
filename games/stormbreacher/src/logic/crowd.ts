@@ -49,6 +49,7 @@ export interface Crowd {
   holdT: number; // seconds the line has been held, for the growing loss; Battle.advance sets it back to 0 at each new line (s; SB-2020)
   fallen: number; // how many have fallen so far
   through: number; // how many have reached the line so far
+  manDownAt: number[]; // the game time of the last man-down call from each sector, so one sector does not repeat it too soon (SB-2272)
 }
 
 export interface CrowdCounts {
@@ -70,6 +71,7 @@ export function newCrowd(): Crowd {
     holdT: 0,
     fallen: 0,
     through: 0,
+    manDownAt: [],
   };
 }
 

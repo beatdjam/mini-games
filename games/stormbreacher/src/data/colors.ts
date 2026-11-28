@@ -180,6 +180,14 @@ export const PILLBOX_DEFLECT_COLOR = 0xffe080;
 // little deeper, so a blow reads apart from a ricochet.
 export const MELEE_SPARK_COLOR = 0xffb84d;
 
+// The marks and sparks of the infantry's being under fire (SB-2272, 仮): the mark over a soldier that is aimed at, the
+// same mark once it has been hurt (the blend goes to this red as its health falls), and the spark of a hit.
+export const FEEDBACK_COLOR = {
+  mark: 0xffcf6a,
+  markHit: 0xff5a4a,
+  spark: 0xffa04a,
+};
+
 // The look of a shot (SB-1450, 仮): the muzzle's flash, the tracer's band and the sparks and smoke of an impact. The
 // mech's are yellow-white and the enemies' red-orange, so which way a shot goes reads at a glance.
 export const GUNFIRE_COLOR = {

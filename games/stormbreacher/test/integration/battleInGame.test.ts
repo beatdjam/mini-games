@@ -4,9 +4,10 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.ts';
-import { INFANTRY_TUNE } from '../../src/data/tune.ts';
+import { FEEDBACK_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import {
   newGame,
+  queueManDownRadio,
   retryFromCheckpoint,
   sendToScript,
   step,
@@ -206,5 +207,37 @@ describe('the battle layer in the game', () => {
     expect(walkingLost).toBeGreaterThan(0);
     expect(postedLost).toBeGreaterThan(0);
     expect(postedLost).toBeLessThan(walkingLost);
+  });
+
+  test('a man-down call goes out once per sector until the gap has passed, and never for a steady fall', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    game.radioQueue = [];
+    game.radio = null;
+    const lines = () => game.radioQueue.map(entry => entry.line);
+    const fall = (z: number, by: 'fire' | 'shell' | 'other'): void => {
+      game.events = [{ kind: 'battleFell', x: 0, z, by }];
+      queueManDownRadio(game);
+    };
+
+    // the beach (z 140): the first fall calls, a second inside the gap keeps quiet
+    game.time = 0;
+    fall(140, 'fire');
+    expect(lines()).toEqual(['m1.man-down']);
+    game.time = 5;
+    fall(140, 'shell');
+    expect(lines()).toEqual(['m1.man-down']);
+    // past the gap, the beach may call again
+    game.time = FEEDBACK_TUNE.downRadioGap;
+    fall(140, 'shell');
+    expect(lines()).toEqual(['m1.man-down', 'm1.man-down']);
+    // another sector is still free, even at once
+    game.time = FEEDBACK_TUNE.downRadioGap + 1;
+    fall(100, 'fire');
+    expect(lines()).toEqual(['m1.man-down', 'm1.man-down', 'm1.man-down']);
+    // and a steady fall is not news
+    game.time = 60;
+    fall(100, 'other');
+    expect(lines()).toHaveLength(3);
   });
 });
