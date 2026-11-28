@@ -2,13 +2,17 @@
 // stays capped, a sector's budget runs out, a secured sector's budget is closed, and the state goes into a suspend and a
 // checkpoint.
 import { describe, expect, test } from 'vitest';
+import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { PROP_SIZE } from '../../src/data/props.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../../src/data/trickle.ts';
 import { QUARTER_TUNE } from '../../src/data/tune.ts';
+import { rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import {
+  NAV_RADIUS,
   newGame,
   retryFromCheckpoint,
   sendToScript,
@@ -17,6 +21,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { hudModel } from '../../src/logic/hud.ts';
+import { buildNavField, buildNavGrid, navTarget } from '../../src/logic/nav.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 import { insideQuad, viewGround } from '../../src/logic/viewGround.ts';
@@ -63,6 +68,55 @@ function takeCp1(game: GameModel): void {
     if (target === undefined) throw new Error(`the map has no ${id}`);
     target.hp = 0;
     sendToScript(game, { kind: 'destroyed', target: id });
+  }
+}
+
+// Puts one sector in front with the mech in it, runs, and gives the places of the trickle's enemies as they come out.
+// Each is taken down as soon as it is read, so the living cap never stands in the budget's way.
+function trickleSpawns(game: GameModel, index: number, mechZ: number, frames: number): { x: number; z: number }[] {
+  clearInfantry(game);
+  sleepScripted(game);
+  game.armor = Number.MAX_SAFE_INTEGER;
+  game.mech.x = 0;
+  game.mech.y = 0;
+  game.mech.z = mechZ;
+  game.sectors!.phase.fill('stable');
+  game.sectors!.phase[index] = 'advancing';
+  const seen = new Set<string>();
+  const points: { x: number; z: number }[] = [];
+  for (let frame = 0; frame < frames; frame++) {
+    step(game, idle, DT);
+    for (const enemy of game.enemies) {
+      if (enemy.wave !== TRICKLE_WAVE || seen.has(enemy.id)) continue;
+      seen.add(enemy.id);
+      points.push({ x: enemy.x, z: enemy.z });
+      enemy.hp = 0;
+    }
+  }
+  return points;
+}
+
+// The points where the trickle came out: none inside a fortress wall, and every one walkable to from the mech.
+function checkSpawnPoints(game: GameModel, points: readonly { x: number; z: number }[], label: string): void {
+  // the fortress's wall pieces, taken from the map's props (not by the height of a rect, which other things share)
+  const size = PROP_SIZE.fortWall;
+  const walls: GroundRect[] = M1B_HAND.props
+    .filter(prop => prop.kind === 'fortWall')
+    .map(prop => ({
+      x: prop.x,
+      z: prop.z,
+      halfW: (size.w * prop.scale) / 2,
+      halfD: (size.d * prop.scale) / 2,
+      yaw: prop.yaw,
+    }));
+  const grid = buildNavGrid(game.rects, game.map.bounds, NAV_RADIUS);
+  const field = buildNavField(grid, game.mech.x, game.mech.z);
+  for (const point of points) {
+    expect(
+      walls.some(wall => rectDistance(wall, point.x, point.z) === 0),
+      `${label} wall`,
+    ).toBe(false);
+    expect(navTarget(field, point.x, point.z, game.mech.x, game.mech.z), `${label} reach`).not.toBeNull();
   }
 }
 
@@ -217,4 +271,54 @@ describe('the trickle in the sortie', () => {
     expect(game.trickle).toBeNull();
     expect(game.enemies.some(enemy => enemy.wave === TRICKLE_WAVE)).toBe(false);
   });
+
+  // SB-2280: the latter half of the front has its own budgets too.
+  test('the cband’s budget runs out, and then nothing more comes', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const cband = M1_SECTORS.find(entry => entry.id === 'cband')!;
+    const cbandIndex = M1_SECTORS.findIndex(entry => entry.id === 'cband');
+    clearInfantry(game);
+    game.armor = Number.MAX_SAFE_INTEGER;
+    sleepScripted(game);
+    // the sectors before the cband are behind the line, so it is the front and its budget is open
+    game.sectors!.phase.fill('stable');
+    game.sectors!.phase[cbandIndex] = 'advancing';
+    for (let frame = 0; frame < 60 * 90; frame++) {
+      step(game, idle, DT);
+      // the spawned ones are taken down each frame, so the living cap does not stand in the budget's way
+      for (const enemy of game.enemies) if (enemy.wave === TRICKLE_WAVE && enemy.hp > 0) enemy.hp = 0;
+    }
+    expect(game.trickle?.spent[cbandIndex]).toBe(cband.budget);
+    const spent = game.trickle!.spent.reduce((sum, count) => sum + count, 0);
+    run(game, idle, 60 * 20);
+    expect(game.trickle!.spent.reduce((sum, count) => sum + count, 0)).toBe(spent);
+  }, 30000);
+
+  // SB-2282: the cband and gate come out either side of the fortress, not from inside it or beyond its walls.
+  test('the cband and gate put their trickle out clear of the fortress and within reach', () => {
+    for (const id of ['cband', 'gate']) {
+      seed(7);
+      const game = newPlayGame(M1B_HAND);
+      const index = M1_SECTORS.findIndex(entry => entry.id === id);
+      const sector = M1_SECTORS[index];
+      const points = trickleSpawns(game, index, sector.holdZ, 60 * 90);
+      expect(points.length, id).toBe(sector.budget);
+      checkSpawnPoints(game, points, id);
+    }
+  }, 30000);
+
+  // The yard is shut in by the walls: the zone lies inside them, and only points out of the view from the mech come out.
+  // The mech stands at the sea gate, so the yard is mostly out of its view and the whole budget comes out (at the hold
+  // line, z -85, the yard is in view and next to nothing does).
+  test('the yard’s spawn zone stays inside the walls and within reach', () => {
+    seed(7);
+    const game = newPlayGame(M1B_HAND);
+    const index = M1_SECTORS.findIndex(entry => entry.id === 'yard');
+    const sector = M1_SECTORS[index];
+    const points = trickleSpawns(game, index, FORTRESS_TUNE.seaWallZ, 60 * 120);
+    expect(points.length).toBeGreaterThan(0);
+    expect(points.length).toBeLessThanOrEqual(sector.budget);
+    checkSpawnPoints(game, points, 'yard');
+  }, 30000);
 });

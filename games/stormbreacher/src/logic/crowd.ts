@@ -2,8 +2,10 @@
 // fall now and then and stay down for a few seconds. Pure functions over a list, no three and no DOM, so a node test can
 // run them. +z is the sea and -z is the land, as on the map.
 import { clamp, distXZ, type Rng } from '@engine/core/index.ts';
+import { CROWD_GATES, CROWD_WALL_TUNE, FORTRESS_TUNE } from '../data/fortress.ts';
 import type { MapBounds, SpawnPoint } from '../data/types.ts';
 import { INFANTRY_TUNE, type FxTune } from '../data/tune.ts';
+import { rectDistance, type GroundRect } from './collide.ts';
 
 // A hard cap on the soldiers in the list, so the view's instanced mesh is always big enough. The first wave plus the
 // waves after it can reach it; from then on a new wave brings no one until the fallen are gone.
@@ -152,17 +154,90 @@ export function catchUp(z: number, leaderZ: number | undefined, tune: FxTune): n
   return 1 + (tune.allyCatchMul - 1) * Math.min(1, over / gap);
 }
 
+// A way through a fortress wall (SB-2284): an opening in a wall row, at the middle of the wall's thickness.
+interface CrowdGate {
+  readonly x: number;
+  readonly z: number;
+  readonly halfW: number;
+}
+
+// The point a soldier heads for on its way to a place landward of a gate (SB-2284): first the seaward face's front, then
+// the landward face's back, so it crosses the gate squarely rather than cutting a wall's corner. Null while the target is
+// still on the gate's sea side or the soldier has already come through. The gate nearest the soldier's x is taken when
+// there is more than one.
+function gateWaypoint(
+  fromX: number,
+  fromZ: number,
+  toZ: number,
+  gates: readonly CrowdGate[],
+): { x: number; z: number } | null {
+  const halfT = FORTRESS_TUNE.wallT / 2;
+  let gate: CrowdGate | null = null;
+  let nearest = Infinity;
+  for (const candidate of gates) {
+    if (toZ >= candidate.z) continue; // the target is on the gate's sea side: no way through needed
+    if (fromZ <= candidate.z - halfT) continue; // through already: past the wall's landward face
+    const near = Math.abs(fromX - candidate.x);
+    if (near >= nearest) continue;
+    nearest = near;
+    gate = candidate;
+  }
+  if (gate === null) return null;
+  const approachZ = gate.z + halfT + CROWD_WALL_TUNE.gateMargin;
+  const passZ = gate.z - halfT - CROWD_WALL_TUNE.gateMargin;
+  // Not lined up with the opening yet: go to the point before the gate, which stays clear of the wall's face. Lined up,
+  // walk straight through it. A soldier already in the gap is not sent back out.
+  const lined = Math.abs(fromX - gate.x) <= gate.halfW - CROWD_WALL_TUNE.wallRadius;
+  return { x: gate.x, z: !lined || fromZ > approachZ ? approachZ : passZ };
+}
+
+// Whether a soldier may stand at (x, z) clear of every fortress wall (SB-2284): a wall is a rect it keeps wallRadius off.
+function clearOfWalls(walls: readonly GroundRect[], x: number, z: number): boolean {
+  const radius = CROWD_WALL_TUNE.wallRadius;
+  for (const wall of walls) {
+    if (Math.hypot(x - wall.x, z - wall.z) > radius + Math.hypot(wall.halfW, wall.halfD)) continue;
+    if (rectDistance(wall, x, z) < radius) return false;
+  }
+  return true;
+}
+
+// Moves a soldier to (x, z), or as far as the walls allow (SB-2284): it slides along a wall on the one axis that is
+// clear, and stays where it is when neither is, so it never crosses a wall nor jitters through one.
+function moveClear(walls: readonly GroundRect[], soldier: Soldier, x: number, z: number): void {
+  if (walls.length === 0 || clearOfWalls(walls, x, z)) {
+    soldier.x = x;
+    soldier.z = z;
+    return;
+  }
+  if (clearOfWalls(walls, x, soldier.z)) {
+    soldier.x = x;
+    return;
+  }
+  if (clearOfWalls(walls, soldier.x, z)) soldier.z = z;
+}
+
 // Moves the crowd by one frame: brings the next wave when its time comes, walks the living, makes some fall, takes the
 // fallen away after DEAD_LINGER and counts the ones that reach the line. While `held` and the crowd has a holdZ, the
 // living stop at that line and no new wave comes in, so the field does not fill up while they wait. The pinned line
 // still bleeds: with SB-2020's holdLossRate/holdLossRamp the soldiers at it fall faster the longer it is held (the loss
 // is 0 unless a tune sets it, as the sortie's own PLAY_BATTLE_TUNE now keeps). One that waited does not fall to the steady
 // loss after the line is let go (a shell or a squad's machine gun still takes it). A posted soldier (SB-2262) walks to
-// its place in a secured sector and stops there, and the line's moves do not take it away. Gives back the soldiers that
-// fell this frame, so the view can put a little dust where each one went down.
-export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held = false, leaderZ?: number): Soldier[] {
+// its place in a secured sector and stops there, and the line's moves do not take it away. `walls` are the fortress wall
+// rects the sortie hands in (SB-2284): a soldier going landward of one lines up with a gate and passes through it, and
+// never stands inside a wall; with none, the walk is exactly the old one. Gives back the soldiers that fell this frame,
+// so the view can put a little dust where each one went down.
+export function stepCrowd(
+  crowd: Crowd,
+  rng: Rng,
+  dt: number,
+  tune: FxTune,
+  held = false,
+  leaderZ?: number,
+  walls: readonly GroundRect[] = [],
+): Soldier[] {
   const span = Math.max(0, dt);
   const fell: Soldier[] = [];
+  const gates: readonly CrowdGate[] = walls.length > 0 ? CROWD_GATES : [];
   crowd.leaderZ = leaderZ ?? null;
   const holdZ = held ? crowd.holdZ : null;
 
@@ -194,17 +269,21 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
     if (soldier.targetedT > 0) soldier.targetedT = Math.max(0, soldier.targetedT - span);
 
     // A posted soldier walks to its place in a secured sector and stops there, facing the land (SB-2262). It stays when
-    // the line moves on, so the ground the infantry took keeps its soldiers.
+    // the line moves on, so the ground the infantry took keeps its soldiers. A place behind a fortress wall is reached
+    // through the gate, the same way a walking one goes (SB-2284).
     if (soldier.post !== null) {
       const dx = soldier.post.x - soldier.x;
       const dz = soldier.post.z - soldier.z;
       const dist = Math.hypot(dx, dz);
       if (dist > POST_ARRIVE) {
         const walk = Math.max(0, tune.allySpeed) * span;
-        const k = walk >= dist ? 1 : walk / dist;
-        soldier.x += dx * k;
-        soldier.z += dz * k;
-        soldier.yaw = Math.atan2(-dx, -dz);
+        const gate = gateWaypoint(soldier.x, soldier.z, soldier.post.z, gates);
+        const aimX = gate === null ? dx : gate.x - soldier.x;
+        const aimZ = gate === null ? dz : gate.z - soldier.z;
+        const aimDist = gate === null ? dist : Math.hypot(aimX, aimZ);
+        const k = aimDist === 0 || walk >= aimDist ? 1 : walk / aimDist;
+        if (aimDist > 0) soldier.yaw = Math.atan2(-aimX, -aimZ);
+        moveClear(walls, soldier, soldier.x + aimX * k, soldier.z + aimZ * k);
       } else {
         soldier.x = soldier.post.x;
         soldier.z = soldier.post.z;
@@ -222,13 +301,29 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
     } else {
       soldier.phase += SWAY_RATE * span;
       const sideways = Math.cos(soldier.phase) * SWAY_SPEED;
-      soldier.x += sideways * span;
       const speed = Math.max(0, tune.allySpeed) * catchUp(soldier.z, leaderZ, tune);
-      soldier.z -= speed * span;
-      soldier.yaw = Math.atan2(-sideways, Math.max(0.001, speed));
-      if (bounds !== null) {
-        soldier.x = clamp(soldier.x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
+      const gate = gateWaypoint(soldier.x, soldier.z, holdZ === null ? crowd.lineZ : holdZ, gates);
+      let x: number;
+      let z: number;
+      if (gate !== null) {
+        // through the gate first: line up on its seaward face, then walk straight through it (SB-2284)
+        const aimX = gate.x - soldier.x;
+        const aimZ = gate.z - soldier.z;
+        const aimDist = Math.hypot(aimX, aimZ);
+        const walk = speed * span;
+        const k = aimDist === 0 || walk >= aimDist ? 1 : walk / aimDist;
+        x = soldier.x + aimX * k;
+        z = soldier.z + aimZ * k;
+        if (aimDist > 0) soldier.yaw = Math.atan2(-aimX, -aimZ);
+      } else {
+        x = soldier.x + sideways * span;
+        z = soldier.z - speed * span;
+        soldier.yaw = Math.atan2(-sideways, Math.max(0.001, speed));
       }
+      if (bounds !== null) {
+        x = clamp(x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
+      }
+      moveClear(walls, soldier, x, z);
     }
 
     // the waiting line comes before the far line: a held soldier stops there and never counts as through. A posted

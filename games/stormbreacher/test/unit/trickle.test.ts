@@ -1,8 +1,10 @@
 // The front's trickle (SB-2230): where it comes out, when it stops, and what it counts. The world here is the small
 // one the function asks for, built by hand.
+import type { Rng } from '@engine/core/index.ts';
 import { expect, test } from 'vitest';
 import { ENEMIES, type EnemyKind } from '../../src/data/enemies.ts';
-import { M1_SECTORS } from '../../src/data/sectors.ts';
+import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
+import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../../src/data/trickle.ts';
 import { QUARTER_TUNE } from '../../src/data/tune.ts';
 import type { MapBounds } from '../../src/data/types.ts';
@@ -20,7 +22,8 @@ const RADIUS = ENEMIES[TRICKLE_TUNE.kind].radius;
 
 function stateWith(phases: readonly SectorPhase[]) {
   const state = newSectors();
-  state.phase = [...phases];
+  // the sectors behind the ones given are still the enemy's
+  state.phase = M1_SECTORS.map((_, i): SectorPhase => phases[i] ?? 'idle');
   return state;
 }
 
@@ -43,16 +46,74 @@ function world(options: Partial<TrickleWorld> = {}): TrickleWorld {
     rects: [],
     bounds: BOUNDS,
     sectors: stateWith(['idle', 'idle', 'idle', 'idle']),
+    flags: [],
+    wardenDown: false,
     paused: false,
     ...options,
   };
 }
 
 // One frame with the wait run out, so a spawn may come now.
-function spawnNow(w: TrickleWorld, state = newTrickle(M1_SECTORS.length)) {
+function spawnWith(w: TrickleWorld, rng: Rng, state = newTrickle(M1_SECTORS.length)) {
   state.t = 0;
-  return stepTrickle(state, w, stream('trickle'), DT);
+  return stepTrickle(state, w, rng, DT);
 }
+
+function spawnNow(w: TrickleWorld, state = newTrickle(M1_SECTORS.length)) {
+  return spawnWith(w, stream('trickle'), state);
+}
+
+// An rng that gives back the middle of every range and records the ranges, so the draws' order can be read.
+function recordingRng(): { rng: Rng; calls: [number, number][] } {
+  const calls: [number, number][] = [];
+  const mid = (a: number, b: number): number => {
+    calls.push([a, b]);
+    return (a + b) / 2;
+  };
+  return {
+    calls,
+    rng: { next: () => 0.5, rand: mid, randi: (a, b) => Math.floor(mid(a, b + 1)), pick: a => a[0], shuffle: a => a },
+  };
+}
+
+// The sectors that keep the old band: all but the three with their own rectangles.
+const OLD_BAND = M1_SECTORS.filter(sector => sector.spawn === undefined);
+const SPAWN_SECTORS = M1_SECTORS.filter(sector => sector.spawn !== undefined);
+
+// The fortress's walls as rectangles: the sea and land walls either side of their gates, and the two side walls.
+const WALLS: GroundRect[] = [];
+for (const sign of [-1, 1]) {
+  const halfW = (FORTRESS_TUNE.outerW - FORTRESS_TUNE.seaGate) / 4;
+  WALLS.push({
+    x: sign * (FORTRESS_TUNE.seaGate / 2 + halfW),
+    z: FORTRESS_TUNE.seaWallZ,
+    halfW,
+    halfD: FORTRESS_TUNE.wallT / 2,
+    yaw: 0,
+  });
+  const landHalfW = (FORTRESS_TUNE.outerW - FORTRESS_TUNE.landGate) / 4;
+  WALLS.push({
+    x: sign * (FORTRESS_TUNE.landGate / 2 + landHalfW),
+    z: FORTRESS_TUNE.landWallZ,
+    halfW: landHalfW,
+    halfD: FORTRESS_TUNE.wallT / 2,
+    yaw: 0,
+  });
+  WALLS.push({
+    x: sign * FORTRESS_TUNE.wallX,
+    z: FORTRESS_TUNE.yardZ,
+    halfW: FORTRESS_TUNE.wallT / 2,
+    halfD: FORTRESS_TUNE.yardD / 2,
+    yaw: 0,
+  });
+}
+WALLS.push({
+  x: 0,
+  z: FORTRESS_TUNE.landWallZ,
+  halfW: FORTRESS_TUNE.landGate / 2,
+  halfD: FORTRESS_TUNE.wallT / 2,
+  yaw: 0,
+});
 
 test('the trickle comes out of sight, far from the mech, clear of the rects and inside the bounds', () => {
   const rects: GroundRect[] = [{ x: 20, z: 100, halfW: 8, halfD: 6, yaw: 0.3 }];
@@ -71,6 +132,99 @@ test('the trickle comes out of sight, far from the mech, clear of the rects and 
     expect(z, `seed ${n} z`).toBeGreaterThanOrEqual(BOUNDS.minZ + RADIUS);
     expect(z, `seed ${n} z`).toBeLessThanOrEqual(BOUNDS.maxZ - RADIUS);
   }
+});
+
+// A world with one sector in front and no enemy in the way, so only the point's drawing decides the test.
+function sectorWorld(index: number, mechZ = 166): TrickleWorld {
+  return world({
+    mech: { x: 0, y: 0, z: mechZ },
+    enemies: [],
+    sectors: stateWith(M1_SECTORS.map((_, i): SectorPhase => (i === index ? 'advancing' : 'stable'))),
+  });
+}
+
+// A world with one sector idle in front and no scripted enemy in it, for the sector's own goals (SB-2283).
+function idleSectorWorld(index: number, options: Partial<TrickleWorld> = {}): TrickleWorld {
+  return world({
+    enemies: [],
+    sectors: stateWith(M1_SECTORS.map((_, i): SectorPhase => (i === index ? 'idle' : 'stable'))),
+    ...options,
+  });
+}
+
+test('a sector without a spawn zone draws the old band in the old order', () => {
+  for (const index of OLD_BAND.filter(sector => sector.budget > 0).map(sector => M1_SECTORS.indexOf(sector))) {
+    const { rng, calls } = recordingRng();
+    const point = spawnWith(sectorWorld(index), rng);
+    const sector = M1_SECTORS[index];
+    expect(point, sector.id).not.toBeNull();
+    expect(calls, sector.id).toEqual([
+      [0, TRICKLE_TUNE.spawnDepth],
+      [-TRICKLE_TUNE.spawnSpread, TRICKLE_TUNE.spawnSpread],
+      [TRICKLE_TUNE.intervalMin, TRICKLE_TUNE.intervalMax],
+    ]);
+    expect(point!.z, sector.id).toBe(sector.landZ - TRICKLE_TUNE.spawnBack - TRICKLE_TUNE.spawnDepth / 2);
+    expect(point!.x, sector.id).toBe(0);
+  }
+});
+
+test('a sector with spawn zones picks a rectangle by area, then draws x and z inside it', () => {
+  const index = M1_SECTORS.findIndex(sector => sector.id === 'cband');
+  const zones = M1_SECTORS[index].spawn!;
+  const total = zones.reduce((sum, zone) => sum + (zone.maxX - zone.minX) * (zone.maxZ - zone.minZ), 0);
+  const { rng, calls } = recordingRng();
+  const point = spawnWith(sectorWorld(index), rng);
+  const second = zones[1];
+  expect(point).not.toBeNull();
+  expect(calls).toEqual([
+    [0, total],
+    [second.minX, second.maxX],
+    [second.minZ, second.maxZ],
+    [TRICKLE_TUNE.intervalMin, TRICKLE_TUNE.intervalMax],
+  ]);
+  expect(point!.x).toBe((second.minX + second.maxX) / 2);
+  expect(point!.z).toBe((second.minZ + second.maxZ) / 2);
+});
+
+test('the spawn zones keep every point inside them and out of the fortress walls', () => {
+  for (const sector of SPAWN_SECTORS) {
+    const index = M1_SECTORS.indexOf(sector);
+    const zones = sector.spawn!;
+    let found = 0;
+    for (let n = 1; n <= 300; n++) {
+      seed(n);
+      const point = spawnNow(sectorWorld(index));
+      if (point === null) continue;
+      found++;
+      expect(
+        zones.some(
+          zone => point.x >= zone.minX && point.x <= zone.maxX && point.z >= zone.minZ && point.z <= zone.maxZ,
+        ),
+        `${sector.id} seed ${n}`,
+      ).toBe(true);
+      for (const wall of WALLS) {
+        expect(rectDistance(wall, point.x, point.z), `${sector.id} seed ${n} wall`).toBeGreaterThan(0);
+      }
+    }
+    expect(found, sector.id).toBeGreaterThan(250);
+  }
+});
+
+test('a point inside the view is dropped from a spawn zone as well', () => {
+  const index = M1_SECTORS.findIndex(sector => sector.id === 'cband');
+  const w = sectorWorld(index, -47);
+  const sight = viewGround(w.mech, QUARTER_TUNE, TRICKLE_TUNE.viewAspect, TRICKLE_TUNE.viewMargin);
+  // the left end of the band is in the view from the cband's middle, so the draws below would pass through it
+  expect(insideQuad(sight, -40, -47)).toBe(true);
+  let found = 0;
+  for (let n = 1; n <= 300; n++) {
+    seed(n);
+    const point = spawnNow(w);
+    if (point === null) continue;
+    found++;
+    expect(insideQuad(sight, point.x, point.z), `seed ${n} in sight`).toBe(false);
+  }
+  expect(found).toBeGreaterThan(0);
 });
 
 test('no point found spends nothing and waits retryT', () => {
@@ -134,7 +288,7 @@ test('securing a sector stops its trickle and hands the next sector the front', 
 });
 
 test('with every sector secured nothing comes out', () => {
-  const w = world({ sectors: stateWith(['stable', 'secured', 'counter', 'stable']) });
+  const w = world({ sectors: stateWith(M1_SECTORS.map((): SectorPhase => 'stable')) });
   expect(spawnNow(w)).toBeNull();
 });
 
@@ -152,6 +306,55 @@ test('while the front sector is idle the trickle only fills in behind its script
   const advancing = world({ enemies: [], sectors: stateWith(['advancing', 'idle', 'idle', 'idle']) });
   expect(spawnNow(advancing)).not.toBeNull();
 });
+
+// SB-2283: a sector's standing goals keep the idle window open, as the pillboxes did on the pillbox line.
+test('while the front sector is idle its standing goals keep the trickle coming', () => {
+  const pillboxes = M1_SECTORS.findIndex(sector => sector.id === 'pillboxes');
+  expect(spawnNow(idleSectorWorld(pillboxes, { targets: [{ kind: 'pillbox', hp: 1 }] }))).not.toBeNull();
+  expect(spawnNow(idleSectorWorld(pillboxes, { targets: [{ kind: 'pillbox', hp: 0 }] }))).toBeNull();
+
+  const gate = M1_SECTORS.findIndex(sector => sector.id === 'gate');
+  expect(spawnNow(idleSectorWorld(gate, { targets: [{ kind: 'fortressGun', hp: 1 }] }))).not.toBeNull();
+  expect(spawnNow(idleSectorWorld(gate, { targets: [{ kind: 'fortressGun', hp: 0 }] }))).toBeNull();
+
+  const magazine = M1_SECTORS.findIndex(sector => sector.id === 'magazine');
+  const guns = [
+    { kind: 'gun', hp: 1 },
+    { kind: 'gun', hp: 0 },
+  ];
+  expect(spawnNow(idleSectorWorld(magazine, { targets: guns }))).not.toBeNull();
+  expect(spawnNow(idleSectorWorld(magazine, { targets: guns.map(gun => ({ ...gun, hp: 0 })) }))).toBeNull();
+  // the magazine itself is not a goal of the sector
+  expect(spawnNow(idleSectorWorld(magazine, { targets: [{ kind: 'magazine', hp: 1 }] }))).toBeNull();
+
+  const yard = M1_SECTORS.findIndex(sector => sector.id === 'yard');
+  const flags = ['yard-1-clear', 'yard-2-clear', 'yard-3-clear'];
+  const inside = { x: 0, y: 0, z: M1_SECTORS[yard].seaZ - SECTOR_TUNE.enterDepth - 1 };
+  expect(anySpawn(idleSectorWorld(yard, { mech: inside }))).toBe(true);
+  expect(anySpawn(idleSectorWorld(yard, { mech: inside, flags }))).toBe(false);
+});
+
+// SB-2286: the yard's trap is its own, so the trickle does not shut the yard in before the mech has gone in.
+test('the yard keeps its trickle back until the mech is in it', () => {
+  const yard = M1_SECTORS.findIndex(sector => sector.id === 'yard');
+  const sector = M1_SECTORS[yard];
+  const outside = { x: 0, y: 0, z: sector.seaZ - SECTOR_TUNE.enterDepth + 1 };
+  const inside = { x: 0, y: 0, z: sector.seaZ - SECTOR_TUNE.enterDepth - 1 };
+  expect(anySpawn(idleSectorWorld(yard, { mech: outside })), 'mech outside').toBe(false);
+  expect(anySpawn(idleSectorWorld(yard, { mech: inside })), 'mech inside').toBe(true);
+  // a sector without the flag keeps coming out while idle, wherever the mech is
+  const magazine = M1_SECTORS.findIndex(entry => entry.id === 'magazine');
+  expect(M1_SECTORS[magazine].trickleOnEntry).toBeUndefined();
+});
+
+// Whether a point comes out in some seed's draw (a point near the mech or in its view is dropped, so one seed may not).
+function anySpawn(w: TrickleWorld): boolean {
+  for (let n = 1; n <= 60; n++) {
+    seed(n);
+    if (spawnNow(w) !== null) return true;
+  }
+  return false;
+}
 
 test('nothing comes out while paused', () => {
   const w = world({ paused: true });

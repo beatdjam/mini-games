@@ -3,6 +3,7 @@
 // rebuilds the crowd at the line the sectors hold.
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1 } from '../../src/data/missions/m1.ts';
 import { M1_SECTORS, SECTOR_TUNE, type SectorId } from '../../src/data/sectors.ts';
 import { FEEDBACK_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import {
@@ -207,6 +208,28 @@ describe('the battle layer in the game', () => {
     expect(walkingLost).toBeGreaterThan(0);
     expect(postedLost).toBeGreaterThan(0);
     expect(postedLost).toBeLessThan(walkingLost);
+  });
+
+  // The arena (sectors off) has no fortress front, so its infantry sees no walls (SB-2284): a posted soldier walks
+  // straight to its place, through where a fortress wall stands, instead of going round to the sea gate.
+  test('the arena’s infantry takes no fortress wall and walks straight to its post', () => {
+    seed(7);
+    const game = newGame(M1B_HAND, M1, { sectors: false });
+    step(game, idle, 0);
+    sendToScript(game, { kind: 'skip' });
+    game.mech.z = 160;
+    game.enemies = [];
+    game.armor = Number.MAX_SAFE_INTEGER;
+    game.battleTune = { ...game.battleTune, allyWaves: 0, shellEvery: 0 };
+    const soldier = game.battle.crowd.soldiers[0];
+    game.battle.crowd.soldiers = [soldier];
+    soldier.alive = true;
+    soldier.post = { x: -20.5, z: -85 };
+    soldier.x = -20.5;
+    soldier.z = -60;
+    for (let frame = 0; frame < 60 * 15; frame++) step(game, idle, DT);
+    expect(soldier.x).toBeCloseTo(-20.5, 6);
+    expect(soldier.z).toBeCloseTo(-85, 6);
   });
 
   test('a man-down call goes out once per sector until the gap has passed, and never for a steady fall', () => {

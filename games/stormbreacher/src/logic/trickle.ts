@@ -3,12 +3,12 @@
 // functions, so a node test runs them without a page (game.ts is not imported).
 import type { Rng } from '@engine/core/index.ts';
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
-import { M1_SECTORS, SECTOR_TUNE } from '../data/sectors.ts';
+import { M1_SECTORS, SECTOR_TUNE, type SpawnZone } from '../data/sectors.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../data/trickle.ts';
 import { QUARTER_TUNE } from '../data/tune.ts';
 import type { MapBounds } from '../data/types.ts';
 import { rectDistance, type GroundRect } from './collide.ts';
-import type { SectorPhase, SectorsState } from './sectors.ts';
+import { goalsStanding, type SectorPhase, type SectorsState } from './sectors.ts';
 import { insideQuad, viewGround } from './viewGround.ts';
 
 export interface TrickleState {
@@ -17,7 +17,8 @@ export interface TrickleState {
 }
 
 // What a frame of the trickle needs: the mech, the enemies and targets, the ground's blockers and bounds, the sectors,
-// and whether the trickle is held (`paused`: a cutscene, the mech downed, the sortie cleared).
+// the script's state its goals read, and whether the trickle is held (`paused`: a cutscene, the mech downed, the sortie
+// cleared).
 export interface TrickleWorld {
   mech: { x: number; y: number; z: number };
   enemies: readonly TrickleFoe[];
@@ -25,6 +26,8 @@ export interface TrickleWorld {
   rects: readonly GroundRect[];
   bounds: MapBounds;
   sectors: SectorsState;
+  flags: readonly string[];
+  wardenDown: boolean;
   paused: boolean;
 }
 
@@ -64,7 +67,8 @@ function livingInfantry(enemies: readonly TrickleFoe[]): number {
 }
 
 // Whether the front sector still has a scripted foe in it when it is idle: a living enemy that is not the trickle's own,
-// or (on the pillbox line) a pillbox still standing. That is the window in which the trickle comes out while idle.
+// or a goal of the sector still standing (a pillbox on the pillbox line, the fortress's gun, the main guns, the yard's
+// waves or the mid boss; SB-2283). That is the window in which the trickle comes out while idle.
 function scriptedFoeIn(sectorIndex: number, world: TrickleWorld): boolean {
   const sector = M1_SECTORS[sectorIndex];
   for (const enemy of world.enemies) {
@@ -72,10 +76,25 @@ function scriptedFoeIn(sectorIndex: number, world: TrickleWorld): boolean {
     if (enemy.z < sector.landZ || enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
     return true;
   }
-  if (sector.id === 'pillboxes') {
-    return world.targets.some(target => target.kind === 'pillbox' && target.hp > 0);
+  return goalsStanding(sector, world);
+}
+
+// A point from the sector's own rectangles: one draw picks the rectangle by its share of the area, then x and z are
+// drawn inside it (SB-2282).
+function spawnInZones(zones: readonly SpawnZone[], rng: Rng): { x: number; z: number } {
+  let total = 0;
+  for (const zone of zones) total += (zone.maxX - zone.minX) * (zone.maxZ - zone.minZ);
+  const pick = rng.rand(0, total);
+  let edge = 0;
+  let chosen = zones[zones.length - 1];
+  for (const zone of zones) {
+    edge += (zone.maxX - zone.minX) * (zone.maxZ - zone.minZ);
+    if (pick < edge) {
+      chosen = zone;
+      break;
+    }
   }
-  return false;
+  return { x: rng.rand(chosen.minX, chosen.maxX), z: rng.rand(chosen.minZ, chosen.maxZ) };
 }
 
 // Moves the trickle on by one frame. When an enemy may come, a point for it is drawn from `rng` and given back; making
@@ -93,11 +112,21 @@ export function stepTrickle(state: TrickleState, world: TrickleWorld, rng: Rng, 
   // While the front sector is idle, the trickle only fills in behind its scripted enemies; once they are down, it stops,
   // so the sector can be cleared. While it is advancing the pressure goes on.
   if (world.sectors.phase[index] === 'idle' && !scriptedFoeIn(index, world)) return null;
+  // a sector with a trap of its own (the yard) keeps its trickle back until the mech has gone in
+  if (world.sectors.phase[index] === 'idle' && sector.trickleOnEntry === true) {
+    if (world.mech.z > sector.seaZ - SECTOR_TUNE.enterDepth) return null;
+  }
   const sight = viewGround(world.mech, QUARTER_TUNE, TRICKLE_TUNE.viewAspect, TRICKLE_TUNE.viewMargin);
   const radius = ENEMIES[TRICKLE_TUNE.kind].radius;
   for (let try_ = 0; try_ < TRICKLE_TUNE.tries; try_++) {
-    const z = sector.landZ - TRICKLE_TUNE.spawnBack - rng.rand(0, TRICKLE_TUNE.spawnDepth);
-    const x = rng.rand(-TRICKLE_TUNE.spawnSpread, TRICKLE_TUNE.spawnSpread);
+    let x: number;
+    let z: number;
+    if (sector.spawn !== undefined && sector.spawn.length > 0) {
+      ({ x, z } = spawnInZones(sector.spawn, rng));
+    } else {
+      z = sector.landZ - TRICKLE_TUNE.spawnBack - rng.rand(0, TRICKLE_TUNE.spawnDepth);
+      x = rng.rand(-TRICKLE_TUNE.spawnSpread, TRICKLE_TUNE.spawnSpread);
+    }
     if (insideQuad(sight, x, z)) continue;
     if (Math.hypot(x - world.mech.x, z - world.mech.z) < TRICKLE_TUNE.minDist) continue;
     if (world.rects.some(rect => rectDistance(rect, x, z) <= radius)) continue;

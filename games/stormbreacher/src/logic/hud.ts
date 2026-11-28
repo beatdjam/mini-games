@@ -46,7 +46,8 @@ export interface HudFront {
   b: HudRadarPoint;
 }
 
-// The front gauge (SB-2270): the whole front as one line, 0 at the sea's edge and 1 at the pillbox line's land side.
+// The front gauge (SB-2270, SB-2281): the whole front as one line, 0 at the sea's edge and 1 at the last sector's land
+// side.
 export interface HudGauge {
   mech: number; // the mech's place on the gauge
   front: number; // the line the allies hold on the same gauge

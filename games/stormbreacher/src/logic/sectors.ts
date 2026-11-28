@@ -1,5 +1,6 @@
-// The sectors of M1's front (SB-2210, SB-2220): a sector is cleared when the mech has gone in and no enemy is left in
-// it, secured when enough of the infantry has reached its hold line, and then counterattacked once before it is stable.
+// The sectors of M1's front (SB-2210, SB-2220): a sector is cleared when the mech has gone in, no enemy is left in it
+// and its goals are down, secured when enough of the infantry has reached its hold line, and then counterattacked once
+// before it is stable.
 // The game asks these pure functions, so a node test runs them without a page; game.ts is not imported (game.ts imports
 // this file). +z is the sea.
 import { ENEMIES } from '../data/enemies.ts';
@@ -35,7 +36,7 @@ interface SectorTarget {
 }
 
 // What a frame of the sectors needs: the mech, the enemies and targets, the ground's rects, the infantry's crowd, the
-// map's edges and its props (for the cover a secured sector's soldiers post behind).
+// map's edges, its props (for the cover a secured sector's soldiers post behind) and the script's state its goals read.
 export interface SectorWorld {
   mech: { z: number };
   enemies: readonly SectorFoe[];
@@ -44,6 +45,15 @@ export interface SectorWorld {
   battle: { crowd: Crowd };
   bounds: MapBounds;
   props: readonly Prop[];
+  flags: readonly string[];
+  wardenDown: boolean;
+}
+
+// What a sector's goals are read against: the targets, the script's flags and whether the mid boss is down.
+export interface SectorGoalView {
+  targets: readonly SectorTarget[];
+  flags: readonly string[];
+  wardenDown: boolean;
 }
 
 export type SectorEvent =
@@ -79,6 +89,11 @@ export function newSectors(): SectorsState {
 const POST_COVER_GAP = 1.5; // how far landward of a cover's face a soldier posts (m)
 const POST_EDGE = 3; // how far inside the map's side edges a spread post stays (m)
 const POST_CLEAR = 0.8; // how far off a blocking rect a post stays, so no soldier stands inside a wall or a block (m)
+// The depths inside a spawn rectangle that counterPoint tries, as a share of its depth: the middle first, then two others,
+// so a rect whose middle is covered still has somewhere inside it to come out at (SB-2285).
+const ZONE_DEPTHS = [0.5, 0.25, 0.75] as const;
+// How far a counterattack point slides along x (2m at a time) to get clear of a rect before it gives up.
+const COUNTER_SLIDES = 10;
 
 // The living soldiers at or past `holdZ` (within arriveBand of it, on the landward side), and every soldier that has
 // taken a post in a secured sector: a posted soldier counts as arrived however far behind the line it stands (SB-2262).
@@ -124,8 +139,8 @@ function standable(rects: readonly GroundRect[], x: number, z: number): boolean 
 
 // The places `count` soldiers post at in a secured sector (SB-2262): the seaward side of the sector's cover first (out of
 // the land enemy's sight), spread along the sector's width, and then the sector's hold line across the map's width when
-// there is not enough cover. The points are distinct, inside the sector and the map (never in the sea), and clear of the
-// blocking rects, sorted by x. Pure, so a node test can read the choice.
+// there is not enough cover. The points are distinct, inside the sector and the map (never in the sea) and its `postRange`
+// when it has one, and clear of the blocking rects, sorted by x. Pure, so a node test can read the choice.
 export function sectorPosts(
   sector: Sector,
   bounds: MapBounds,
@@ -137,8 +152,9 @@ export function sectorPosts(
   if (want === 0) return [];
   const minZ = Math.max(Math.min(sector.landZ, sector.seaZ), bounds.minZ);
   const maxZ = Math.min(Math.max(sector.landZ, sector.seaZ), bounds.maxZ);
-  const minX = bounds.minX + POST_EDGE;
-  const maxX = bounds.maxX - POST_EDGE;
+  // a sector inside the fortress keeps its posts between the walls (its `postRange`), where the sea gate leads
+  const minX = Math.max(bounds.minX + POST_EDGE, sector.postRange?.minX ?? -Infinity);
+  const maxX = Math.min(bounds.maxX - POST_EDGE, sector.postRange?.maxX ?? Infinity);
   const covers = coverRects(sector, rects, props)
     .map(cover => {
       const post = coverPost(cover);
@@ -194,9 +210,24 @@ export function releasePosts(crowd: Crowd, stayShare: number): void {
   for (let i = stay; i < posted.length; i++) posted[i].post = null;
 }
 
+// Whether any of a sector's goals still stands (SB-2283): a target of the goal's kind with health left, a flag not yet
+// raised, or the mid boss not down. A sector with no goals has none standing.
+export function goalsStanding(sector: Sector, view: SectorGoalView): boolean {
+  for (const goal of sector.goals ?? []) {
+    if (goal.kind === 'target') {
+      if (view.targets.some(target => target.kind === goal.target && target.hp > 0)) return true;
+    } else if (goal.kind === 'flag') {
+      if (!view.flags.includes(goal.name)) return true;
+    } else if (!view.wardenDown) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Whether a sector has no living enemy left in it. Its enemies count from its landZ to seaMargin past its seaZ, so the
 // margin overlaps the sector seaward of it (an enemy there counts for both; the sectors are looked at front to back, so
-// the front one decides); the pillbox line also counts the pillboxes that still stand.
+// the front one decides); the sector's goals have to be down too.
 function sectorClear(sector: Sector, world: SectorWorld): boolean {
   if (world.mech.z > sector.seaZ - SECTOR_TUNE.enterDepth) return false;
   for (const enemy of world.enemies) {
@@ -204,9 +235,7 @@ function sectorClear(sector: Sector, world: SectorWorld): boolean {
     if (enemy.z < sector.landZ || enemy.z > sector.seaZ + SECTOR_TUNE.seaMargin) continue;
     return false;
   }
-  if (sector.id === 'pillboxes' && world.targets.some(target => target.kind === 'pillbox' && target.hp > 0)) {
-    return false;
-  }
+  if (goalsStanding(sector, world)) return false;
   return true;
 }
 
@@ -223,18 +252,42 @@ function sectorSecured(crowd: Crowd, holdZ: number): boolean {
   return walking.filter(soldier => soldier.z <= holdZ + SECTOR_TUNE.arriveBand).length >= needed;
 }
 
-// The i-th point the counterattack comes out at: z is counterBack inland of the sector's land-side edge, and x runs
-// evenly from -counterSpread to +counterSpread. A point that a ground rect covers is moved 2m at a time until it is
-// clear; if it is still covered after ten moves, the last point tried is used, so the counterattack always comes out.
-function counterPoint(sector: Sector, index: number, rects: readonly GroundRect[]): { x: number; z: number } {
+// The i-th point the counterattack comes out at (SB-2220, SB-2285). A sector with spawn rectangles (`cband`, `gate`) puts
+// it in one of them: the i-th one is given to rect `i % zones.length`, at the middle of that rect's depth, and spread
+// evenly along its width with the other counterattacks given to the same rect. A sector without them keeps the old band:
+// z is counterBack inland of the sector's land-side edge, and x runs evenly from -counterSpread to +counterSpread. A point
+// that a ground rect covers is moved 2m at a time along x, inside the rect's width for a zone; if it is still covered
+// after ten moves, a zone tries other depths inside the rect, and the last point tried is used if every one is covered,
+// so the counterattack always comes out.
+export function counterPoint(sector: Sector, index: number, rects: readonly GroundRect[]): { x: number; z: number } {
+  const radius = ENEMIES[SECTOR_TUNE.counterKind].radius;
+  const clear = (x: number, z: number): boolean => rects.every(rect => rectDistance(rect, x, z) > radius);
+  const zones = sector.spawn;
+  if (zones !== undefined && zones.length > 0) {
+    const zone = zones[index % zones.length];
+    // the counterattacks this rect holds, and which of them this one is
+    const count = Math.floor((sector.counter - 1 - (index % zones.length)) / zones.length) + 1;
+    const slot = Math.floor(index / zones.length);
+    const base = zone.minX + ((zone.maxX - zone.minX) * (slot + 0.5)) / count;
+    let last = { x: base, z: (zone.minZ + zone.maxZ) / 2 };
+    // the middle of the rect first; if that is covered even after sliding, other depths inside it
+    for (const depth of ZONE_DEPTHS) {
+      const z = zone.minZ + (zone.maxZ - zone.minZ) * depth;
+      for (let move = 0; move <= COUNTER_SLIDES; move++) {
+        const x = Math.min(base + move * 2, zone.maxX);
+        last = { x, z };
+        if (clear(x, z)) return last;
+      }
+    }
+    return last;
+  }
   const z = sector.landZ - SECTOR_TUNE.counterBack;
   const spread = SECTOR_TUNE.counterSpread;
   const base = sector.counter <= 1 ? 0 : -spread + (2 * spread * index) / (sector.counter - 1);
-  const radius = ENEMIES[SECTOR_TUNE.counterKind].radius;
   let x = base;
-  for (let move = 0; move <= 10; move++) {
+  for (let move = 0; move <= COUNTER_SLIDES; move++) {
     x = base + move * 2;
-    if (rects.every(rect => rectDistance(rect, x, z) > radius)) break;
+    if (clear(x, z)) break;
   }
   return { x, z };
 }
@@ -311,8 +364,8 @@ function closedLineHoldZ(blasts: readonly string[], blastPoints: readonly BlastL
 
 // Where the infantry waits now: the last sector that is advancing or further on, or the water's edge before the first.
 // A sector hold that stands inland of a defence line the mech has not opened yet is pulled back to 6m seaward of that
-// line, so the infantry waits before it and pours through the hole once a blast opens it. It waits until the pillbox
-// line is secured and then walks on, as it did once `pillboxes-down` raised.
+// line, so the infantry waits before it and pours through the hole once a blast opens it. It waits until the last
+// sector (the magazine) is secured and then walks on.
 export function sectorHold(
   state: SectorsState | null,
   blasts: readonly string[],

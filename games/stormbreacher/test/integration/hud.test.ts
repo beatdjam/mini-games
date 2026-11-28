@@ -469,9 +469,31 @@ test('the sortie’s HUD has a front gauge from the sea’s edge to the pillbox 
   // the mech steps off the craft at the sea's edge, ahead of the infantry's first line
   expect(gauge.mech).toBeGreaterThan(0);
   expect(gauge.mech).toBeLessThan(gauge.front);
-  // every sector starts as the enemy's land, and the three boundaries stand between the four
+  // every sector starts as the enemy's land, and the ten boundaries stand between the eleven
+  expect(gauge.fills).toHaveLength(11);
   expect(gauge.fills.map(fill => fill.fill)).toEqual(M1_SECTORS.map(() => 'enemy'));
+  expect(gauge.marks).toHaveLength(10);
   expect(gauge.marks).toHaveLength(M1_SECTORS.length - 1);
+});
+
+test('a latter sector fills as secured and stable, and the mech in the magazine is near the gauge’s top', () => {
+  const game = newPlayGame(M1B_HAND);
+  const sectors = game.sectors;
+  if (sectors === null) throw new Error('the sortie has sectors');
+  const last = M1_SECTORS.length - 1;
+  const magazine = M1_SECTORS[last];
+  expect(hudModel(game).gauge?.fills[last].fill).toBe('enemy');
+  sectors.phase[last] = 'counter';
+  expect(hudModel(game).gauge?.fills[last].fill).toBe('secured');
+  sectors.phase[last] = 'stable';
+  expect(hudModel(game).gauge?.fills[last].fill).toBe('stable');
+
+  // the magazine is the gauge's land end, so a mech inside it sits near the top
+  game.mech.z = (magazine.seaZ + magazine.landZ) / 2;
+  const gauge = hudModel(game).gauge;
+  if (gauge === null) throw new Error('the sortie has a front gauge');
+  expect(gauge.mech).toBeGreaterThan(0.95);
+  expect(gauge.mech).toBeLessThan(1);
 });
 
 test('a secured sector fills as secured, and a stable one as stable', () => {

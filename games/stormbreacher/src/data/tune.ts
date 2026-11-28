@@ -244,16 +244,22 @@ export const HUD_RING_TUNE = {
 
 export type HudRingTune = typeof HUD_RING_TUNE;
 
-// The front gauge (SB-2270, 仮): the whole front as one line from the sea's edge to the pillbox line, at the right edge
-// below the radar. The gauge's span comes from M1_SECTORS, and its height grows with the window's height from
-// `baseHeight`, the way the aim circle's radius does. `isolatedGap` is the support fire's reach (SUPPORT_TUNE.range in
-// data/sectors.ts): inland of it the mech is out of the infantry's cover. It is written out here because data/sectors.ts
-// reads this file, so this one cannot read it back; a unit test keeps the two equal.
+// The front gauge (SB-2270, SB-2281, 仮): the whole front as one line from the sea's edge to the magazine, at the right
+// edge below the radar. The gauge's span comes from M1_SECTORS, and its height grows with the window's height from
+// `baseHeight`, the way the aim circle's radius does. The marks keep their px sizes (SB-2281): the front is a thick bar,
+// a sector boundary a thin line, and the mech a small diamond, so they stay readable when a sector shrinks to a few px.
+// `isolatedGap` is the support fire's reach (SUPPORT_TUNE.range in data/sectors.ts): inland of it the mech is out of the
+// infantry's cover. It is written out here because data/sectors.ts reads this file, so this one cannot read it back; a
+// unit test keeps the two equal.
 export const GAUGE_TUNE = {
   height: 150, // px, the gauge's height at baseHeight: it ends above the touch boost button (y 378 at 720) with the loss pop under it
   baseHeight: 720, // px, the window height the sizes are written for
   warnGap: 30, // m inland of the front where the mech's mark starts to change colour
   isolatedGap: 57, // m inland of the front where the mark turns red (SUPPORT_TUNE.range)
+  edgeOverhang: 4, // px, how far the front line and the boundaries reach past the gauge's sides
+  frontThickness: 3, // px, the front line's thickness
+  boundaryThickness: 1, // px, a sector boundary's thickness
+  mechSize: 6, // px, the mech's diamond's side (turned, its diagonal is 8.5px; the smallest sector is 5.3px at `height`)
 } as const;
 
 export type GaugeTune = typeof GAUGE_TUNE;

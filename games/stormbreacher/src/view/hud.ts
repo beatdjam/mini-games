@@ -90,15 +90,9 @@ const RADAR_MARK: Record<TargetKind | EnemyKind, RadarMarkKind> = {
 // The radar's size (px): the mock's D plan.
 const RADAR_SIZE = 150; // px
 
-// The front gauge's marks (SB-2270): the front line is a thick bar reaching a little past the gauge's sides, the sector
-// boundaries are thin short lines, and the mech is a small diamond. These sizes are 仮.
-const GAUGE_EDGE = 4; // px, how far the front line and the boundaries reach past the gauge's sides
-const GAUGE_FRONT = 3; // px, the front line's thickness
-const GAUGE_BOUNDARY = 1; // px, a sector boundary's thickness
-const GAUGE_MECH = 7; // px, the mech's diamond's side
-
 // The fills and the mech's shades: the three fills read apart in brightness as well as hue (dark, amber, cyan), and the
-// mech's mark turns amber at the warning gap and red when isolated, never blinking.
+// mech's mark turns amber at the warning gap and red when isolated, never blinking. The marks' px sizes come from
+// GAUGE_TUNE (SB-2281), so they stay the same when a sector shrinks to a few px.
 const GAUGE_FILL_COLOR: Record<GaugeFill, string> = {
   enemy: HUD_COLOR.gaugeEnemy,
   secured: HUD_COLOR.gaugeSecured,
@@ -339,7 +333,8 @@ function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = nul
   const radar = roundRadar(RADAR_SIZE, RADAR_SIZE);
   radarNode.appendChild(radar.root);
 
-  // The front gauge (SB-2270): a vertical line at the right edge, the sea at its foot and the pillbox line at its head.
+  // The front gauge (SB-2270, SB-2281): a vertical line at the right edge, the sea at its foot and the magazine at its
+  // head.
   // Its height follows the window's, as the aim circle's radius does; `layOut` runs again when the height changes.
   const gaugeBox = place(root, spec.gauge.css, 'gauge');
   gaugeBox.style.height = `${gaugeHeight(window.innerHeight)}px`;
@@ -352,11 +347,13 @@ function layOut(root: HTMLElement, cursor: { x: number; y: number } | null = nul
   gaugeBoundaries.style.cssText = 'position:absolute;inset:0';
   const gaugeFront = document.createElement('div');
   gaugeFront.style.cssText =
-    `position:absolute;left:${-GAUGE_EDGE}px;right:${-GAUGE_EDGE}px;height:${GAUGE_FRONT}px;` +
+    `position:absolute;left:${-GAUGE_TUNE.edgeOverhang}px;right:${-GAUGE_TUNE.edgeOverhang}px;` +
+    `height:${GAUGE_TUNE.frontThickness}px;` +
     `background:${HUD_COLOR.bar};box-shadow:0 0 0 1px ${HUD_COLOR.markShadow};`;
   const gaugeMech = document.createElement('div');
   gaugeMech.style.cssText =
-    `position:absolute;left:50%;width:${GAUGE_MECH}px;height:${GAUGE_MECH}px;margin-left:${-GAUGE_MECH / 2}px;` +
+    `position:absolute;left:50%;width:${GAUGE_TUNE.mechSize}px;height:${GAUGE_TUNE.mechSize}px;` +
+    `margin-left:${-GAUGE_TUNE.mechSize / 2}px;` +
     `transform:rotate(45deg);background:${HUD_COLOR.text};box-shadow:0 0 0 1px ${HUD_COLOR.markShadow};`;
   gaugeBox.append(gaugeFills, gaugeBoundaries, gaugeFront, gaugeMech);
 
@@ -612,20 +609,20 @@ function drawFrontGauge(hud: PlayHud, gauge: HudModel['gauge']): void {
     for (const at of gauge.marks) {
       const node = document.createElement('div');
       node.style.cssText =
-        `position:absolute;left:${-GAUGE_EDGE}px;right:${-GAUGE_EDGE}px;` +
-        `bottom:calc(${at * 100}% - ${GAUGE_BOUNDARY / 2}px);height:${GAUGE_BOUNDARY}px;` +
-        `background:${HUD_COLOR.text};opacity:.55;`;
+        `position:absolute;left:${-GAUGE_TUNE.edgeOverhang}px;right:${-GAUGE_TUNE.edgeOverhang}px;` +
+        `bottom:calc(${at * 100}% - ${GAUGE_TUNE.boundaryThickness / 2}px);` +
+        `height:${GAUGE_TUNE.boundaryThickness}px;background:${HUD_COLOR.gaugeBoundary};`;
       hud.gauge.boundaries.appendChild(node);
     }
   }
 
   if (last.gaugeFront !== gauge.front) {
     last.gaugeFront = gauge.front;
-    hud.gauge.front.style.bottom = `calc(${gauge.front * 100}% - ${GAUGE_FRONT / 2}px)`;
+    hud.gauge.front.style.bottom = `calc(${gauge.front * 100}% - ${GAUGE_TUNE.frontThickness / 2}px)`;
   }
   if (last.gaugeMech !== gauge.mech) {
     last.gaugeMech = gauge.mech;
-    hud.gauge.mech.style.bottom = `calc(${gauge.mech * 100}% - ${GAUGE_MECH / 2}px)`;
+    hud.gauge.mech.style.bottom = `calc(${gauge.mech * 100}% - ${GAUGE_TUNE.mechSize / 2}px)`;
   }
   if (last.gaugeIsolation !== gauge.isolation) {
     last.gaugeIsolation = gauge.isolation;

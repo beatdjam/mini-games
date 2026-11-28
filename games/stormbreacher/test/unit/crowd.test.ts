@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
+import { CROWD_GATES, FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { FX_TUNE, INFANTRY_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../src/data/tune.ts';
+import { rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import {
   DEAD_LINGER,
   catchUp,
@@ -341,4 +343,118 @@ test('a shell with no radius or no share leaves every soldier whole', () => {
   expect(hurtNear(crowd, 0, 0, 0, 1, INFANTRY_TUNE.shellDamage, INFANTRY_TUNE.shellDamageProne, rng)).toEqual([]);
   expect(hurtNear(crowd, 0, 170, 100, 0, INFANTRY_TUNE.shellDamage, INFANTRY_TUNE.shellDamageProne, rng)).toEqual([]);
   for (const soldier of crowd.soldiers) expect(soldier.hp).toBe(INFANTRY_TUNE.hp);
+});
+
+// SB-2284: the fortress's sea wall stops the infantry, which goes through the 12 m sea gate instead. The map's far
+// defence line has to stand landward of the wall, as M1's does, or a walker would be taken for through before it comes.
+const WALL_BOUNDS = { minX: -100, maxX: 100, minZ: -200, maxZ: 170 };
+const SEA_WALLS: GroundRect[] = [
+  { x: -20.5, z: -71, halfW: 14.5, halfD: FORTRESS_TUNE.wallT / 2, yaw: 0 },
+  { x: 20.5, z: -71, halfW: 14.5, halfD: FORTRESS_TUNE.wallT / 2, yaw: 0 },
+];
+const GATE = CROWD_GATES[0];
+
+function noWallTune(): FxTune {
+  return tuneWith({ allyDeathRate: 0, allyWaves: 0, allySpeed: 3.5 });
+}
+
+function oneSoldier(tune: FxTune, x: number, z: number): { crowd: Crowd; rng: ReturnType<typeof createRng> } {
+  const crowd = newCrowd();
+  const rng = createRng(15);
+  spawnWave(crowd, rng, WALL_BOUNDS, 1, tune);
+  const soldier = crowd.soldiers[0];
+  soldier.x = x;
+  soldier.z = z;
+  soldier.fallAt = null;
+  return { crowd, rng };
+}
+
+// Whether a soldier stands inside a wall rect (the ticket's own check: rectDistance 0).
+function insideWall(walls: readonly GroundRect[], x: number, z: number): boolean {
+  return walls.some(wall => rectDistance(wall, x, z) === 0);
+}
+
+test('the sea wall stops the infantry, and every soldier goes through the sea gate', () => {
+  const tune = noWallTune();
+  const crowd = newCrowd();
+  const rng = createRng(13);
+  spawnWave(crowd, rng, WALL_BOUNDS, 12, tune);
+  crowd.soldiers.forEach((soldier, i) => {
+    soldier.x = -33 + i * 6;
+    soldier.z = -50 + (i % 3) * 2;
+    soldier.fallAt = null;
+  });
+  crowd.holdZ = -85;
+  for (let i = 0; i < 60 * 60; i++) {
+    stepCrowd(crowd, rng, DT, tune, true, undefined, SEA_WALLS);
+    for (const soldier of crowd.soldiers) {
+      expect(soldier.alive).toBe(true);
+      expect(insideWall(SEA_WALLS, soldier.x, soldier.z)).toBe(false);
+    }
+  }
+  // through the gate and at the waiting line behind the wall
+  for (const soldier of crowd.soldiers) expect(soldier.z).toBeLessThanOrEqual(-85 + 1e-6);
+  expect(crowd.soldiers).toHaveLength(12);
+});
+
+test('a soldier seaward of the gate lines up with the gate before it crosses the wall', () => {
+  const tune = noWallTune();
+  const { crowd, rng } = oneSoldier(tune, -30, -50);
+  crowd.holdZ = -85;
+  const soldier = crowd.soldiers[0];
+  const start = Math.abs(soldier.x - GATE.x);
+  for (let i = 0; i < 60 * 4; i++) stepCrowd(crowd, rng, DT, tune, true, undefined, SEA_WALLS);
+  expect(soldier.z).toBeGreaterThan(-74); // four seconds do not walk the 35 m to the wall
+  expect(Math.abs(soldier.x - GATE.x)).toBeLessThan(start);
+});
+
+test('a soldier that meets the wall slides along it on one axis', () => {
+  const tune = noWallTune();
+  const { crowd, rng } = oneSoldier(tune, -25, -76);
+  const soldier = crowd.soldiers[0];
+  // a soldier on the landward side of the wall (already through) with a place off to the side: it slides along the wall's
+  // landward face on x rather than stopping, and it is never sent back round through the gate
+  soldier.post = { x: -40, z: -60 };
+  for (let i = 0; i < 120; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, SEA_WALLS);
+  expect(insideWall(SEA_WALLS, soldier.x, soldier.z)).toBe(false);
+  expect(soldier.z).toBeLessThan(-74.5); // it is by the wall's landward face, not back where it started
+  expect(soldier.x).toBeLessThan(-26); // it moved along x while z stayed by the wall
+});
+
+test('a soldier just behind the wall, off to the side of the gate, is through and walks on landward', () => {
+  const tune = noWallTune();
+  const { crowd, rng } = oneSoldier(tune, 9, -75);
+  const soldier = crowd.soldiers[0];
+  soldier.post = { x: 9, z: -95 };
+  for (let i = 0; i < 60 * 10; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, SEA_WALLS);
+  expect(soldier.z, `at (${soldier.x}, ${soldier.z})`).toBeLessThan(-94);
+});
+
+test('a posted soldier behind the wall reaches its post through the gate', () => {
+  const tune = noWallTune();
+  const { crowd, rng } = oneSoldier(tune, -25, -50);
+  const soldier = crowd.soldiers[0];
+  soldier.post = { x: -10, z: -95 };
+  for (let i = 0; i < 60 * 40; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, SEA_WALLS);
+  expect(soldier.x).toBeCloseTo(-10, 6);
+  expect(soldier.z).toBeCloseTo(-95, 6);
+});
+
+// The numbers are what stepCrowd gave before SB-2284 (taken from the code at its parent commit), so a change to the walk
+// with no walls shows here and not only against itself.
+test('with no walls the crowd walks exactly as it did before the walls, a posted soldier included', () => {
+  const tune = tuneWith({ allyDeathRate: 2, allyWaves: 0 });
+  for (const walls of [undefined, []]) {
+    const crowd = newCrowd();
+    const rng = createRng(7);
+    spawnWave(crowd, rng, BOUNDS, 10, tune);
+    crowd.soldiers[0].post = { x: -30, z: 100 };
+    for (let i = 0; i < 120; i++) stepCrowd(crowd, rng, DT, tune, false, undefined, walls);
+    const first = crowd.soldiers[0];
+    expect(first.x).toBeCloseTo(-92.957984, 5);
+    expect(first.z).toBeCloseTo(166.597595, 5);
+    expect(crowd.fallen).toBe(8);
+    expect(crowd.soldiers.reduce((sum, soldier) => sum + soldier.x, 0)).toBeCloseTo(27.826601, 4);
+    expect(crowd.soldiers.reduce((sum, soldier) => sum + soldier.z, 0)).toBeCloseTo(1660.843917, 4);
+  }
 });

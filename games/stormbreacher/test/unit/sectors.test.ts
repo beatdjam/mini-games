@@ -3,14 +3,19 @@
 // is the small one the functions ask for, built by hand.
 import { expect, test } from 'vitest';
 import { LANG, createRng } from '@engine/core/index.ts';
+import { ENEMIES } from '../../src/data/enemies.ts';
+import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1 } from '../../src/data/missions/m1.ts';
+import { PROP_SIZE } from '../../src/data/props.ts';
 import { M1_SECTORS, SECTOR_TUNE } from '../../src/data/sectors.ts';
 import { FX_TUNE, INFANTRY_TUNE } from '../../src/data/tune.ts';
 import type { Prop } from '../../src/data/types.ts';
 import { newCrowd, stepCrowd, type Soldier } from '../../src/logic/crowd.ts';
-import type { GroundRect } from '../../src/logic/collide.ts';
+import { rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import {
   arrivedSoldiers,
+  counterPoint,
   newSectors,
   releasePosts,
   sectorHold,
@@ -52,6 +57,8 @@ function world(options: {
   targets?: readonly { kind: string; hp: number }[];
   soldiers?: readonly Soldier[];
   rects?: SectorWorld['rects'];
+  flags?: readonly string[];
+  wardenDown?: boolean;
 }) {
   const crowd = newCrowd();
   crowd.soldiers = [...(options.soldiers ?? [])];
@@ -63,13 +70,30 @@ function world(options: {
     battle: { crowd },
     bounds: M1B_HAND.bounds,
     props: M1B_HAND.props,
+    flags: options.flags ?? [],
+    wardenDown: options.wardenDown ?? false,
   };
 }
 
 function stateWith(phases: SectorPhase[]): SectorsState {
   const state = newSectors();
-  state.phase = [...phases];
+  // the sectors past the ones the test names stay idle, so they are not walked to and do not set the hold line
+  state.phase = [...phases, ...M1_SECTORS.slice(phases.length).map((): SectorPhase => 'idle')];
   return state;
+}
+
+// A state with every sector before `index` stable and that one advancing, for a test of a later sector.
+function advancedTo(index: number): SectorsState {
+  const state = newSectors();
+  for (let i = 0; i < index; i++) state.phase[i] = 'stable';
+  state.phase[index] = 'advancing';
+  return state;
+}
+
+// The soldiers at a sector's hold line, as many as asked for.
+function atHoldOf(index: number, count: number): Soldier[] {
+  const z = M1_SECTORS[index].holdZ + SECTOR_TUNE.arriveBand - 1;
+  return Array.from({ length: count }, () => soldierAt(z));
 }
 
 // A state with the first three sectors stable, for the pillbox line's own tests.
@@ -103,6 +127,21 @@ function runBeachCounter(state: SectorsState, dt = SECTOR_TUNE.counterEvery): Re
     if (state.counterIds[0].length >= BEACH.counter) break;
   }
   return seen;
+}
+
+// The fortress walls that stand before the blast: the sea wall and the two side walls, but not the land wall the charge
+// takes down (SB-2285).
+function fortWallRects(): GroundRect[] {
+  const size = PROP_SIZE.fortWall;
+  return M1B_HAND.props
+    .filter(prop => prop.kind === 'fortWall' && prop.z !== FORTRESS_TUNE.landWallZ)
+    .map(prop => ({
+      x: prop.x,
+      z: prop.z,
+      halfW: (size.w * prop.scale) / 2,
+      halfD: (size.d * prop.scale) / 2,
+      yaw: prop.yaw,
+    }));
 }
 
 test('the mech has to go in before a sector is cleared', () => {
@@ -158,7 +197,7 @@ test('a sector behind the front is not judged until the one before it is stable'
   const state = stateWith(['advancing', 'idle', 'idle', 'idle']);
   const mechZ = M1_SECTORS[1].seaZ - SECTOR_TUNE.enterDepth - 1;
   expect(stepSectors(state, world({ mechZ, soldiers: [] }), 1 / 60)).toEqual([]);
-  expect(state.phase).toEqual(['advancing', 'idle', 'idle', 'idle']);
+  expect(state.phase.slice(0, 4)).toEqual(['advancing', 'idle', 'idle', 'idle']);
 });
 
 test('the next sector is not judged while the one before it is still counterattacking', () => {
@@ -278,8 +317,12 @@ test('the hold starts at the water’s edge and follows the last cleared sector'
   fresh.phase[2] = 'advancing';
   fresh.phase[3] = 'advancing';
   expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: PILLBOXES.holdZ, held: true });
-  fresh.phase[3] = 'secured';
-  expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: PILLBOXES.holdZ, held: false });
+  // the line goes on past the pillbox line: the last sector's hold is the end of the front (SB-2280)
+  const last = M1_SECTORS.length - 1;
+  fresh.phase[last] = 'advancing';
+  expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: M1_SECTORS[last].holdZ, held: true });
+  fresh.phase[last] = 'secured';
+  expect(sectorHold(fresh, open, BLASTS)).toEqual({ holdZ: M1_SECTORS[last].holdZ, held: false });
 });
 
 test('a still-closed defence line keeps the infantry before it and the sector unsecured until a blast opens it', () => {
@@ -329,6 +372,58 @@ test('a counterattack point covered after ten moves still comes out, at the last
     z: BEACH.landZ - SECTOR_TUNE.counterBack,
   });
   expect(state.counterLeft[0]).toBe(BEACH.counter - 1);
+});
+
+// SB-2285: a sector with spawn rectangles (SB-2282) puts its counterattack inside them, at the middle of a rect's depth
+// and spread along its width, rather than on the band past its land-side edge.
+test('a sector without spawn rectangles keeps its counterattack on the old band', () => {
+  expect(BEACH.spawn).toBeUndefined();
+  for (let index = 0; index < BEACH.counter; index++) {
+    const spread = SECTOR_TUNE.counterSpread;
+    const x = -spread + (2 * spread * index) / (BEACH.counter - 1);
+    expect(counterPoint(BEACH, index, [])).toEqual({ x, z: BEACH.landZ - SECTOR_TUNE.counterBack });
+  }
+});
+
+test('a sector with spawn rectangles puts its counterattack inside them, clear of the fortress walls', () => {
+  const walls = fortWallRects();
+  expect(walls.length).toBeGreaterThan(0);
+  for (const id of ['cband', 'gate'] as const) {
+    const sector = M1_SECTORS.find(entry => entry.id === id)!;
+    expect(sector.spawn, id).toBeDefined();
+    for (let index = 0; index < sector.counter; index++) {
+      const point = counterPoint(sector, index, walls);
+      const inZone = sector.spawn!.some(
+        zone => point.x >= zone.minX && point.x <= zone.maxX && point.z >= zone.minZ && point.z <= zone.maxZ,
+      );
+      expect(inZone, `${id} ${index} at ${point.x},${point.z}`).toBe(true);
+      for (const wall of walls) {
+        expect(rectDistance(wall, point.x, point.z), `${id} ${index} inside a wall`).toBeGreaterThan(0);
+      }
+    }
+  }
+  // the gate's six come out at six different x, so they do not stand on one another
+  const gate = M1_SECTORS.find(entry => entry.id === 'gate')!;
+  const xs = Array.from({ length: gate.counter }, (_, index) => counterPoint(gate, index, walls).x);
+  expect(new Set(xs).size).toBe(gate.counter);
+  // the yard has a spawn rectangle but no counterattack of its own
+  const yard = M1_SECTORS.find(entry => entry.id === 'yard')!;
+  expect(yard.spawn).toBeDefined();
+  expect(yard.counter).toBe(0);
+});
+
+test('a covered middle of a spawn rectangle moves to another depth inside it, and still comes out', () => {
+  const cband = M1_SECTORS.find(entry => entry.id === 'cband')!;
+  const zone = cband.spawn![0];
+  // a rect over the middle of the rectangle, wide enough to cover every slide at that depth
+  const cover = { x: (zone.minX + zone.maxX) / 2, z: (zone.minZ + zone.maxZ) / 2, halfW: 500, halfD: 0.5, yaw: 0 };
+  const point = counterPoint(cband, 0, [cover]);
+  expect(point.x).toBeGreaterThanOrEqual(zone.minX);
+  expect(point.x).toBeLessThanOrEqual(zone.maxX);
+  expect(point.z).toBeGreaterThanOrEqual(zone.minZ);
+  expect(point.z).toBeLessThanOrEqual(zone.maxZ);
+  // it tried another depth inside the rectangle (the old band lies outside it) and is clear of the cover
+  expect(rectDistance(cover, point.x, point.z)).toBeGreaterThan(ENEMIES[SECTOR_TUNE.counterKind].radius);
 });
 
 // SB-2262: a secured sector's soldiers take posts behind its cover and stop there, and the next sector's clearing
@@ -440,6 +535,21 @@ test('a post is never in a wall, in the sea or outside the sector', () => {
   }
 });
 
+test('a sector inside the fortress keeps its posts between the walls, however many soldiers there are', () => {
+  for (const id of ['yard', 'plug'] as const) {
+    const sector = M1_SECTORS.find(entry => entry.id === id)!;
+    const range = sector.postRange!;
+    expect(range, id).toBeDefined();
+    for (const post of sectorPosts(sector, M1B_HAND.bounds, [], [], 20)) {
+      expect(post.x, `${id} post at ${post.x}, ${post.z}`).toBeGreaterThanOrEqual(range.minX);
+      expect(post.x, `${id} post at ${post.x}, ${post.z}`).toBeLessThanOrEqual(range.maxX);
+    }
+  }
+  // a sector without a range spreads over the map's width, as before
+  const beach = sectorPosts(M1_SECTORS[0], M1B_HAND.bounds, [], [], 6);
+  expect(Math.max(...beach.map(post => post.x))).toBeGreaterThan(40);
+});
+
 test('soldiers left posted in an earlier sector are not counted against the next sector, and one always walks on', () => {
   // 4 posted far behind and 4 walking at the line: 4 walkers are enough (ceil(4 * 0.6) = 3), the posted do not add
   const posted = Array.from({ length: 4 }, () => {
@@ -463,4 +573,177 @@ test('soldiers left posted in an earlier sector are not counted against the next
   crowd.soldiers = allPosted;
   releasePosts(crowd, 1);
   expect(allPosted.filter(soldier => soldier.post === null)).toHaveLength(1);
+});
+
+// SB-2280: the front runs on past the pillbox line to the magazine, the sectors touching and each hold seaward of its
+// land-side edge.
+test('the sectors run from the beach to the magazine, with no gap between one and the next', () => {
+  expect(M1_SECTORS).toHaveLength(11);
+  expect(M1_SECTORS.map(sector => sector.id)).toEqual([
+    'beach',
+    'line1',
+    'line2',
+    'pillboxes',
+    'cband',
+    'gate',
+    'yard',
+    'plug',
+    'field1',
+    'field2',
+    'magazine',
+  ]);
+  for (let i = 0; i < M1_SECTORS.length; i++) {
+    const sector = M1_SECTORS[i];
+    // +z is the sea: a hold line stands seaward of the sector's land-side edge
+    expect(sector.holdZ, `${sector.id} hold`).toBeGreaterThan(sector.landZ);
+    const next = M1_SECTORS[i + 1];
+    if (next !== undefined) expect(sector.landZ, `${sector.id} to ${next.id}`).toBe(next.seaZ);
+  }
+});
+
+test('the later sectors are cleared, secured and counterattacked as the first ones are', () => {
+  for (const id of ['cband', 'field1'] as const) {
+    const index = M1_SECTORS.findIndex(entry => entry.id === id);
+    const sector = M1_SECTORS[index];
+    const seen = world({ mechZ: sector.seaZ - SECTOR_TUNE.enterDepth - 1 });
+    const state = advancedTo(index);
+    state.phase[index] = 'idle';
+    expect(stepSectors(state, seen, 1 / 60)).toEqual([{ kind: 'sectorCleared', sector: id }]);
+    expect(state.phase[index]).toBe('advancing');
+    seen.battle.crowd.soldiers = atHoldOf(index, 10);
+    expect(stepSectors(state, seen, 1 / 60).map(event => event.kind)).toEqual(['sectorSecured', 'sectorCounter']);
+    expect(state.phase[index]).toBe('counter');
+    expect(state.counterLeft[index]).toBe(sector.counter);
+    // as game.ts does: remember the id of each enemy put out and put it on the field alive
+    for (let frame = 0; frame < sector.counter * 4 && state.counterLeft[index] > 0; frame++) {
+      for (const event of stepSectors(state, seen, SECTOR_TUNE.counterEvery)) {
+        if (event.kind !== 'sectorSpawn') continue;
+        const spawnId = `counter-${id}-${state.counterIds[index].length + 1}`;
+        state.counterIds[index].push(spawnId);
+        seen.enemies.push({ id: spawnId, z: event.z, hp: 1 });
+      }
+    }
+    expect(state.counterLeft[index]).toBe(0);
+    expect(state.counterIds[index]).toHaveLength(sector.counter);
+    for (const enemy of seen.enemies) enemy.hp = 0;
+    expect(stepSectors(state, seen, 1 / 60)).toEqual([{ kind: 'sectorStable', sector: id, weak: false }]);
+    expect(state.phase[index]).toBe('stable');
+  }
+});
+
+test('a sector with no counterattack of its own goes straight to stable', () => {
+  for (const id of ['yard', 'plug', 'magazine'] as const) {
+    const index = M1_SECTORS.findIndex(entry => entry.id === id);
+    const sector = M1_SECTORS[index];
+    expect(sector.counter).toBe(0);
+    const state = advancedTo(index);
+    const seen = world({ soldiers: atHoldOf(index, 10) });
+    expect(stepSectors(state, seen, 1 / 60).map(event => event.kind)).toEqual(['sectorSecured', 'sectorCounter']);
+    expect(state.phase[index]).toBe('counter');
+    expect(stepSectors(state, seen, 1 / 60)).toEqual([{ kind: 'sectorStable', sector: id, weak: false }]);
+    expect(state.phase[index]).toBe('stable');
+  }
+});
+
+// SB-2283: a later sector's goal keeps it from being cleared until the thing at its heart is down.
+const GATE = M1_SECTORS.find(sector => sector.id === 'gate')!;
+const YARD = M1_SECTORS.find(sector => sector.id === 'yard')!;
+const PLUG = M1_SECTORS.find(sector => sector.id === 'plug')!;
+const MAGAZINE = M1_SECTORS.find(sector => sector.id === 'magazine')!;
+
+// A world just inside a sector, with every enemy out of it.
+function atTheFrontOf(
+  sector: (typeof M1_SECTORS)[number],
+  options: Parameters<typeof world>[0] = {},
+): ReturnType<typeof world> {
+  return world({ mechZ: sector.seaZ - SECTOR_TUNE.enterDepth - 1, ...options });
+}
+
+test('the gate counts the fortress gun that still stands', () => {
+  const index = M1_SECTORS.indexOf(GATE);
+  const standing = advancedTo(index);
+  standing.phase[index] = 'idle';
+  expect(stepSectors(standing, atTheFrontOf(GATE, { targets: [{ kind: 'fortressGun', hp: 1 }] }), 1 / 60)).toEqual([]);
+  expect(standing.phase[index]).toBe('idle');
+  const down = advancedTo(index);
+  down.phase[index] = 'idle';
+  expect(stepSectors(down, atTheFrontOf(GATE, { targets: [{ kind: 'fortressGun', hp: 0 }] }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'gate' },
+  ]);
+});
+
+test('the yard counts its three waves: it is not cleared until all three flags stand', () => {
+  const index = M1_SECTORS.indexOf(YARD);
+  const waiting = advancedTo(index);
+  waiting.phase[index] = 'idle';
+  expect(stepSectors(waiting, atTheFrontOf(YARD), 1 / 60)).toEqual([]);
+  expect(waiting.phase[index]).toBe('idle');
+  // the third wave down with the second still up (it comes out at the land gate, outside the yard's band): not cleared
+  const partly = advancedTo(index);
+  partly.phase[index] = 'idle';
+  expect(stepSectors(partly, atTheFrontOf(YARD, { flags: ['yard-1-clear', 'yard-3-clear'] }), 1 / 60)).toEqual([]);
+  expect(partly.phase[index]).toBe('idle');
+  const done = advancedTo(index);
+  done.phase[index] = 'idle';
+  const all = ['yard-1-clear', 'yard-2-clear', 'yard-3-clear'];
+  expect(stepSectors(done, atTheFrontOf(YARD, { flags: all }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'yard' },
+  ]);
+});
+
+test('the plug counts the mid boss: it is not cleared until the warden is down', () => {
+  const index = M1_SECTORS.indexOf(PLUG);
+  const waiting = advancedTo(index);
+  waiting.phase[index] = 'idle';
+  expect(stepSectors(waiting, atTheFrontOf(PLUG), 1 / 60)).toEqual([]);
+  expect(waiting.phase[index]).toBe('idle');
+  const down = advancedTo(index);
+  down.phase[index] = 'idle';
+  expect(stepSectors(down, atTheFrontOf(PLUG, { wardenDown: true }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'plug' },
+  ]);
+});
+
+test('the magazine counts its two main guns and not the magazine itself', () => {
+  const index = M1_SECTORS.indexOf(MAGAZINE);
+  const one = advancedTo(index);
+  one.phase[index] = 'idle';
+  const oneGun = [
+    { kind: 'gun', hp: 1 },
+    { kind: 'gun', hp: 0 },
+    { kind: 'magazine', hp: 1 },
+  ];
+  expect(stepSectors(one, atTheFrontOf(MAGAZINE, { targets: oneGun }), 1 / 60)).toEqual([]);
+  expect(one.phase[index]).toBe('idle');
+  const both = advancedTo(index);
+  both.phase[index] = 'idle';
+  const bothGuns = [
+    { kind: 'gun', hp: 0 },
+    { kind: 'gun', hp: 0 },
+    { kind: 'magazine', hp: 1 },
+  ];
+  expect(stepSectors(both, atTheFrontOf(MAGAZINE, { targets: bothGuns }), 1 / 60)).toEqual([
+    { kind: 'sectorCleared', sector: 'magazine' },
+  ]);
+});
+
+test('a sector without goals is cleared by its enemies alone', () => {
+  for (const id of ['cband', 'field1', 'field2'] as const) {
+    const sector = M1_SECTORS.find(entry => entry.id === id)!;
+    expect(sector.goals, id).toBeUndefined();
+    const index = M1_SECTORS.indexOf(sector);
+    const state = advancedTo(index);
+    state.phase[index] = 'idle';
+    expect(stepSectors(state, atTheFrontOf(sector), 1 / 60), id).toEqual([{ kind: 'sectorCleared', sector: id }]);
+  }
+});
+
+test('every flag a sector counts on is one the mission raises', () => {
+  const flags = new Set(M1.flags ?? []);
+  for (const sector of M1_SECTORS) {
+    for (const goal of sector.goals ?? []) {
+      if (goal.kind !== 'flag') continue;
+      expect(flags.has(goal.name), `${sector.id} counts on "${goal.name}"`).toBe(true);
+    }
+  }
 });

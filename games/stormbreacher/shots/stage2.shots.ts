@@ -338,7 +338,7 @@ beforeAll(async () => {
 
 test('stage2', async () => {
   await deck();
-  // just ashore: all four sectors are the enemy's land, and the mech's and the front's marks sit near the sea's edge
+  // just ashore: every sector is the enemy's land, and the mech's and the front's marks sit near the sea's edge
   place(0, 166);
   settle(START_SETTLE_SEC);
   await picture('stage2-gauge-start', true);
