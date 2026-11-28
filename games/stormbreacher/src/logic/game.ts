@@ -46,7 +46,15 @@ import { M1_SECTORS, SECTOR_TUNE, SUPPORT_TUNE, type SectorId } from '../data/se
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_CHARGE_ONLY, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
-import { BLAST_FACE_TUNE, FCS_QUARTER, FCS_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../data/tune.ts';
+import {
+  BLAST_FACE_TUNE,
+  FCS_QUARTER,
+  FCS_TUNE,
+  INFANTRY_TUNE,
+  MECH_TUNE,
+  PLAY_BATTLE_TUNE,
+  type FxTune,
+} from '../data/tune.ts';
 import { TRICKLE_TUNE, TRICKLE_WAVE } from '../data/trickle.ts';
 import type { FcsTune } from '../data/tuneTypes.ts';
 import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
@@ -55,7 +63,7 @@ import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { newBattle, stepBattle, type BattleState } from './battle.ts';
 import { pushOutCircle, rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
 import { allyCraftRects, craftBack, craftRects, inCraftLane } from './craft.ts';
-import { fallNear, spawnWave as spawnCrowd } from './crowd.ts';
+import { hurtNear, spawnWave as spawnCrowd } from './crowd.ts';
 import {
   armoured,
   newBattery,
@@ -94,6 +102,7 @@ import {
   type Ray3,
 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
+import { fireAtInfantry, targetsInfantry } from './infantryFire.ts';
 import { newSectors, sectorHold, stepSectors, type SectorsState } from './sectors.ts';
 import { stepSupport as stepSupportState, supportDamage, type SupportWorld } from './support.ts';
 import { newTrickle, stepTrickle, type TrickleState } from './trickle.ts';
@@ -187,7 +196,11 @@ export type GameEvent =
   | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
   | { kind: 'shellLand'; x: number; y: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
   | { kind: 'mineBlast'; x: number; y: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
-  | { kind: 'battleFell'; x: number; z: number } // one of the battle layer's soldiers fell this frame; the view puts its dust there
+  | { kind: 'battleFell'; x: number; z: number; by?: 'fire' | 'shell' | 'other' } // one of the battle layer's soldiers fell this frame; the view puts its dust there
+  // A soldier was aimed at (SB-2271): the first shot at it in a while. Ticket 2272 draws the mark.
+  | { kind: 'infantryTargeted'; x: number; z: number }
+  // A shot hit a soldier (SB-2271): the health it has left. Ticket 2272 draws the mark and the pop.
+  | { kind: 'infantryHit'; x: number; z: number; hp: number }
   | { kind: 'battleShell'; x: number; z: number; shake: number } // a shell of the battle layer landed; the view draws it and shakes the camera
   | { kind: 'sectorCleared'; sector: SectorId } // a sector's enemies are all down; the infantry moves up to it (SB-2210)
   | { kind: 'sectorSecured'; sector: SectorId } // enough infantry has reached the sector's hold line; it is secured (SB-2210)
@@ -1474,6 +1487,23 @@ function stepEnemies(game: GameModel, dt: number): void {
     const rng = ENEMIES[enemy.kind].burst ? stream('emplacements') : stream('enemies');
     const shot: EnemyShot | null = stepEnemy(enemy, game.mech, world, dt, rng);
     if (!shot) continue;
+    // A share of the enemies' shots go at the infantry rather than the mech (SB-2271): those do not become bullets; the
+    // pure fire in infantryFire.ts picks a soldier and takes its health. The arena keeps every shot on the mech.
+    if (game.sectors !== null) {
+      const infantryRng = stream('infantryFire');
+      if (targetsInfantry(infantryRng)) {
+        const hits = fireAtInfantry(game.battle.crowd, enemy, game.propBoxes, infantryRng);
+        // with no soldier in reach the shot goes at the mech as it did before: an enemy does not fire into empty sand
+        if (hits.length > 0) {
+          for (const hit of hits) {
+            if (hit.targeted) game.events.push({ kind: 'infantryTargeted', x: hit.soldier.x, z: hit.soldier.z });
+            if (hit.hit) game.events.push({ kind: 'infantryHit', x: hit.soldier.x, z: hit.soldier.z, hp: hit.hp });
+            if (hit.downed) game.events.push({ kind: 'battleFell', x: hit.soldier.x, z: hit.soldier.z, by: 'fire' });
+          }
+          continue;
+        }
+      }
+    }
     game.bullets.push({ enemy: enemy.kind, ...shot, left: ENEMIES[enemy.kind].fireRange });
   }
   if (addWave) spawnWave(game, 'warden-adds');
@@ -1749,18 +1779,21 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
 // frame's events for the view to draw. The state is the game's, so a test can read it.
 function stepBattleLayer(game: GameModel, dt: number): void {
   const tune = game.battleTune;
-  // A shell of the game's own (a mortar round or a mine) takes the infantry near it, as the battle's own shells do.
+  // A shell of the game's own (a mortar round or a mine) takes the infantry near it, as the battle's own shells do. The
+  // main sortie takes their health rather than putting them down outright (SB-2271).
   for (const event of [...game.events]) {
     if (event.kind !== 'shellLand' && event.kind !== 'mineBlast') continue;
-    const fell = fallNear(
+    const fell = hurtNear(
       game.battle.crowd,
       event.x,
       event.z,
       tune.shellFallRadius,
       tune.shellFallShare,
+      INFANTRY_TUNE.shellDamage,
+      INFANTRY_TUNE.shellDamageProne,
       stream('crowd'),
     );
-    for (const soldier of fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
+    for (const soldier of fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z, by: 'shell' });
   }
   const cutscene = game.script.cutscene;
   if (cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true) return;
@@ -1839,8 +1872,11 @@ function stepBattleLayer(game: GameModel, dt: number): void {
     }
   }
   const hold = sectorHold(game.sectors, game.script.blasts, game.map.blasts ?? []);
-  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, hold.held);
-  for (const soldier of frame.fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z });
+  const frame = stepBattle(game.battle, stream('crowd'), dt, tune, game.mech, hold.held, INFANTRY_TUNE);
+  for (const soldier of frame.fell) game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z, by: 'other' });
+  for (const soldier of frame.shellFell) {
+    game.events.push({ kind: 'battleFell', x: soldier.x, z: soldier.z, by: 'shell' });
+  }
   if (frame.shell !== null) {
     game.events.push({ kind: 'battleShell', x: frame.shell.x, z: frame.shell.z, shake: frame.shell.shake });
   }

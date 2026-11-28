@@ -4,8 +4,8 @@
 // shells and the walkers look like is the view's; nothing here touches the mech or the rest of the game's state.
 import type { Rng } from '@engine/core/index.ts';
 import type { MapBounds, SpawnPoint } from '../data/types.ts';
-import type { FxTune } from '../data/tune.ts';
-import { fallNear, newCrowd, spawnWave, stepCrowd, type Crowd, type Soldier } from './crowd.ts';
+import type { FxTune, InfantryTune } from '../data/tune.ts';
+import { fallNear, hurtNear, newCrowd, spawnWave, stepCrowd, type Crowd, type Soldier } from './crowd.ts';
 
 const SHELL_FIRST = 0.5; // the first shell comes this share of FxTune.shellEvery after the start
 const SHAKE_DIST = 10; // the distance the shell's shake is told for (m); a shell nearer than this shakes no more than at it
@@ -25,6 +25,7 @@ export interface ShellFall {
 // What one frame of the battle did, for the view to show.
 export interface BattleFrame {
   fell: Soldier[]; // the soldiers that fell this frame
+  shellFell: Soldier[]; // the soldiers a shell of this frame brought down by their health (the main sortie only)
   shell: ShellFall | null; // the shell that landed this frame, if one did
 }
 
@@ -49,7 +50,9 @@ export function newBattle(
 
 // Moves the battle by one frame: the crowd walks (waits at its holdZ while `held`), and when the shell's time comes one
 // lands at a place between tune.shellNear and tune.shellFar from `at` (the mech) in a random direction. The shell's draws
-// are the distance and the angle, in that order, and none while no shell lands; the soldiers near it fall after them.
+// are the distance and the angle, in that order, and none while no shell lands; the soldiers near it are hit after them.
+// With an `infantry` tune the main sortie's shell takes health (SB-2271) and the ones it brings down come back in
+// `shellFell`; without one, #view-fx keeps the instant fall of fallNear.
 export function stepBattle(
   state: BattleState,
   rng: Rng,
@@ -57,8 +60,10 @@ export function stepBattle(
   tune: FxTune,
   at: { x: number; z: number },
   held = false,
+  infantry: InfantryTune | null = null,
 ): BattleFrame {
   const fell = stepCrowd(state.crowd, rng, dt, tune, held, at.z);
+  let shellFell: Soldier[] = [];
   let shell: ShellFall | null = null;
   if (tune.shellEvery > 0) {
     state.shellT -= dt;
@@ -71,8 +76,21 @@ export function stepBattle(
         shake: (tune.shellShake * SHAKE_DIST) / Math.max(SHAKE_DIST, dist),
       };
       state.shellT = Math.max(0.01, tune.shellEvery);
-      fell.push(...fallNear(state.crowd, shell.x, shell.z, tune.shellFallRadius, tune.shellFallShare, rng));
+      if (infantry === null) {
+        fell.push(...fallNear(state.crowd, shell.x, shell.z, tune.shellFallRadius, tune.shellFallShare, rng));
+      } else {
+        shellFell = hurtNear(
+          state.crowd,
+          shell.x,
+          shell.z,
+          tune.shellFallRadius,
+          tune.shellFallShare,
+          infantry.shellDamage,
+          infantry.shellDamageProne,
+          rng,
+        );
+      }
     }
   }
-  return { fell, shell };
+  return { fell, shellFell, shell };
 }

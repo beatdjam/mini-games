@@ -340,12 +340,37 @@ export const FX_TUNE = {
 
 export type FxTune = typeof FX_TUNE;
 
+// The infantry's health and the enemies' fire at it (SB-2271, 仮). The enemies that walk, the posted defenders and the
+// machine-gun nests aim a share of their shots at the soldiers instead of the mech; a soldier that walks forward is
+// picked before one that has taken its ground, and one that has taken its ground takes less. The values are the middle
+// of the ride's ticket and are meant to be settled by eye and by how many fall in one sector.
+export const INFANTRY_TUNE = {
+  hp: 28, // the health one soldier starts with (仮)
+  targetShare: 0.6, // the share of an enemy's shots that go at the infantry rather than the mech (仮)
+  postedMul: 0.2, // the share of a shot's damage a soldier takes once it is posted or at the waiting line (仮)
+  shellDamage: 34, // the damage a shell near a walking soldier does (仮)
+  shellDamageProne: 17, // the damage a shell near a posted or waiting soldier does (仮)
+  hitChance: 0.5, // the chance that one shot at the infantry hits (仮)
+  sweepRadius: 3, // how far round the picked soldier a machine-gun nest's shot sweeps (m; 仮)
+  shotDamage: {
+    grunt: 7, // 4 shots down a soldier (仮)
+    assault: 5, // 仮
+    heavy: 28, // one shot down a soldier (仮)
+    emplacement: 5, // 仮
+  } satisfies Record<Exclude<EnemyKind, 'warden'>, number>,
+  targetedSec: 1.5, // how long a soldier counts as aimed at after the last shot at it (s; 仮)
+};
+
+export type InfantryTune = typeof INFANTRY_TUNE;
+
 // The battle layer of the main sortie. #view-fx keeps FX_TUNE, so the tools can still compare 150/300/450.
 export const BATTLE_TUNE = {
   allies: 20, // the allies in each wave of the main sortie (0 makes none)
   allyWaves: 10, // seconds between one wave and the next (s)
   allySpeed: 3.5, // how fast an ally walks landward (m/s)
-  allyDeathRate: 0.03, // the chance that one ally falls in a second (0 keeps them all up)
+  // No soldier falls to a reasonless draw any more (SB-2271): the enemies' fire and the shells take them, and every
+  // fall has a cause on the screen. The SB-1610 draw stays in FxTune for #view-fx.
+  allyDeathRate: 0,
   allyCatchGap: 40, // an ally this far behind the mech starts to hurry after it (m; SB-2044)
   allySpawnBehind: 60, // a new wave comes in this far behind the mech instead of at the sea edge, once the mech is past it (m)
   allyCatchMul: 2.5, // how many times allySpeed it walks at 2 x allyCatchGap behind the mech
@@ -356,10 +381,11 @@ export const BATTLE_TUNE = {
   holdLossMax: 0,
   squads: 2, // the squads that walk on a machine-gun nest; the rest of the wave comes in scattered
   squad: 5, // the soldiers in one squad
-  squadFallShare: 0.4, // the share of a squad that falls at the nest it walks on (0-1)
+  // A squad still walks on a nest, but its fall is the nest's own fire now (SB-2271), not a scripted share.
+  squadFallShare: 0,
   squadFallRadius: 10, // how near a machine-gun nest a squad falls (m)
-  shellFallRadius: 10, // a shell this near a soldier may make it fall (m)
-  shellFallShare: 0.5, // the chance that a soldier inside shellFallRadius falls (0-1)
+  shellFallRadius: 10, // a shell this near a soldier may hurt it (m)
+  shellFallShare: 0.5, // the chance that a soldier inside shellFallRadius is hit (0-1)
   // The z the allies wait at until the pillboxes are down. It sits 5 m seaward of the pillboxes' boxes (z -19..-11), so
   // they stop just short of the line. A guess, to be judged on the screen.
   holdZ: -6,
